@@ -1,23 +1,43 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
-import { LayoutDashboard, Truck, RefreshCcw, X, Calculator, Package, Edit, DollarSign, TrendingUp, AlertCircle, Target, Users, Search, Download, LogOut, UserCircle, Trash2, Filter } from 'lucide-react';
+import { X, Calculator, Package, Edit, Trash2, Phone, Mail } from 'lucide-react';
+
+// IMPORTAÇÃO DAS NOSSAS "PEÇAS DE LEGO" (COMPONENTES, PÁGINAS E MODAIS)
+import { Sidebar } from './components/Sidebar';
+import { Dashboard } from './pages/Dashboard';
+import { Equipe } from './pages/Equipe';
+import { Clientes } from './pages/Clientes';
+import { ModalEntrega } from './modals/ModalEntrega';
+import { ModalCliente } from './modals/ModalCliente';
+
 import './index.css';
 
 export default function App() {
+  // ==========================================
+  // 1. ESTADOS DE SESSÃO E AUTENTICAÇÃO
+  // ==========================================
   const [session, setSession] = useState<any>(null);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [authInitialized, setAuthInitialized] = useState(false);
 
+  // ==========================================
+  // 2. ESTADOS GERAIS DO SISTEMA
+  // ==========================================
   const [activeTab, setActiveTab] = useState('dashboard');
   const [entregas, setEntregas] = useState<any[]>([]);
   const [devolucoes, setDevolucoes] = useState<any[]>([]);
   const [perfis, setPerfis] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
+  const [clientes, setClientes] = useState<any[]>([]);
+  const [transportadoras, setTransportadoras] = useState<any[]>([]);
+  const [metas, setMetas] = useState<any[]>([]);
+  const [produtos, setProdutos] = useState<any[]>([]);
+
   // ==========================================
-  // ESTADOS DE BUSCA E FILTROS AVANÇADOS
+  // 3. ESTADOS DE FILTROS (DASHBOARD)
   // ==========================================
   const [searchTerm, setSearchTerm] = useState('');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
@@ -26,33 +46,31 @@ export default function App() {
   const [filtroTransportadora, setFiltroTransportadora] = useState('');
   const [filtroModal, setFiltroModal] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
-  
-  const [clientes, setClientes] = useState<any[]>([]);
-  const [transportadoras, setTransportadoras] = useState<any[]>([]);
-  const [metas, setMetas] = useState<any[]>([]);
-  const [produtos, setProdutos] = useState<any[]>([]);
-  
+
+  // ==========================================
+  // 4. ESTADOS DE MODAIS E FORMULÁRIOS
+  // ==========================================
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     nota_fiscal: '', cliente_id: '', transportadora_id: '', data_faturamento: '', data_coleta: '', 
-    valor_nf: '', valor_frete: '', volume_peso: '', tem_agendamento: false, data_previsao: '', 
+    valor_nf: '', valor_frete: '', volume: '', peso_gramas: '', tem_agendamento: false, data_previsao: '', 
     data_entrega_agendamento: '', observacoes: '', status: 'Pendente'
   });
 
   const [isDevolucaoModalOpen, setIsDevolucaoModalOpen] = useState(false);
   const [devolucaoFormData, setDevolucaoFormData] = useState({
     data_coleta: '', cliente_id: '', transportadora_id: '', notas_fiscais: '',
-    valor_total_nf: '', volume_peso: '', valor_frete_reverso: '', motivo: '', status: 'Aguardando Chegada'
+    valor_total_nf: '', volume: '', peso_gramas: '', valor_frete_reverso: '', motivo: '', status: 'Aguardando Chegada'
   });
 
   const [isTranspModalOpen, setIsTranspModalOpen] = useState(false);
   const [editingTranspId, setEditingTranspId] = useState<string | null>(null);
-  const [transpFormData, setTranspFormData] = useState({ nome: '', modal_padrao: '' });
+  const [transpFormData, setTranspFormData] = useState({ nome: '', modal_padrao: '', telefone: '', email: '' });
 
   const [isClienteModalOpen, setIsClienteModalOpen] = useState(false);
   const [editingClienteId, setEditingClienteId] = useState<string | null>(null);
-  const [clienteFormData, setClienteFormData] = useState({ nome: '', cidade: '', uf: '' });
+  const [clienteFormData, setClienteFormData] = useState({ nome: '', cidade: '', uf: '', telefone: '', email: '' });
   
   const [isMetaModalOpen, setIsMetaModalOpen] = useState(false);
   const [metaFormData, setMetaFormData] = useState({ cliente_id: '', transportadora_id: '', meta_percentual: '' });
@@ -63,6 +81,9 @@ export default function App() {
   const [calcProdutoId, setCalcProdutoId] = useState('');
   const [calcQuantidade, setCalcQuantidade] = useState('');
 
+  // ==========================================
+  // 5. EFEITOS E BUSCAS (SUPABASE)
+  // ==========================================
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -116,7 +137,7 @@ export default function App() {
 
   async function buscarEntregas() {
     try {
-      const { data, error } = await supabase.from('entregas').select('*, clientes (nome, cidade, uf), transportadoras (nome, modal_padrao)').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('entregas').select('*, clientes (nome, cidade, uf, telefone, email), transportadoras (nome, modal_padrao, telefone, email)').order('created_at', { ascending: false });
       if (error) throw error;
       if (data) setEntregas(data);
     } catch (error) { console.error(error); } finally { setLoading(false); }
@@ -149,9 +170,12 @@ export default function App() {
     } catch (error) { console.error(error); }
   }
 
+  // ==========================================
+  // 6. CONTROLES DE ABERTURA DE MODAIS
+  // ==========================================
   function abrirModalNovaEntrega() {
     setEditingId(null);
-    setFormData({ nota_fiscal: '', cliente_id: '', transportadora_id: '', data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', volume_peso: '', tem_agendamento: false, data_previsao: '', data_entrega_agendamento: '', observacoes: '', status: 'Pendente' });
+    setFormData({ nota_fiscal: '', cliente_id: '', transportadora_id: '', data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', volume: '', peso_gramas: '', tem_agendamento: false, data_previsao: '', data_entrega_agendamento: '', observacoes: '', status: 'Pendente' });
     setIsModalOpen(true);
   }
 
@@ -160,24 +184,28 @@ export default function App() {
     setFormData({
       nota_fiscal: entrega.nota_fiscal, cliente_id: entrega.cliente_id, transportadora_id: entrega.transportadora_id,
       data_faturamento: entrega.data_faturamento || '', data_coleta: entrega.data_coleta || '', valor_nf: entrega.valor_nf?.toString() || '',
-      valor_frete: entrega.valor_frete?.toString() || '', volume_peso: entrega.volume_peso || '', tem_agendamento: entrega.tem_agendamento || false,
-      data_previsao: entrega.data_previsao || '', data_entrega_agendamento: entrega.data_entrega_agendamento || '', observacoes: entrega.observacoes || '', status: entrega.status
+      valor_frete: entrega.valor_frete?.toString() || '', volume: entrega.volume?.toString() || '', peso_gramas: entrega.peso_gramas?.toString() || '', 
+      tem_agendamento: entrega.tem_agendamento || false, data_previsao: entrega.data_previsao || '', data_entrega_agendamento: entrega.data_entrega_agendamento || '', 
+      observacoes: entrega.observacoes || '', status: entrega.status
     });
     setIsModalOpen(true);
   }
 
   function abrirModalNovaDevolucao() {
-    setDevolucaoFormData({ data_coleta: '', cliente_id: '', transportadora_id: '', notas_fiscais: '', valor_total_nf: '', volume_peso: '', valor_frete_reverso: '', motivo: '', status: 'Aguardando Chegada' });
+    setDevolucaoFormData({ data_coleta: '', cliente_id: '', transportadora_id: '', notas_fiscais: '', valor_total_nf: '', volume: '', peso_gramas: '', valor_frete_reverso: '', motivo: '', status: 'Aguardando Chegada' });
     setIsDevolucaoModalOpen(true);
   }
 
-  function abrirModalNovaTransportadora() { setEditingTranspId(null); setTranspFormData({ nome: '', modal_padrao: '' }); setIsTranspModalOpen(true); }
-  function abrirModalEdicaoTransportadora(transp: any) { setEditingTranspId(transp.id); setTranspFormData({ nome: transp.nome, modal_padrao: transp.modal_padrao || '' }); setIsTranspModalOpen(true); }
-  function abrirModalNovoCliente() { setEditingClienteId(null); setClienteFormData({ nome: '', cidade: '', uf: '' }); setIsClienteModalOpen(true); }
-  function abrirModalEdicaoCliente(cliente: any) { setEditingClienteId(cliente.id); setClienteFormData({ nome: cliente.nome, cidade: cliente.cidade || '', uf: cliente.uf || '' }); setIsClienteModalOpen(true); }
+  function abrirModalNovaTransportadora() { setEditingTranspId(null); setTranspFormData({ nome: '', modal_padrao: '', telefone: '', email: '' }); setIsTranspModalOpen(true); }
+  function abrirModalEdicaoTransportadora(transp: any) { setEditingTranspId(transp.id); setTranspFormData({ nome: transp.nome, modal_padrao: transp.modal_padrao || '', telefone: transp.telefone || '', email: transp.email || '' }); setIsTranspModalOpen(true); }
+  function abrirModalNovoCliente() { setEditingClienteId(null); setClienteFormData({ nome: '', cidade: '', uf: '', telefone: '', email: '' }); setIsClienteModalOpen(true); }
+  function abrirModalEdicaoCliente(cliente: any) { setEditingClienteId(cliente.id); setClienteFormData({ nome: cliente.nome, cidade: cliente.cidade || '', uf: cliente.uf || '', telefone: cliente.telefone || '', email: cliente.email || '' }); setIsClienteModalOpen(true); }
   function abrirModalNovaMeta() { setMetaFormData({ cliente_id: '', transportadora_id: '', meta_percentual: '' }); setIsMetaModalOpen(true); }
   function abrirModalNovoPerfil() { setPerfilFormData({ nome: '', email: '', cargo: '', nivel_acesso: 'Operador' }); setIsPerfilModalOpen(true); }
 
+  // ==========================================
+  // 7. FUNÇÕES DE ENVIO E EXCLUSÃO (SUBMITS)
+  // ==========================================
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const nf = parseFloat(formData.valor_nf) || 0;
@@ -193,17 +221,17 @@ export default function App() {
     const payload = {
       nota_fiscal: formData.nota_fiscal, cliente_id: formData.cliente_id, transportadora_id: formData.transportadora_id,
       data_faturamento: formData.data_faturamento || null, data_coleta: formData.data_coleta || null, valor_nf: nf,
-      valor_frete: frete, volume_peso: formData.volume_peso, tem_agendamento: formData.tem_agendamento,
-      data_previsao: formData.data_previsao || null, data_entrega_agendamento: formData.data_entrega_agendamento || null,
+      valor_frete: frete, volume: parseInt(formData.volume) || null, peso_gramas: parseFloat(formData.peso_gramas) || null,
+      tem_agendamento: formData.tem_agendamento, data_previsao: formData.data_previsao || null, data_entrega_agendamento: formData.data_entrega_agendamento || null,
       observacoes: formData.observacoes, status: formData.status
     };
     try {
       if (editingId) {
-        const { data, error } = await supabase.from('entregas').update([payload]).eq('id', editingId).select('*, clientes (nome, cidade, uf), transportadoras (nome, modal_padrao)');
+        const { data, error } = await supabase.from('entregas').update([payload]).eq('id', editingId).select('*, clientes (nome, cidade, uf, telefone, email), transportadoras (nome, modal_padrao, telefone, email)');
         if (error) throw error;
         if (data) { setEntregas(entregas.map(e => e.id === editingId ? data[0] : e)); setIsModalOpen(false); }
       } else {
-        const { data, error } = await supabase.from('entregas').insert([payload]).select('*, clientes (nome, cidade, uf), transportadoras (nome, modal_padrao)');
+        const { data, error } = await supabase.from('entregas').insert([payload]).select('*, clientes (nome, cidade, uf, telefone, email), transportadoras (nome, modal_padrao, telefone, email)');
         if (error) throw error;
         if (data) { setEntregas([data[0], ...entregas]); setIsModalOpen(false); }
       }
@@ -216,8 +244,8 @@ export default function App() {
       const payload = {
         data_coleta: devolucaoFormData.data_coleta || null, cliente_id: devolucaoFormData.cliente_id, transportadora_id: devolucaoFormData.transportadora_id,
         notas_fiscais: devolucaoFormData.notas_fiscais, valor_total_nf: parseFloat(devolucaoFormData.valor_total_nf) || 0,
-        volume_peso: devolucaoFormData.volume_peso, valor_frete_reverso: parseFloat(devolucaoFormData.valor_frete_reverso) || 0,
-        motivo: devolucaoFormData.motivo, status: devolucaoFormData.status
+        volume: parseInt(devolucaoFormData.volume) || null, peso_gramas: parseFloat(devolucaoFormData.peso_gramas) || null,
+        valor_frete_reverso: parseFloat(devolucaoFormData.valor_frete_reverso) || 0, motivo: devolucaoFormData.motivo, status: devolucaoFormData.status
       };
       const { data, error } = await supabase.from('devolucoes').insert([payload]).select('*, clientes (nome), transportadoras (nome)');
       if (error) throw error;
@@ -227,7 +255,12 @@ export default function App() {
 
   async function handleTranspSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const payload = { nome: transpFormData.nome.toUpperCase(), modal_padrao: transpFormData.modal_padrao };
+    const payload = { 
+      nome: transpFormData.nome.toUpperCase(), 
+      modal_padrao: transpFormData.modal_padrao,
+      telefone: transpFormData.telefone,
+      email: transpFormData.email.toLowerCase()
+    };
     try {
       if (editingTranspId) {
         const { data, error } = await supabase.from('transportadoras').update([payload]).eq('id', editingTranspId).select('*');
@@ -254,7 +287,13 @@ export default function App() {
 
   async function handleClienteSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const payload = { nome: clienteFormData.nome.toUpperCase(), cidade: clienteFormData.cidade.toUpperCase(), uf: clienteFormData.uf.toUpperCase() };
+    const payload = { 
+      nome: clienteFormData.nome.toUpperCase(), 
+      cidade: clienteFormData.cidade.toUpperCase(), 
+      uf: clienteFormData.uf.toUpperCase(),
+      telefone: clienteFormData.telefone,
+      email: clienteFormData.email.toLowerCase()
+    };
     try {
       if (editingClienteId) {
         const { data, error } = await supabase.from('clientes').update([payload]).eq('id', editingClienteId).select('*');
@@ -301,6 +340,9 @@ export default function App() {
     } catch (error) { console.error(error); alert("Erro ao cadastrar funcionário."); }
   }
 
+  // ==========================================
+  // 8. FUNÇÕES UTILITÁRIAS E CÁLCULOS
+  // ==========================================
   const calcularPorcentagemFrete = (frete: number, nf: number) => {
     if (!frete || !nf || nf === 0) return '0.00%';
     return ((frete / nf) * 100).toFixed(2) + '%';
@@ -336,11 +378,7 @@ export default function App() {
     setSearchTerm(''); setFiltroDataInicio(''); setFiltroDataFim(''); setFiltroTransportadora(''); setFiltroModal(''); setFiltroStatus('');
   }
 
-  // ==========================================
-  // LÓGICA DE FILTRAGEM MULTIPLA APLICADA
-  // ==========================================
   const entregasFiltradas = entregas.filter(entrega => {
-    // 1. Filtro de Texto (Barra de Pesquisa)
     const termo = searchTerm.toLowerCase();
     const nf = entrega.nota_fiscal?.toLowerCase() || '';
     const cliente = entrega.clientes?.nome?.toLowerCase() || '';
@@ -348,30 +386,23 @@ export default function App() {
     const transpNome = entrega.transportadoras?.nome?.toLowerCase() || '';
     const passaTexto = nf.includes(termo) || cliente.includes(termo) || statusText.includes(termo) || transpNome.includes(termo);
 
-    // 2. Filtro de Data de Faturamento
     let passaData = true;
     if (filtroDataInicio && entrega.data_faturamento < filtroDataInicio) passaData = false;
     if (filtroDataFim && entrega.data_faturamento > filtroDataFim) passaData = false;
 
-    // 3. Filtro Transportadora Específica
     const passaTransp = filtroTransportadora ? entrega.transportadora_id === filtroTransportadora : true;
-
-    // 4. Filtro por Modal
     const passaModal = filtroModal ? entrega.transportadoras?.modal_padrao === filtroModal : true;
-
-    // 5. Filtro por Status
     const passaStatus = filtroStatus ? entrega.status === filtroStatus : true;
 
-    // Retorna a linha apenas se ela passar em TODOS os filtros ativos
     return passaTexto && passaData && passaTransp && passaModal && passaStatus;
   });
 
   const exportarParaExcel = () => {
     if (entregasFiltradas.length === 0) { alert("Não há dados para exportar."); return; }
-    const cabecalho = ["Data Fat.", "Coleta", "Cliente", "Cidade", "UF", "Vol/Peso", "Nº NF", "Valor NF", "Transportadora", "Modal", "Valor Frete", "% Frete", "Agendamento", "Previsão", "Dt Entrega", "Dias", "Status", "Observações"].join(";");
+    const cabecalho = ["Data Fat.", "Coleta", "Cliente", "Cidade", "UF", "Volume (Cx)", "Peso (g)", "Nº NF", "Valor NF", "Transportadora", "Modal", "Valor Frete", "% Frete", "Agendamento", "Previsão", "Dt Entrega", "Dias", "Status", "Observações"].join(";");
     const linhas = entregasFiltradas.map(e => [
       formatarData(e.data_faturamento), formatarData(e.data_coleta), e.clientes?.nome || '-', e.clientes?.cidade || '-', e.clientes?.uf || '-',
-      e.volume_peso || '-', e.nota_fiscal, e.valor_nf?.toString().replace('.', ',') || '0,00', e.transportadoras?.nome || '-', e.transportadoras?.modal_padrao || '-',
+      e.volume || e.volume_peso || '-', e.peso_gramas || '-', e.nota_fiscal, e.valor_nf?.toString().replace('.', ',') || '0,00', e.transportadoras?.nome || '-', e.transportadoras?.modal_padrao || '-',
       e.valor_frete?.toString().replace('.', ',') || '0,00', calcularPorcentagemFrete(e.valor_frete, e.valor_nf), e.tem_agendamento ? 'SIM' : 'NÃO',
       formatarData(e.data_previsao), formatarData(e.data_entrega_agendamento), calcularDiasEntrega(e.data_coleta, e.data_entrega_agendamento).replace(' dias', ''), e.status, e.observacoes || '-'
     ].join(";"));
@@ -385,9 +416,6 @@ export default function App() {
     document.body.removeChild(link);
   };
 
-  // ==========================================
-  // KPIS DINÂMICOS (Baseados nos Filtros Ativos)
-  // ==========================================
   const faturamentoTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
   const freteTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_frete) || 0), 0);
   const freteMedio = faturamentoTotal > 0 ? ((freteTotal / faturamentoTotal) * 100).toFixed(2) : '0.00';
@@ -404,249 +432,92 @@ export default function App() {
     pesoTotal = (totalCaixas * produtoSelecionado.peso_caixa_kg).toFixed(2);
   }
 
+  // ==========================================
+  // 9. RENDERIZAÇÃO DA INTERFACE (A MÁGICA ACONTECE AQUI)
+  // ==========================================
   return (
     <div className="app-container">
-      <aside className="sidebar">
-        <div className="sidebar-header"><h1>MunilaLog</h1></div>
-        <nav className="sidebar-nav" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <ul className="nav-list">
-            <li className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}><LayoutDashboard size={20} /> Painel Principal</li>
-            <li className={`nav-item ${activeTab === 'equipe' ? 'active' : ''}`} onClick={() => setActiveTab('equipe')}><UserCircle size={20} /> Equipe</li>
-            <li className={`nav-item ${activeTab === 'clientes' ? 'active' : ''}`} onClick={() => setActiveTab('clientes')}><Users size={20} /> Clientes & Metas</li>
-            <li className={`nav-item ${activeTab === 'transportadoras' ? 'active' : ''}`} onClick={() => setActiveTab('transportadoras')}><Truck size={20} /> Transportadoras</li>
-            <li className={`nav-item ${activeTab === 'devolucoes' ? 'active' : ''}`} onClick={() => setActiveTab('devolucoes')}><RefreshCcw size={20} /> Devoluções</li>
-            <li className={`nav-item ${activeTab === 'dpsp' ? 'active' : ''}`} onClick={() => setActiveTab('dpsp')}><Calculator size={20} /> Calculadora DPSP</li>
-          </ul>
-          <button className="btn-logout" onClick={handleLogout}><LogOut size={20} /> Terminar Sessão</button>
-        </nav>
-      </aside>
+      
+      {/* MENU LATERAL SEPARADO */}
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        handleLogout={handleLogout} 
+      />
 
       <main className="main-content">
         
-        {/* ABA: PAINEL PRINCIPAL */}
+        {/* ABA 1: PAINEL PRINCIPAL (DASHBOARD) SEPARADA */}
         {activeTab === 'dashboard' && (
-          <>
-            <header className="header" style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'flex-start' }}>
-                <div><h2>Acompanhamento Logístico</h2><p>Gerenciamento de entregas de 2026</p></div>
-                
-                {/* BOTÕES DE CONTROLE SUPERIORES */}
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                  <div style={{ position: 'relative' }}>
-                    <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
-                    <input type="text" placeholder="Buscar NF, Cliente ou Status..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ padding: '10px 12px 10px 38px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', width: '220px' }} />
-                  </div>
-                  <button className="btn-secondary" onClick={() => setMostrarFiltros(!mostrarFiltros)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Filter size={18} /> Filtros
-                  </button>
-                  <button className="btn-secondary" onClick={exportarParaExcel} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Download size={18} /> Exportar
-                  </button>
-                  <button className="btn-primary" onClick={abrirModalNovaEntrega}>+ Nova Entrega</button>
-                </div>
-              </div>
-
-              {/* BARRA DE FILTROS AVANÇADOS (Toggle) */}
-              {mostrarFiltros && (
-                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Data Início (Fat.)</label>
-                    <input type="date" className="form-input" style={{ padding: '8px' }} value={filtroDataInicio} onChange={(e) => setFiltroDataInicio(e.target.value)} />
-                  </div>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Data Fim (Fat.)</label>
-                    <input type="date" className="form-input" style={{ padding: '8px' }} value={filtroDataFim} onChange={(e) => setFiltroDataFim(e.target.value)} />
-                  </div>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Transportadora</label>
-                    <select className="form-select" style={{ padding: '8px', width: '180px' }} value={filtroTransportadora} onChange={(e) => setFiltroTransportadora(e.target.value)}>
-                      <option value="">Todas as Transp.</option>
-                      {transportadoras.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
-                    </select>
-                  </div>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Modal</label>
-                    <select className="form-select" style={{ padding: '8px', width: '150px' }} value={filtroModal} onChange={(e) => setFiltroModal(e.target.value)}>
-                      <option value="">Todos</option>
-                      <option value="AÉREO">Aéreo</option>
-                      <option value="RODOVIÁRIO">Rodoviário</option>
-                      <option value="PAC">PAC</option>
-                      <option value="SEDEX">Sedex</option>
-                    </select>
-                  </div>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Status da Entrega</label>
-                    <select className="form-select" style={{ padding: '8px', width: '150px' }} value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)}>
-                      <option value="">Todos</option>
-                      <option value="Pendente">Pendente</option>
-                      <option value="Agendado">Agendado</option>
-                      <option value="Em Transporte">Em Transporte</option>
-                      <option value="Entregue">Entregue</option>
-                      <option value="Atrasado">Atrasado</option>
-                    </select>
-                  </div>
-                  
-                  <div style={{ display: 'flex', alignItems: 'flex-end', marginLeft: 'auto' }}>
-                     <button className="btn-secondary" onClick={limparFiltros} style={{ padding: '8px 16px', color: '#ef4444', borderColor: '#ef4444' }}>
-                        Limpar Filtros
-                     </button>
-                  </div>
-
-                </div>
-              )}
-            </header>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '32px' }}>
-              <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}><p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 600 }}>Faturamento Despachado</p><DollarSign size={20} color="#16a34a" /></div>
-                <h3 style={{ fontSize: '1.75rem', color: 'var(--text-main)', marginBottom: '8px' }}>R$ {faturamentoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
-                <div style={{ width: '100%', backgroundColor: '#f1f5f9', borderRadius: '4px', height: '6px', marginBottom: '4px' }}><div style={{ width: `${Math.min(Number(progressoMeta), 100)}%`, backgroundColor: '#16a34a', height: '100%', borderRadius: '4px' }}></div></div>
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{progressoMeta}% da Meta Anual</p>
-              </div>
-              <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}><p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 600 }}>Custo Logístico (Frete)</p><TrendingUp size={20} color="#ea580c" /></div>
-                <h3 style={{ fontSize: '1.75rem', color: 'var(--text-main)' }}>R$ {freteTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
-              </div>
-              <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}><p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 600 }}>% Frete Médio</p><Target size={20} color="var(--munila-blue)" /></div>
-                <h3 style={{ fontSize: '1.75rem', color: 'var(--munila-blue)' }}>{freteMedio}%</h3>
-              </div>
-              <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}><p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 600 }}>Entregas em Atraso</p><AlertCircle size={20} color="#dc2626" /></div>
-                <h3 style={{ fontSize: '1.75rem', color: '#dc2626' }}>{atrasados} <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>NFs</span></h3>
-              </div>
-            </div>
-
-            <div className="table-container">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Data Fat.</th><th>Coleta</th><th>Cliente</th><th>Cidade</th><th>UF</th>
-                    <th>Vol/Peso</th><th>Nº NF</th><th>Valor NF</th><th>Transportadora</th><th>Modal</th>
-                    <th>Valor Frete</th><th>% Frete</th><th>Agendamento?</th><th>Previsão</th>
-                    <th>Dt Entrega</th><th>Dias</th><th>Status</th><th>Obs</th>
-                    <th style={{ textAlign: 'center' }}>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? ( <tr><td colSpan={19} style={{ textAlign: 'center', padding: '32px' }}>A carregar...</td></tr> ) : 
-                  entregasFiltradas.length === 0 ? (
-                    <tr><td colSpan={19} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma entrega encontrada na busca.</td></tr>
-                  ) : entregasFiltradas.map((entrega) => (
-                    <tr key={entrega.id}>
-                      <td>{formatarData(entrega.data_faturamento)}</td><td>{formatarData(entrega.data_coleta)}</td>
-                      <td>{entrega.clientes?.nome || '-'}</td><td>{entrega.clientes?.cidade || '-'}</td><td>{entrega.clientes?.uf || '-'}</td>
-                      <td style={{ fontWeight: 'bold' }}>{entrega.volume_peso || '-'}</td><td style={{ fontWeight: 'bold' }}>{entrega.nota_fiscal}</td>
-                      <td>R$ {Number(entrega.valor_nf).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td>{entrega.transportadoras?.nome || '-'}</td><td>{entrega.transportadoras?.modal_padrao || '-'}</td>
-                      <td>R$ {Number(entrega.valor_frete).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td style={{ fontWeight: 'bold', color: '#0095DA' }}>{calcularPorcentagemFrete(entrega.valor_frete, entrega.valor_nf)}</td>
-                      <td>{entrega.tem_agendamento ? 'SIM' : 'NÃO'}</td><td>{formatarData(entrega.data_previsao)}</td>
-                      <td>{formatarData(entrega.data_entrega_agendamento)}</td><td>{calcularDiasEntrega(entrega.data_coleta, entrega.data_entrega_agendamento)}</td>
-                      <td><span className="status-badge" style={getStatusColor(entrega.status)}>{entrega.status}</span></td>
-                      <td>{entrega.observacoes || '-'}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <button onClick={() => abrirModalEdicao(entrega)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }} title="Editar Entrega"><Edit size={18} /></button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
+          <Dashboard 
+            searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+            mostrarFiltros={mostrarFiltros} setMostrarFiltros={setMostrarFiltros}
+            filtroDataInicio={filtroDataInicio} setFiltroDataInicio={setFiltroDataInicio}
+            filtroDataFim={filtroDataFim} setFiltroDataFim={setFiltroDataFim}
+            filtroTransportadora={filtroTransportadora} setFiltroTransportadora={setFiltroTransportadora}
+            filtroModal={filtroModal} setFiltroModal={setFiltroModal}
+            filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus}
+            transportadoras={transportadoras}
+            clientes={clientes}
+            limparFiltros={limparFiltros}
+            exportarParaExcel={exportarParaExcel}
+            abrirModalNovaEntrega={abrirModalNovaEntrega}
+            faturamentoTotal={faturamentoTotal}
+            progressoMeta={progressoMeta}
+            freteTotal={freteTotal}
+            freteMedio={freteMedio}
+            atrasados={atrasados}
+            loading={loading}
+            entregasFiltradas={entregasFiltradas}
+            formatarData={formatarData}
+            calcularPorcentagemFrete={calcularPorcentagemFrete}
+            calcularDiasEntrega={calcularDiasEntrega}
+            getStatusColor={getStatusColor}
+            abrirModalEdicao={abrirModalEdicao}
+          />
         )}
 
-        {/* ABA: EQUIPE */}
+        {/* ABA 2: EQUIPE SEPARADA */}
         {activeTab === 'equipe' && (
-          <>
-            <header className="header">
-              <div><h2>Gestão de Equipe</h2><p>Controlo de acessos e perfis operacionais</p></div>
-              <button className="btn-primary" onClick={abrirModalNovoPerfil}>+ Novo Funcionário</button>
-            </header>
-            <div className="table-container" style={{ maxWidth: '900px' }}>
-              <table>
-                <thead><tr><th>Nome</th><th>E-mail (Login)</th><th>Cargo</th><th>Nível de Acesso</th></tr></thead>
-                <tbody>
-                  {perfis.map((perfil) => (
-                    <tr key={perfil.id}>
-                      <td style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{perfil.nome}</td>
-                      <td>{perfil.email}</td>
-                      <td>{perfil.cargo || '-'}</td>
-                      <td>
-                        <span className="status-badge" style={{ backgroundColor: perfil.nivel_acesso === 'Administrador' ? '#f3e8ff' : '#f1f5f9', color: perfil.nivel_acesso === 'Administrador' ? '#6b21a8' : '#334155' }}>
-                          {perfil.nivel_acesso}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
+          <Equipe 
+            perfis={perfis}
+            abrirModalNovoPerfil={abrirModalNovoPerfil}
+          />
         )}
 
-        {/* ABA: CLIENTES E METAS */}
+        {/* ABA 3: CLIENTES E METAS SEPARADA */}
         {activeTab === 'clientes' && (
-          <>
-            <header className="header">
-              <div><h2>Gestão de Clientes & Metas de Frete</h2><p>Base de parceiros e margens logísticas autorizadas</p></div>
-              <div style={{ display: 'flex', gap: '12px' }}><button className="btn-secondary" onClick={abrirModalNovoCliente}>+ Novo Cliente</button><button className="btn-primary" onClick={abrirModalNovaMeta}>+ Nova Meta Logística</button></div>
-            </header>
-            <div className="table-container">
-              <table>
-                <thead><tr><th>Nome do Cliente</th><th>Cidade / UF</th><th>Regras de Frete Ativas (Metas %)</th><th style={{ textAlign: 'center' }}>Ações</th></tr></thead>
-                <tbody>
-                  {clientes.map((cliente) => {
-                    const metasDoCliente = metas.filter(m => m.cliente_id === cliente.id);
-                    return (
-                      <tr key={cliente.id}>
-                        <td style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{cliente.nome}</td><td>{cliente.cidade} - {cliente.uf}</td>
-                        <td>
-                          {metasDoCliente.length === 0 ? <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nenhuma meta</span> : (
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                              {metasDoCliente.map(meta => (
-                                <span key={meta.id} className="status-badge" style={{ backgroundColor: 'var(--munila-light)', color: 'var(--munila-blue)', border: '1px solid var(--munila-blue)' }}>
-                                  {meta.transportadoras?.nome}: <strong>{meta.meta_percentual}%</strong>
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </td>
-                        <td style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '8px' }}>
-                          <button onClick={() => abrirModalEdicaoCliente(cliente)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }} title="Editar Cliente"><Edit size={18} /></button>
-                          <button onClick={() => handleDeleteCliente(cliente.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '4px' }} title="Excluir Cliente"><Trash2 size={18} /></button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </>
+          <Clientes 
+            clientes={clientes}
+            metas={metas}
+            abrirModalNovoCliente={abrirModalNovoCliente}
+            abrirModalNovaMeta={abrirModalNovaMeta}
+            abrirModalEdicaoCliente={abrirModalEdicaoCliente}
+            handleDeleteCliente={handleDeleteCliente}
+          />
         )}
 
-        {/* ABA: TRANSPORTADORAS */}
+        {/* ABA 4: TRANSPORTADORAS (Ainda no App.tsx, a extrair em breve se desejar) */}
         {activeTab === 'transportadoras' && (
           <>
             <header className="header">
               <div><h2>Gestão de Transportadoras</h2><p>Cadastro de parceiros logísticos e modais operacionais</p></div>
               <button className="btn-primary" onClick={abrirModalNovaTransportadora}>+ Nova Transportadora</button>
             </header>
-            <div className="table-container" style={{ maxWidth: '800px' }}>
+            <div className="table-container" style={{ maxWidth: '1000px' }}>
               <table>
-                <thead><tr><th>Nome da Transportadora</th><th>Modal de Envio Padrão</th><th>Qtd de Entregas Realizadas</th><th style={{ textAlign: 'center' }}>Ações</th></tr></thead>
+                <thead><tr><th>Nome da Transportadora</th><th>Contato (Operacional)</th><th>Modal Padrão</th><th>Entregas Realizadas</th><th style={{ textAlign: 'center' }}>Ações</th></tr></thead>
                 <tbody>
                   {transportadoras.map((transp) => {
                     const qtdEntregas = entregas.filter(e => e.transportadora_id === transp.id).length;
                     return (
                       <tr key={transp.id}>
                         <td style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{transp.nome}</td>
+                        <td>
+                          {transp.telefone && <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}><Phone size={14} /> {transp.telefone}</div>}
+                          {transp.email && <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: 'var(--text-muted)' }}><Mail size={14} /> {transp.email}</div>}
+                          {(!transp.telefone && !transp.email) && <span style={{ color: '#cbd5e1' }}>-</span>}
+                        </td>
                         <td><span className="status-badge" style={{ backgroundColor: '#f1f5f9' }}>{transp.modal_padrao || 'Não definido'}</span></td>
                         <td>{qtdEntregas} entregas</td>
                         <td style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '8px' }}>
@@ -662,7 +533,7 @@ export default function App() {
           </>
         )}
 
-        {/* ABA: DEVOLUÇÕES */}
+        {/* ABA 5: DEVOLUÇÕES (Ainda no App.tsx, a extrair em breve se desejar) */}
         {activeTab === 'devolucoes' && (
           <>
             <header className="header">
@@ -674,16 +545,17 @@ export default function App() {
                 <thead>
                   <tr>
                     <th>Data Coleta</th><th>Cliente</th><th>Transportadora</th><th>NFs Referência</th>
-                    <th>Valor NFs (R$)</th><th>Vol/Peso</th><th>Custo Reverso (R$)</th><th>Motivo da Devolução</th><th>Status</th>
+                    <th>Valor NFs (R$)</th><th>Volume</th><th>Peso (g)</th><th>Custo Reverso (R$)</th><th>Motivo da Devolução</th><th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {devolucoes.length === 0 ? ( <tr><td colSpan={9} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma devolução registada.</td></tr> ) : devolucoes.map((dev) => (
+                  {devolucoes.length === 0 ? ( <tr><td colSpan={10} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma devolução registada.</td></tr> ) : devolucoes.map((dev) => (
                     <tr key={dev.id}>
                       <td>{formatarData(dev.data_coleta)}</td><td style={{ fontWeight: 'bold' }}>{dev.clientes?.nome || '-'}</td>
                       <td>{dev.transportadoras?.nome || '-'}</td><td style={{ fontWeight: 'bold' }}>{dev.notas_fiscais}</td>
                       <td>R$ {Number(dev.valor_total_nf).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td>{dev.volume_peso || '-'}</td>
+                      <td style={{ fontWeight: 'bold' }}>{dev.volume ? `${dev.volume} Cx` : '-'}</td>
+                      <td style={{ fontWeight: 'bold' }}>{dev.peso_gramas ? `${dev.peso_gramas}g` : '-'}</td>
                       <td style={{ fontWeight: 'bold', color: '#ef4444' }}>R$ {Number(dev.valor_frete_reverso).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td style={{ maxWidth: '300px', whiteSpace: 'normal', fontSize: '0.85rem' }}>{dev.motivo || '-'}</td>
                       <td><span className="status-badge" style={getStatusColor(dev.status)}>{dev.status}</span></td>
@@ -695,7 +567,7 @@ export default function App() {
           </>
         )}
 
-        {/* ABA: CALCULADORA DPSP */}
+        {/* ABA 6: CALCULADORA DPSP */}
         {activeTab === 'dpsp' && (
           <>
             <header className="header">
@@ -731,40 +603,30 @@ export default function App() {
       </main>
 
       {/* ========================================== */}
-      {/* JANELAS MODAIS                             */}
+      {/* 10. JANELAS MODAIS (EXTRAÍDAS)             */}
       {/* ========================================== */}
+      
+      <ModalEntrega 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleSubmit}
+        formData={formData}
+        setFormData={setFormData}
+        isEditing={!!editingId}
+        clientes={clientes}
+        transportadoras={transportadoras}
+      />
 
-      {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div className="modal-header"><h3>{editingId ? 'Editar Entrega' : 'Cadastrar Nova Entrega'}</h3><button className="close-btn" onClick={() => setIsModalOpen(false)}><X size={24} /></button></div>
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="form-group"><label>Número da NF</label><input type="text" className="form-input" required value={formData.nota_fiscal} onChange={(e) => setFormData({...formData, nota_fiscal: e.target.value})} /></div>
-                <div className="form-group"><label>Cliente</label><select className="form-select" required value={formData.cliente_id} onChange={(e) => setFormData({...formData, cliente_id: e.target.value})}><option value="">Selecione...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
-                <div className="form-group"><label>Data de Faturamento</label><input type="date" className="form-input" value={formData.data_faturamento} onChange={(e) => setFormData({...formData, data_faturamento: e.target.value})} /></div>
-                <div className="form-group"><label>Data de Coleta</label><input type="date" className="form-input" value={formData.data_coleta} onChange={(e) => setFormData({...formData, data_coleta: e.target.value})} /></div>
-                <div className="form-group"><label>Valor da NF (R$)</label><input type="number" step="0.01" className="form-input" value={formData.valor_nf} onChange={(e) => setFormData({...formData, valor_nf: e.target.value})} /></div>
-                <div className="form-group"><label>Volume / Peso</label><input type="text" className="form-input" placeholder="Ex: 1CX 20KG" value={formData.volume_peso} onChange={(e) => setFormData({...formData, volume_peso: e.target.value})} /></div>
-                <div className="form-group"><label>Transportadora</label><select className="form-select" required value={formData.transportadora_id} onChange={(e) => setFormData({...formData, transportadora_id: e.target.value})}><option value="">Selecione...</option>{transportadoras.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}</select></div>
-                <div className="form-group">
-                  <label>Status</label>
-                  <select className="form-select" value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})}>
-                    <option value="Pendente">Pendente</option><option value="Agendado">Agendado</option><option value="Em Transporte">Em Transporte</option><option value="Entregue">Entregue</option><option value="Atrasado">Atrasado</option>
-                  </select>
-                </div>
-                <div className="form-group"><label>Valor do Frete (R$)</label><input type="number" step="0.01" className="form-input" value={formData.valor_frete} onChange={(e) => setFormData({...formData, valor_frete: e.target.value})} /></div>
-                <div className="form-group"><label>Previsão de Entrega</label><input type="date" className="form-input" value={formData.data_previsao} onChange={(e) => setFormData({...formData, data_previsao: e.target.value})} /></div>
-                <div className="form-group"><label>Data Efetiva de Entrega</label><input type="date" className="form-input" value={formData.data_entrega_agendamento} onChange={(e) => setFormData({...formData, data_entrega_agendamento: e.target.value})} /></div>
-                <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '8px', marginTop: '30px' }}><input type="checkbox" id="agendamento" checked={formData.tem_agendamento} onChange={(e) => setFormData({...formData, tem_agendamento: e.target.checked})} /><label htmlFor="agendamento" style={{ cursor: 'pointer' }}>Possui Agendamento?</label></div>
-              </div>
-              <div className="modal-body" style={{ paddingTop: 0 }}><div className="form-group"><label>Observações</label><input type="text" className="form-input" value={formData.observacoes} onChange={(e) => setFormData({...formData, observacoes: e.target.value})} /></div></div>
-              <div className="modal-footer"><button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Cancelar</button><button type="submit" className="btn-primary">{editingId ? 'Atualizar Entrega' : 'Salvar Entrega'}</button></div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ModalCliente 
+        isOpen={isClienteModalOpen}
+        onClose={() => setIsClienteModalOpen(false)}
+        onSubmit={handleClienteSubmit}
+        formData={clienteFormData}
+        setFormData={setClienteFormData}
+        isEditing={!!editingClienteId}
+      />
 
+      {/* MODAIS AINDA INLINE (A Extrair se desejar) */}
       {isDevolucaoModalOpen && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -777,7 +639,8 @@ export default function App() {
                 <div className="form-group"><label>Transportadora</label><select className="form-select" required value={devolucaoFormData.transportadora_id} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, transportadora_id: e.target.value})}><option value="">Selecione...</option>{transportadoras.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}</select></div>
                 <div className="form-group"><label>Valor Total das NFs (R$)</label><input type="number" step="0.01" className="form-input" value={devolucaoFormData.valor_total_nf} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, valor_total_nf: e.target.value})} /></div>
                 <div className="form-group"><label>Custo do Frete Reverso (R$)</label><input type="number" step="0.01" className="form-input" style={{ borderColor: '#ef4444' }} placeholder="Valor que a Munila vai pagar" value={devolucaoFormData.valor_frete_reverso} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, valor_frete_reverso: e.target.value})} /></div>
-                <div className="form-group"><label>Volume / Peso Retornando</label><input type="text" className="form-input" placeholder="Ex: 45 CX 52KG" value={devolucaoFormData.volume_peso} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, volume_peso: e.target.value})} /></div>
+                <div className="form-group"><label>Volume Retornando (Cx)</label><input type="number" className="form-input" placeholder="Ex: 2" value={devolucaoFormData.volume} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, volume: e.target.value})} /></div>
+                <div className="form-group"><label>Peso Retornando (g)</label><input type="number" step="0.01" className="form-input" placeholder="Ex: 1500" value={devolucaoFormData.peso_gramas} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, peso_gramas: e.target.value})} /></div>
                 <div className="form-group"><label>Status da Devolução</label><select className="form-select" value={devolucaoFormData.status} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, status: e.target.value})}><option value="Aguardando Chegada">Aguardando Chegada</option><option value="Em Transporte">Em Transporte</option><option value="Chegou no Galpão">Chegou no Galpão</option></select></div>
               </div>
               <div className="modal-body" style={{ paddingTop: 0 }}><div className="form-group"><label>Motivo da Devolução / Avaria</label><textarea className="form-input" rows={3} placeholder="Descreva o motivo (ex: validade curta, caixa rasgada, cliente recusou...)" value={devolucaoFormData.motivo} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, motivo: e.target.value})} /></div></div>
@@ -794,25 +657,11 @@ export default function App() {
             <form onSubmit={handleTranspSubmit}>
               <div className="modal-body">
                 <div className="form-group"><label>Nome da Transportadora</label><input type="text" className="form-input" placeholder="Ex: BRASPRESS" required value={transpFormData.nome} onChange={(e) => setTranspFormData({...transpFormData, nome: e.target.value})} /></div>
+                <div className="form-group"><label>Telefone / WhatsApp Comercial</label><input type="text" className="form-input" placeholder="Ex: (11) 99999-9999" value={transpFormData.telefone} onChange={(e) => setTranspFormData({...transpFormData, telefone: e.target.value})} /></div>
+                <div className="form-group"><label>E-mail de Contato</label><input type="email" className="form-input" placeholder="contato@transportadora.com" value={transpFormData.email} onChange={(e) => setTranspFormData({...transpFormData, email: e.target.value})} /></div>
                 <div className="form-group"><label>Modal Padrão de Envio</label><select className="form-select" required value={transpFormData.modal_padrao} onChange={(e) => setTranspFormData({...transpFormData, modal_padrao: e.target.value})}><option value="">Selecione...</option><option value="AÉREO">Aéreo</option><option value="RODOVIÁRIO">Rodoviário</option><option value="PAC">PAC</option><option value="SEDEX">Sedex</option></select></div>
               </div>
               <div className="modal-footer"><button type="button" className="btn-secondary" onClick={() => setIsTranspModalOpen(false)}>Cancelar</button><button type="submit" className="btn-primary">{editingTranspId ? 'Atualizar Parceiro' : 'Salvar Parceiro'}</button></div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {isClienteModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header"><h3>{editingClienteId ? 'Editar Cliente' : 'Cadastrar Novo Cliente'}</h3><button className="close-btn" onClick={() => setIsClienteModalOpen(false)}><X size={24} /></button></div>
-            <form onSubmit={handleClienteSubmit}>
-              <div className="modal-body">
-                <div className="form-group"><label>Nome do Cliente / Rede</label><input type="text" className="form-input" placeholder="Ex: DROGA RAIA" required value={clienteFormData.nome} onChange={(e) => setClienteFormData({...clienteFormData, nome: e.target.value})} /></div>
-                <div className="form-group"><label>Cidade</label><input type="text" className="form-input" placeholder="Ex: SÃO PAULO" required value={clienteFormData.cidade} onChange={(e) => setClienteFormData({...clienteFormData, cidade: e.target.value})} /></div>
-                <div className="form-group"><label>UF</label><input type="text" className="form-input" placeholder="Ex: SP" maxLength={2} required value={clienteFormData.uf} onChange={(e) => setClienteFormData({...clienteFormData, uf: e.target.value})} /></div>
-              </div>
-              <div className="modal-footer"><button type="button" className="btn-secondary" onClick={() => setIsClienteModalOpen(false)}>Cancelar</button><button type="submit" className="btn-primary">{editingClienteId ? 'Atualizar Cliente' : 'Salvar Cliente'}</button></div>
             </form>
           </div>
         </div>
@@ -840,8 +689,12 @@ export default function App() {
             <div className="modal-header"><h3>Cadastrar Novo Funcionário</h3><button className="close-btn" onClick={() => setIsPerfilModalOpen(false)}><X size={24} /></button></div>
             <form onSubmit={handlePerfilSubmit}>
               <div className="modal-body">
+                <div style={{ backgroundColor: '#fffbeb', color: '#b45309', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '0.85rem', border: '1px solid #fde68a' }}>
+                  <strong>⚠️ Lembrete de Segurança:</strong> Por motivos de segurança, a senha de acesso deste funcionário deve ser gerada por si lá no painel do Supabase (Authentication &gt; Add User).
+                  <br/><br/>Este formulário serve apenas para dar o "Crachá" (cargo e permissões) a esse e-mail dentro do sistema.
+                </div>
                 <div className="form-group"><label>Nome Completo</label><input type="text" className="form-input" placeholder="Ex: João Silva" required value={perfilFormData.nome} onChange={(e) => setPerfilFormData({...perfilFormData, nome: e.target.value})} /></div>
-                <div className="form-group"><label>E-mail (Usado para o Login)</label><input type="email" className="form-input" placeholder="joao@munila.com.br" required value={perfilFormData.email} onChange={(e) => setPerfilFormData({...perfilFormData, email: e.target.value})} /></div>
+                <div className="form-group"><label>E-mail (Igual ao criado no Supabase)</label><input type="email" className="form-input" placeholder="joao@munila.com.br" required value={perfilFormData.email} onChange={(e) => setPerfilFormData({...perfilFormData, email: e.target.value})} /></div>
                 <div className="form-group"><label>Cargo</label><input type="text" className="form-input" placeholder="Ex: Analista de Logística" required value={perfilFormData.cargo} onChange={(e) => setPerfilFormData({...perfilFormData, cargo: e.target.value})} /></div>
                 <div className="form-group"><label>Nível de Acesso</label><select className="form-select" required value={perfilFormData.nivel_acesso} onChange={(e) => setPerfilFormData({...perfilFormData, nivel_acesso: e.target.value})}><option value="Operador">Operador (Uso diário)</option><option value="Administrador">Administrador (Gestão Total)</option></select></div>
               </div>

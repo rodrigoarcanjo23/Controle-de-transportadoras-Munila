@@ -458,7 +458,6 @@ export default function App() {
             filtroModal={filtroModal} setFiltroModal={setFiltroModal}
             filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus}
             transportadoras={transportadoras}
-            clientes={clientes}
             limparFiltros={limparFiltros}
             exportarParaExcel={exportarParaExcel}
             abrirModalNovaEntrega={abrirModalNovaEntrega}

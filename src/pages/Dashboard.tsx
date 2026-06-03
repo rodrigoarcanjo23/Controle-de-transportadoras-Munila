@@ -1,3 +1,4 @@
+import React from 'react';
 import { Edit, DollarSign, TrendingUp, AlertCircle, Target } from 'lucide-react';
 import { Header } from '../components/Header';
 
@@ -17,7 +18,6 @@ interface DashboardProps {
   filtroStatus: string;
   setFiltroStatus: (value: string) => void;
   transportadoras: any[];
-  clientes: any[]; // ADICIONADO AQUI
   limparFiltros: () => void;
   exportarParaExcel: () => void;
   abrirModalNovaEntrega: () => void;
@@ -39,7 +39,7 @@ export function Dashboard({
   searchTerm, setSearchTerm, mostrarFiltros, setMostrarFiltros,
   filtroDataInicio, setFiltroDataInicio, filtroDataFim, setFiltroDataFim,
   filtroTransportadora, setFiltroTransportadora, filtroModal, setFiltroModal,
-  filtroStatus, setFiltroStatus, transportadoras, clientes, limparFiltros,
+  filtroStatus, setFiltroStatus, transportadoras, limparFiltros,
   exportarParaExcel, abrirModalNovaEntrega,
   faturamentoTotal, progressoMeta, freteTotal, freteMedio, atrasados,
   loading, entregasFiltradas, formatarData, calcularPorcentagemFrete,

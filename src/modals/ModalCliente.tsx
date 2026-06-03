@@ -1,29 +1,46 @@
+import React from 'react';
 import { X } from 'lucide-react';
 
 interface ModalClienteProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
-  formData: { nome: string; cidade: string; uf: string; telefone: string; email: string };
+  formData: any;
   setFormData: (data: any) => void;
   isEditing: boolean;
 }
 
 export function ModalCliente({ isOpen, onClose, onSubmit, formData, setFormData, isEditing }: ModalClienteProps) {
-  if (!isOpen) return null; // Se não estiver aberto, não renderiza nada no DOM
+  if (!isOpen) return null;
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content">
+      <div className="modal-content" style={{ maxWidth: '700px' }}>
         <div className="modal-header">
           <h3>{isEditing ? 'Editar Cliente' : 'Cadastrar Novo Cliente'}</h3>
           <button type="button" className="close-btn" onClick={onClose}><X size={24} /></button>
         </div>
         <form onSubmit={onSubmit}>
-          <div className="modal-body">
-            <div className="form-group">
-              <label>Nome do Cliente / Rede</label>
+          <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label>Nome Principal (Identificação rápida no sistema)</label>
               <input type="text" className="form-input" placeholder="Ex: DROGA RAIA" required value={formData.nome} onChange={(e) => setFormData({...formData, nome: e.target.value})} />
+            </div>
+
+            <div className="form-group">
+              <label>CNPJ / CPF</label>
+              <input type="text" className="form-input" placeholder="00.000.000/0000-00" value={formData.cnpj_cpf} onChange={(e) => setFormData({...formData, cnpj_cpf: e.target.value})} />
+            </div>
+            
+            <div className="form-group">
+              <label>Nome Fantasia</label>
+              <input type="text" className="form-input" placeholder="Raia Drogasil" value={formData.nome_fantasia} onChange={(e) => setFormData({...formData, nome_fantasia: e.target.value})} />
+            </div>
+
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label>Razão Social</label>
+              <input type="text" className="form-input" placeholder="RAIA DROGASIL S/A" value={formData.razao_social} onChange={(e) => setFormData({...formData, razao_social: e.target.value})} />
             </div>
             
             <div className="form-group">

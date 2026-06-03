@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
 import { X, Calculator, Package, Edit, Trash2, Phone, Mail } from 'lucide-react';
 
-// IMPORTAÇÃO DAS NOSSAS "PEÇAS DE LEGO" (COMPONENTES, PÁGINAS E MODAIS)
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { Equipe } from './pages/Equipe';
@@ -13,18 +12,12 @@ import { ModalCliente } from './modals/ModalCliente';
 import './index.css';
 
 export default function App() {
-  // ==========================================
-  // 1. ESTADOS DE SESSÃO E AUTENTICAÇÃO
-  // ==========================================
   const [session, setSession] = useState<any>(null);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [authInitialized, setAuthInitialized] = useState(false);
 
-  // ==========================================
-  // 2. ESTADOS GERAIS DO SISTEMA
-  // ==========================================
   const [activeTab, setActiveTab] = useState('dashboard');
   const [entregas, setEntregas] = useState<any[]>([]);
   const [devolucoes, setDevolucoes] = useState<any[]>([]);
@@ -36,9 +29,6 @@ export default function App() {
   const [metas, setMetas] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
 
-  // ==========================================
-  // 3. ESTADOS DE FILTROS (DASHBOARD)
-  // ==========================================
   const [searchTerm, setSearchTerm] = useState('');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
@@ -47,30 +37,33 @@ export default function App() {
   const [filtroModal, setFiltroModal] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
 
-  // ==========================================
-  // 4. ESTADOS DE MODAIS E FORMULÁRIOS
-  // ==========================================
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  
   const [formData, setFormData] = useState({
-    nota_fiscal: '', cliente_id: '', transportadora_id: '', data_faturamento: '', data_coleta: '', 
-    valor_nf: '', valor_frete: '', volume: '', peso_gramas: '', tem_agendamento: false, data_previsao: '', 
+    nota_fiscal: '', cliente_id: '', transportadora_id: '', 
+    cidade_destino: '', modal_frete: '', 
+    data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', 
+    volume: '', peso_gramas: '', tem_agendamento: false, data_previsao: '', 
     data_entrega_agendamento: '', observacoes: '', status: 'Pendente'
   });
 
   const [isDevolucaoModalOpen, setIsDevolucaoModalOpen] = useState(false);
+  // ADICIONADO NF_VENDA AQUI
   const [devolucaoFormData, setDevolucaoFormData] = useState({
-    data_coleta: '', cliente_id: '', transportadora_id: '', notas_fiscais: '',
+    data_coleta: '', cliente_id: '', transportadora_id: '', nf_venda: '', notas_fiscais: '',
     valor_total_nf: '', volume: '', peso_gramas: '', valor_frete_reverso: '', motivo: '', status: 'Aguardando Chegada'
   });
 
   const [isTranspModalOpen, setIsTranspModalOpen] = useState(false);
   const [editingTranspId, setEditingTranspId] = useState<string | null>(null);
-  const [transpFormData, setTranspFormData] = useState({ nome: '', modal_padrao: '', telefone: '', email: '' });
+  // ADICIONADO NOVOS CAMPOS NA TRANSP
+  const [transpFormData, setTranspFormData] = useState({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', modal_padrao: '', telefone: '', email: '' });
 
   const [isClienteModalOpen, setIsClienteModalOpen] = useState(false);
   const [editingClienteId, setEditingClienteId] = useState<string | null>(null);
-  const [clienteFormData, setClienteFormData] = useState({ nome: '', cidade: '', uf: '', telefone: '', email: '' });
+  // ADICIONADO NOVOS CAMPOS NO CLIENTE
+  const [clienteFormData, setClienteFormData] = useState({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', cidade: '', uf: '', telefone: '', email: '' });
   
   const [isMetaModalOpen, setIsMetaModalOpen] = useState(false);
   const [metaFormData, setMetaFormData] = useState({ cliente_id: '', transportadora_id: '', meta_percentual: '' });
@@ -81,9 +74,6 @@ export default function App() {
   const [calcProdutoId, setCalcProdutoId] = useState('');
   const [calcQuantidade, setCalcQuantidade] = useState('');
 
-  // ==========================================
-  // 5. EFEITOS E BUSCAS (SUPABASE)
-  // ==========================================
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -113,7 +103,7 @@ export default function App() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword });
       if (error) throw error;
-    } catch (error: any) { alert("Erro ao iniciar sessão. Verifique as suas credenciais."); } finally { setLoginLoading(false); }
+    } catch (error: any) { alert("Erro ao iniciar sessão."); } finally { setLoginLoading(false); }
   }
 
   async function handleLogout() { await supabase.auth.signOut(); }
@@ -170,12 +160,15 @@ export default function App() {
     } catch (error) { console.error(error); }
   }
 
-  // ==========================================
-  // 6. CONTROLES DE ABERTURA DE MODAIS
-  // ==========================================
   function abrirModalNovaEntrega() {
     setEditingId(null);
-    setFormData({ nota_fiscal: '', cliente_id: '', transportadora_id: '', data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', volume: '', peso_gramas: '', tem_agendamento: false, data_previsao: '', data_entrega_agendamento: '', observacoes: '', status: 'Pendente' });
+    setFormData({ 
+      nota_fiscal: '', cliente_id: '', transportadora_id: '', 
+      cidade_destino: '', modal_frete: '', 
+      data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', 
+      volume: '', peso_gramas: '', tem_agendamento: false, data_previsao: '', 
+      data_entrega_agendamento: '', observacoes: '', status: 'Pendente' 
+    });
     setIsModalOpen(true);
   }
 
@@ -183,6 +176,7 @@ export default function App() {
     setEditingId(entrega.id);
     setFormData({
       nota_fiscal: entrega.nota_fiscal, cliente_id: entrega.cliente_id, transportadora_id: entrega.transportadora_id,
+      cidade_destino: entrega.cidade_destino || '', modal_frete: entrega.modal_frete || '',
       data_faturamento: entrega.data_faturamento || '', data_coleta: entrega.data_coleta || '', valor_nf: entrega.valor_nf?.toString() || '',
       valor_frete: entrega.valor_frete?.toString() || '', volume: entrega.volume?.toString() || '', peso_gramas: entrega.peso_gramas?.toString() || '', 
       tem_agendamento: entrega.tem_agendamento || false, data_previsao: entrega.data_previsao || '', data_entrega_agendamento: entrega.data_entrega_agendamento || '', 
@@ -191,21 +185,43 @@ export default function App() {
     setIsModalOpen(true);
   }
 
-  function abrirModalNovaDevolucao() {
-    setDevolucaoFormData({ data_coleta: '', cliente_id: '', transportadora_id: '', notas_fiscais: '', valor_total_nf: '', volume: '', peso_gramas: '', valor_frete_reverso: '', motivo: '', status: 'Aguardando Chegada' });
-    setIsDevolucaoModalOpen(true);
+  function abrirModalNovaDevolucao() { setDevolucaoFormData({ data_coleta: '', cliente_id: '', transportadora_id: '', nf_venda: '', notas_fiscais: '', valor_total_nf: '', volume: '', peso_gramas: '', valor_frete_reverso: '', motivo: '', status: 'Aguardando Chegada' }); setIsDevolucaoModalOpen(true); }
+  function abrirModalNovaTransportadora() { setEditingTranspId(null); setTranspFormData({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', modal_padrao: '', telefone: '', email: '' }); setIsTranspModalOpen(true); }
+  
+  function abrirModalEdicaoTransportadora(transp: any) { 
+    setEditingTranspId(transp.id); 
+    setTranspFormData({ 
+      nome: transp.nome, 
+      cnpj_cpf: transp.cnpj_cpf || '', 
+      razao_social: transp.razao_social || '', 
+      nome_fantasia: transp.nome_fantasia || '', 
+      modal_padrao: transp.modal_padrao || '', 
+      telefone: transp.telefone || '', 
+      email: transp.email || '' 
+    }); 
+    setIsTranspModalOpen(true); 
   }
 
-  function abrirModalNovaTransportadora() { setEditingTranspId(null); setTranspFormData({ nome: '', modal_padrao: '', telefone: '', email: '' }); setIsTranspModalOpen(true); }
-  function abrirModalEdicaoTransportadora(transp: any) { setEditingTranspId(transp.id); setTranspFormData({ nome: transp.nome, modal_padrao: transp.modal_padrao || '', telefone: transp.telefone || '', email: transp.email || '' }); setIsTranspModalOpen(true); }
-  function abrirModalNovoCliente() { setEditingClienteId(null); setClienteFormData({ nome: '', cidade: '', uf: '', telefone: '', email: '' }); setIsClienteModalOpen(true); }
-  function abrirModalEdicaoCliente(cliente: any) { setEditingClienteId(cliente.id); setClienteFormData({ nome: cliente.nome, cidade: cliente.cidade || '', uf: cliente.uf || '', telefone: cliente.telefone || '', email: cliente.email || '' }); setIsClienteModalOpen(true); }
+  function abrirModalNovoCliente() { setEditingClienteId(null); setClienteFormData({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', cidade: '', uf: '', telefone: '', email: '' }); setIsClienteModalOpen(true); }
+  
+  function abrirModalEdicaoCliente(cliente: any) { 
+    setEditingClienteId(cliente.id); 
+    setClienteFormData({ 
+      nome: cliente.nome, 
+      cnpj_cpf: cliente.cnpj_cpf || '', 
+      razao_social: cliente.razao_social || '', 
+      nome_fantasia: cliente.nome_fantasia || '', 
+      cidade: cliente.cidade || '', 
+      uf: cliente.uf || '', 
+      telefone: cliente.telefone || '', 
+      email: cliente.email || '' 
+    }); 
+    setIsClienteModalOpen(true); 
+  }
+
   function abrirModalNovaMeta() { setMetaFormData({ cliente_id: '', transportadora_id: '', meta_percentual: '' }); setIsMetaModalOpen(true); }
   function abrirModalNovoPerfil() { setPerfilFormData({ nome: '', email: '', cargo: '', nivel_acesso: 'Operador' }); setIsPerfilModalOpen(true); }
 
-  // ==========================================
-  // 7. FUNÇÕES DE ENVIO E EXCLUSÃO (SUBMITS)
-  // ==========================================
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const nf = parseFloat(formData.valor_nf) || 0;
@@ -218,13 +234,16 @@ export default function App() {
         if (!desejaProsseguir) return; 
       }
     }
+    
     const payload = {
       nota_fiscal: formData.nota_fiscal, cliente_id: formData.cliente_id, transportadora_id: formData.transportadora_id,
+      cidade_destino: formData.cidade_destino || null, modal_frete: formData.modal_frete || null,
       data_faturamento: formData.data_faturamento || null, data_coleta: formData.data_coleta || null, valor_nf: nf,
       valor_frete: frete, volume: parseInt(formData.volume) || null, peso_gramas: parseFloat(formData.peso_gramas) || null,
       tem_agendamento: formData.tem_agendamento, data_previsao: formData.data_previsao || null, data_entrega_agendamento: formData.data_entrega_agendamento || null,
       observacoes: formData.observacoes, status: formData.status
     };
+    
     try {
       if (editingId) {
         const { data, error } = await supabase.from('entregas').update([payload]).eq('id', editingId).select('*, clientes (nome, cidade, uf, telefone, email), transportadoras (nome, modal_padrao, telefone, email)');
@@ -243,6 +262,7 @@ export default function App() {
     try {
       const payload = {
         data_coleta: devolucaoFormData.data_coleta || null, cliente_id: devolucaoFormData.cliente_id, transportadora_id: devolucaoFormData.transportadora_id,
+        nf_venda: devolucaoFormData.nf_venda || null, // CAMPO NOVO ADICIONADO NO PAYLOAD
         notas_fiscais: devolucaoFormData.notas_fiscais, valor_total_nf: parseFloat(devolucaoFormData.valor_total_nf) || 0,
         volume: parseInt(devolucaoFormData.volume) || null, peso_gramas: parseFloat(devolucaoFormData.peso_gramas) || null,
         valor_frete_reverso: parseFloat(devolucaoFormData.valor_frete_reverso) || 0, motivo: devolucaoFormData.motivo, status: devolucaoFormData.status
@@ -257,6 +277,9 @@ export default function App() {
     e.preventDefault();
     const payload = { 
       nome: transpFormData.nome.toUpperCase(), 
+      cnpj_cpf: transpFormData.cnpj_cpf,
+      razao_social: transpFormData.razao_social.toUpperCase(),
+      nome_fantasia: transpFormData.nome_fantasia.toUpperCase(),
       modal_padrao: transpFormData.modal_padrao,
       telefone: transpFormData.telefone,
       email: transpFormData.email.toLowerCase()
@@ -289,6 +312,9 @@ export default function App() {
     e.preventDefault();
     const payload = { 
       nome: clienteFormData.nome.toUpperCase(), 
+      cnpj_cpf: clienteFormData.cnpj_cpf,
+      razao_social: clienteFormData.razao_social.toUpperCase(),
+      nome_fantasia: clienteFormData.nome_fantasia.toUpperCase(),
       cidade: clienteFormData.cidade.toUpperCase(), 
       uf: clienteFormData.uf.toUpperCase(),
       telefone: clienteFormData.telefone,
@@ -340,9 +366,6 @@ export default function App() {
     } catch (error) { console.error(error); alert("Erro ao cadastrar funcionário."); }
   }
 
-  // ==========================================
-  // 8. FUNÇÕES UTILITÁRIAS E CÁLCULOS
-  // ==========================================
   const calcularPorcentagemFrete = (frete: number, nf: number) => {
     if (!frete || !nf || nf === 0) return '0.00%';
     return ((frete / nf) * 100).toFixed(2) + '%';
@@ -391,7 +414,7 @@ export default function App() {
     if (filtroDataFim && entrega.data_faturamento > filtroDataFim) passaData = false;
 
     const passaTransp = filtroTransportadora ? entrega.transportadora_id === filtroTransportadora : true;
-    const passaModal = filtroModal ? entrega.transportadoras?.modal_padrao === filtroModal : true;
+    const passaModal = filtroModal ? (entrega.modal_frete === filtroModal || entrega.transportadoras?.modal_padrao === filtroModal) : true;
     const passaStatus = filtroStatus ? entrega.status === filtroStatus : true;
 
     return passaTexto && passaData && passaTransp && passaModal && passaStatus;
@@ -400,12 +423,18 @@ export default function App() {
   const exportarParaExcel = () => {
     if (entregasFiltradas.length === 0) { alert("Não há dados para exportar."); return; }
     const cabecalho = ["Data Fat.", "Coleta", "Cliente", "Cidade", "UF", "Volume (Cx)", "Peso (g)", "Nº NF", "Valor NF", "Transportadora", "Modal", "Valor Frete", "% Frete", "Agendamento", "Previsão", "Dt Entrega", "Dias", "Status", "Observações"].join(";");
-    const linhas = entregasFiltradas.map(e => [
-      formatarData(e.data_faturamento), formatarData(e.data_coleta), e.clientes?.nome || '-', e.clientes?.cidade || '-', e.clientes?.uf || '-',
-      e.volume || e.volume_peso || '-', e.peso_gramas || '-', e.nota_fiscal, e.valor_nf?.toString().replace('.', ',') || '0,00', e.transportadoras?.nome || '-', e.transportadoras?.modal_padrao || '-',
-      e.valor_frete?.toString().replace('.', ',') || '0,00', calcularPorcentagemFrete(e.valor_frete, e.valor_nf), e.tem_agendamento ? 'SIM' : 'NÃO',
-      formatarData(e.data_previsao), formatarData(e.data_entrega_agendamento), calcularDiasEntrega(e.data_coleta, e.data_entrega_agendamento).replace(' dias', ''), e.status, e.observacoes || '-'
-    ].join(";"));
+    const linhas = entregasFiltradas.map(e => {
+      const cidadeFormatada = e.cidade_destino ? e.cidade_destino.split('-')[0]?.trim() : (e.clientes?.cidade || '-');
+      const ufFormatada = e.cidade_destino && e.cidade_destino.includes('-') ? e.cidade_destino.split('-')[1]?.trim() : (e.clientes?.uf || '-');
+      const modalFormatado = e.modal_frete || e.transportadoras?.modal_padrao || '-';
+
+      return [
+        formatarData(e.data_faturamento), formatarData(e.data_coleta), e.clientes?.nome || '-', cidadeFormatada, ufFormatada,
+        e.volume || e.volume_peso || '-', e.peso_gramas || '-', e.nota_fiscal, e.valor_nf?.toString().replace('.', ',') || '0,00', e.transportadoras?.nome || '-', modalFormatado,
+        e.valor_frete?.toString().replace('.', ',') || '0,00', calcularPorcentagemFrete(e.valor_frete, e.valor_nf), e.tem_agendamento ? 'SIM' : 'NÃO',
+        formatarData(e.data_previsao), formatarData(e.data_entrega_agendamento), calcularDiasEntrega(e.data_coleta, e.data_entrega_agendamento).replace(' dias', ''), e.status, e.observacoes || '-'
+      ].join(";");
+    });
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + cabecalho + "\n" + linhas.join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -432,22 +461,11 @@ export default function App() {
     pesoTotal = (totalCaixas * produtoSelecionado.peso_caixa_kg).toFixed(2);
   }
 
-  // ==========================================
-  // 9. RENDERIZAÇÃO DA INTERFACE (A MÁGICA ACONTECE AQUI)
-  // ==========================================
   return (
     <div className="app-container">
-      
-      {/* MENU LATERAL SEPARADO */}
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        handleLogout={handleLogout} 
-      />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} handleLogout={handleLogout} />
 
       <main className="main-content">
-        
-        {/* ABA 1: PAINEL PRINCIPAL (DASHBOARD) SEPARADA */}
         {activeTab === 'dashboard' && (
           <Dashboard 
             searchTerm={searchTerm} setSearchTerm={setSearchTerm}
@@ -475,28 +493,9 @@ export default function App() {
             abrirModalEdicao={abrirModalEdicao}
           />
         )}
-
-        {/* ABA 2: EQUIPE SEPARADA */}
-        {activeTab === 'equipe' && (
-          <Equipe 
-            perfis={perfis}
-            abrirModalNovoPerfil={abrirModalNovoPerfil}
-          />
-        )}
-
-        {/* ABA 3: CLIENTES E METAS SEPARADA */}
-        {activeTab === 'clientes' && (
-          <Clientes 
-            clientes={clientes}
-            metas={metas}
-            abrirModalNovoCliente={abrirModalNovoCliente}
-            abrirModalNovaMeta={abrirModalNovaMeta}
-            abrirModalEdicaoCliente={abrirModalEdicaoCliente}
-            handleDeleteCliente={handleDeleteCliente}
-          />
-        )}
-
-        {/* ABA 4: TRANSPORTADORAS (Ainda no App.tsx, a extrair em breve se desejar) */}
+        {activeTab === 'equipe' && <Equipe perfis={perfis} abrirModalNovoPerfil={abrirModalNovoPerfil} />}
+        {activeTab === 'clientes' && <Clientes clientes={clientes} metas={metas} abrirModalNovoCliente={abrirModalNovoCliente} abrirModalNovaMeta={abrirModalNovaMeta} abrirModalEdicaoCliente={abrirModalEdicaoCliente} handleDeleteCliente={handleDeleteCliente} />}
+        
         {activeTab === 'transportadoras' && (
           <>
             <header className="header">
@@ -532,7 +531,6 @@ export default function App() {
           </>
         )}
 
-        {/* ABA 5: DEVOLUÇÕES (Ainda no App.tsx, a extrair em breve se desejar) */}
         {activeTab === 'devolucoes' && (
           <>
             <header className="header">
@@ -543,20 +541,21 @@ export default function App() {
               <table>
                 <thead>
                   <tr>
-                    <th>Data Coleta</th><th>Cliente</th><th>Transportadora</th><th>NFs Referência</th>
-                    <th>Valor NFs (R$)</th><th>Volume</th><th>Peso (g)</th><th>Custo Reverso (R$)</th><th>Motivo da Devolução</th><th>Status</th>
+                    <th>Data Coleta</th><th>Cliente</th><th>Transportadora</th><th>NF Venda</th><th>NFs Ref. (Devolução)</th>
+                    <th>Valor NFs (R$)</th><th>Volume</th><th>Peso (g)</th><th>Custo Reverso (R$)</th><th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {devolucoes.length === 0 ? ( <tr><td colSpan={10} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma devolução registada.</td></tr> ) : devolucoes.map((dev) => (
                     <tr key={dev.id}>
                       <td>{formatarData(dev.data_coleta)}</td><td style={{ fontWeight: 'bold' }}>{dev.clientes?.nome || '-'}</td>
-                      <td>{dev.transportadoras?.nome || '-'}</td><td style={{ fontWeight: 'bold' }}>{dev.notas_fiscais}</td>
+                      <td>{dev.transportadoras?.nome || '-'}</td>
+                      <td style={{ color: 'var(--munila-blue)', fontWeight: 'bold' }}>{dev.nf_venda || '-'}</td>
+                      <td style={{ fontWeight: 'bold' }}>{dev.notas_fiscais}</td>
                       <td>R$ {Number(dev.valor_total_nf).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td style={{ fontWeight: 'bold' }}>{dev.volume ? `${dev.volume} Cx` : '-'}</td>
                       <td style={{ fontWeight: 'bold' }}>{dev.peso_gramas ? `${dev.peso_gramas}g` : '-'}</td>
                       <td style={{ fontWeight: 'bold', color: '#ef4444' }}>R$ {Number(dev.valor_frete_reverso).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td style={{ maxWidth: '300px', whiteSpace: 'normal', fontSize: '0.85rem' }}>{dev.motivo || '-'}</td>
                       <td><span className="status-badge" style={getStatusColor(dev.status)}>{dev.status}</span></td>
                     </tr>
                   ))}
@@ -566,7 +565,6 @@ export default function App() {
           </>
         )}
 
-        {/* ABA 6: CALCULADORA DPSP */}
         {activeTab === 'dpsp' && (
           <>
             <header className="header">
@@ -601,10 +599,6 @@ export default function App() {
         )}
       </main>
 
-      {/* ========================================== */}
-      {/* 10. JANELAS MODAIS (EXTRAÍDAS)             */}
-      {/* ========================================== */}
-      
       <ModalEntrega 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -625,17 +619,20 @@ export default function App() {
         isEditing={!!editingClienteId}
       />
 
-      {/* MODAIS AINDA INLINE (A Extrair se desejar) */}
       {isDevolucaoModalOpen && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div className="modal-header"><h3>Registrar Logística Reversa</h3><button className="close-btn" onClick={() => setIsDevolucaoModalOpen(false)}><X size={24} /></button></div>
             <form onSubmit={handleDevolucaoSubmit}>
               <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="form-group"><label>NFs de Referência</label><input type="text" className="form-input" placeholder="Ex: 12661, 13196" required value={devolucaoFormData.notas_fiscais} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, notas_fiscais: e.target.value})} /></div>
+                <div className="form-group"><label>NF de Venda (Origem)</label><input type="text" className="form-input" placeholder="Ex: 12500" value={devolucaoFormData.nf_venda} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, nf_venda: e.target.value})} /></div>
+                <div className="form-group"><label>NFs de Referência (Devolução)</label><input type="text" className="form-input" placeholder="Ex: 12661, 13196" required value={devolucaoFormData.notas_fiscais} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, notas_fiscais: e.target.value})} /></div>
                 <div className="form-group"><label>Cliente</label><select className="form-select" required value={devolucaoFormData.cliente_id} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, cliente_id: e.target.value})}><option value="">Selecione...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
                 <div className="form-group"><label>Data da Coleta (Reversa)</label><input type="date" className="form-input" value={devolucaoFormData.data_coleta} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, data_coleta: e.target.value})} /></div>
-                <div className="form-group"><label>Transportadora</label><select className="form-select" required value={devolucaoFormData.transportadora_id} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, transportadora_id: e.target.value})}><option value="">Selecione...</option>{transportadoras.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}</select></div>
+                
+                {/* CAIXA DE SELEÇÃO DA TRANSPORTADORA TOTALMENTE EDITÁVEL PARA O USUÁRIO ESCOLHER */}
+                <div className="form-group"><label>Transportadora</label><select className="form-select" required value={devolucaoFormData.transportadora_id} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, transportadora_id: e.target.value})}><option value="">Selecione a transportadora de devolução...</option>{transportadoras.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}</select></div>
+                
                 <div className="form-group"><label>Valor Total das NFs (R$)</label><input type="number" step="0.01" className="form-input" value={devolucaoFormData.valor_total_nf} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, valor_total_nf: e.target.value})} /></div>
                 <div className="form-group"><label>Custo do Frete Reverso (R$)</label><input type="number" step="0.01" className="form-input" style={{ borderColor: '#ef4444' }} placeholder="Valor que a Munila vai pagar" value={devolucaoFormData.valor_frete_reverso} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, valor_frete_reverso: e.target.value})} /></div>
                 <div className="form-group"><label>Volume Retornando (Cx)</label><input type="number" className="form-input" placeholder="Ex: 2" value={devolucaoFormData.volume} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, volume: e.target.value})} /></div>
@@ -651,14 +648,17 @@ export default function App() {
 
       {isTranspModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="modal-content" style={{ maxWidth: '700px' }}>
             <div className="modal-header"><h3>{editingTranspId ? 'Editar Transportadora' : 'Cadastrar Nova Transportadora'}</h3><button className="close-btn" onClick={() => setIsTranspModalOpen(false)}><X size={24} /></button></div>
             <form onSubmit={handleTranspSubmit}>
-              <div className="modal-body">
-                <div className="form-group"><label>Nome da Transportadora</label><input type="text" className="form-input" placeholder="Ex: BRASPRESS" required value={transpFormData.nome} onChange={(e) => setTranspFormData({...transpFormData, nome: e.target.value})} /></div>
+              <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Nome Principal (Identificação rápida no sistema)</label><input type="text" className="form-input" placeholder="Ex: BRASPRESS" required value={transpFormData.nome} onChange={(e) => setTranspFormData({...transpFormData, nome: e.target.value})} /></div>
+                <div className="form-group"><label>CNPJ / CPF</label><input type="text" className="form-input" placeholder="00.000.000/0000-00" value={transpFormData.cnpj_cpf} onChange={(e) => setTranspFormData({...transpFormData, cnpj_cpf: e.target.value})} /></div>
+                <div className="form-group"><label>Nome Fantasia</label><input type="text" className="form-input" placeholder="Braspress" value={transpFormData.nome_fantasia} onChange={(e) => setTranspFormData({...transpFormData, nome_fantasia: e.target.value})} /></div>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Razão Social</label><input type="text" className="form-input" placeholder="BRASPRESS TRANSPORTES URGENTES LTDA" value={transpFormData.razao_social} onChange={(e) => setTranspFormData({...transpFormData, razao_social: e.target.value})} /></div>
                 <div className="form-group"><label>Telefone / WhatsApp Comercial</label><input type="text" className="form-input" placeholder="Ex: (11) 99999-9999" value={transpFormData.telefone} onChange={(e) => setTranspFormData({...transpFormData, telefone: e.target.value})} /></div>
                 <div className="form-group"><label>E-mail de Contato</label><input type="email" className="form-input" placeholder="contato@transportadora.com" value={transpFormData.email} onChange={(e) => setTranspFormData({...transpFormData, email: e.target.value})} /></div>
-                <div className="form-group"><label>Modal Padrão de Envio</label><select className="form-select" required value={transpFormData.modal_padrao} onChange={(e) => setTranspFormData({...transpFormData, modal_padrao: e.target.value})}><option value="">Selecione...</option><option value="AÉREO">Aéreo</option><option value="RODOVIÁRIO">Rodoviário</option><option value="PAC">PAC</option><option value="SEDEX">Sedex</option></select></div>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Modal Padrão de Envio</label><select className="form-select" required value={transpFormData.modal_padrao} onChange={(e) => setTranspFormData({...transpFormData, modal_padrao: e.target.value})}><option value="">Selecione...</option><option value="AÉREO">Aéreo</option><option value="RODOVIÁRIO">Rodoviário</option><option value="PAC">PAC</option><option value="SEDEX">Sedex</option></select></div>
               </div>
               <div className="modal-footer"><button type="button" className="btn-secondary" onClick={() => setIsTranspModalOpen(false)}>Cancelar</button><button type="submit" className="btn-primary">{editingTranspId ? 'Atualizar Parceiro' : 'Salvar Parceiro'}</button></div>
             </form>
@@ -688,10 +688,6 @@ export default function App() {
             <div className="modal-header"><h3>Cadastrar Novo Funcionário</h3><button className="close-btn" onClick={() => setIsPerfilModalOpen(false)}><X size={24} /></button></div>
             <form onSubmit={handlePerfilSubmit}>
               <div className="modal-body">
-                <div style={{ backgroundColor: '#fffbeb', color: '#b45309', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '0.85rem', border: '1px solid #fde68a' }}>
-                  <strong>⚠️ Lembrete de Segurança:</strong> Por motivos de segurança, a senha de acesso deste funcionário deve ser gerada por si lá no painel do Supabase (Authentication &gt; Add User).
-                  <br/><br/>Este formulário serve apenas para dar o "Crachá" (cargo e permissões) a esse e-mail dentro do sistema.
-                </div>
                 <div className="form-group"><label>Nome Completo</label><input type="text" className="form-input" placeholder="Ex: João Silva" required value={perfilFormData.nome} onChange={(e) => setPerfilFormData({...perfilFormData, nome: e.target.value})} /></div>
                 <div className="form-group"><label>E-mail (Igual ao criado no Supabase)</label><input type="email" className="form-input" placeholder="joao@munila.com.br" required value={perfilFormData.email} onChange={(e) => setPerfilFormData({...perfilFormData, email: e.target.value})} /></div>
                 <div className="form-group"><label>Cargo</label><input type="text" className="form-input" placeholder="Ex: Analista de Logística" required value={perfilFormData.cargo} onChange={(e) => setPerfilFormData({...perfilFormData, cargo: e.target.value})} /></div>
@@ -702,7 +698,6 @@ export default function App() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

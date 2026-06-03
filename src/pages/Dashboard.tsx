@@ -122,34 +122,48 @@ export function Dashboard({
               <tr><td colSpan={20} style={{ textAlign: 'center', padding: '32px' }}>A carregar...</td></tr> 
             ) : entregasFiltradas.length === 0 ? (
               <tr><td colSpan={20} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma entrega encontrada na busca.</td></tr>
-            ) : entregasFiltradas.map((entrega) => (
-              <tr key={entrega.id}>
-                <td>{formatarData(entrega.data_faturamento)}</td>
-                <td>{formatarData(entrega.data_coleta)}</td>
-                <td>{entrega.clientes?.nome || '-'}</td>
-                <td>{entrega.clientes?.cidade || '-'}</td>
-                <td>{entrega.clientes?.uf || '-'}</td>
-                <td style={{ fontWeight: 'bold' }}>{entrega.volume ? `${entrega.volume} Cx` : (entrega.volume_peso || '-')}</td>
-                <td style={{ fontWeight: 'bold' }}>{entrega.peso_gramas ? `${entrega.peso_gramas}g` : '-'}</td>
-                <td style={{ fontWeight: 'bold' }}>{entrega.nota_fiscal}</td>
-                <td>R$ {Number(entrega.valor_nf).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td>{entrega.transportadoras?.nome || '-'}</td>
-                <td>{entrega.transportadoras?.modal_padrao || '-'}</td>
-                <td>R$ {Number(entrega.valor_frete).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td style={{ fontWeight: 'bold', color: '#0095DA' }}>{calcularPorcentagemFrete(entrega.valor_frete, entrega.valor_nf)}</td>
-                <td>{entrega.tem_agendamento ? 'SIM' : 'NÃO'}</td>
-                <td>{formatarData(entrega.data_previsao)}</td>
-                <td>{formatarData(entrega.data_entrega_agendamento)}</td>
-                <td>{calcularDiasEntrega(entrega.data_coleta, entrega.data_entrega_agendamento)}</td>
-                <td><span className="status-badge" style={getStatusColor(entrega.status)}>{entrega.status}</span></td>
-                <td>{entrega.observacoes || '-'}</td>
-                <td style={{ textAlign: 'center' }}>
-                  <button onClick={() => abrirModalEdicao(entrega)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }} title="Editar Entrega">
-                    <Edit size={18} />
-                  </button>
-                </td>
-              </tr>
-            ))}
+            ) : entregasFiltradas.map((entrega) => {
+              
+              // TRATAMENTO PARA PEGAR O DADO DA ENTREGA, OU O DADO ANTIGO COMO BACKUP
+              const cidadeDisplay = entrega.cidade_destino ? entrega.cidade_destino.split('-')[0]?.trim() : (entrega.clientes?.cidade || '-');
+              const ufDisplay = entrega.cidade_destino && entrega.cidade_destino.includes('-') ? entrega.cidade_destino.split('-')[1]?.trim() : (entrega.clientes?.uf || '-');
+              const modalDisplay = entrega.modal_frete || entrega.transportadoras?.modal_padrao || '-';
+
+              return (
+                <tr key={entrega.id}>
+                  <td>{formatarData(entrega.data_faturamento)}</td>
+                  <td>{formatarData(entrega.data_coleta)}</td>
+                  <td>{entrega.clientes?.nome || '-'}</td>
+                  
+                  {/* NOVAS COLUNAS COM DADOS ESPECÍFICOS */}
+                  <td style={{ fontWeight: 'bold' }}>{cidadeDisplay}</td>
+                  <td style={{ fontWeight: 'bold' }}>{ufDisplay}</td>
+
+                  <td style={{ fontWeight: 'bold' }}>{entrega.volume ? `${entrega.volume} Cx` : (entrega.volume_peso || '-')}</td>
+                  <td style={{ fontWeight: 'bold' }}>{entrega.peso_gramas ? `${entrega.peso_gramas}g` : '-'}</td>
+                  <td style={{ fontWeight: 'bold' }}>{entrega.nota_fiscal}</td>
+                  <td>R$ {Number(entrega.valor_nf).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td>{entrega.transportadoras?.nome || '-'}</td>
+                  
+                  {/* NOVA COLUNA MODAL */}
+                  <td>{modalDisplay}</td>
+
+                  <td>R$ {Number(entrega.valor_frete).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td style={{ fontWeight: 'bold', color: '#0095DA' }}>{calcularPorcentagemFrete(entrega.valor_frete, entrega.valor_nf)}</td>
+                  <td>{entrega.tem_agendamento ? 'SIM' : 'NÃO'}</td>
+                  <td>{formatarData(entrega.data_previsao)}</td>
+                  <td>{formatarData(entrega.data_entrega_agendamento)}</td>
+                  <td>{calcularDiasEntrega(entrega.data_coleta, entrega.data_entrega_agendamento)}</td>
+                  <td><span className="status-badge" style={getStatusColor(entrega.status)}>{entrega.status}</span></td>
+                  <td>{entrega.observacoes || '-'}</td>
+                  <td style={{ textAlign: 'center' }}>
+                    <button onClick={() => abrirModalEdicao(entrega)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }} title="Editar Entrega">
+                      <Edit size={18} />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

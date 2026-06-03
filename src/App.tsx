@@ -49,20 +49,18 @@ export default function App() {
   });
 
   const [isDevolucaoModalOpen, setIsDevolucaoModalOpen] = useState(false);
-  // ADICIONADO NF_VENDA AQUI
+  // CAMPO ATUALIZADO: Usamos transportadora_cliente em vez de transportadora_id
   const [devolucaoFormData, setDevolucaoFormData] = useState({
-    data_coleta: '', cliente_id: '', transportadora_id: '', nf_venda: '', notas_fiscais: '',
+    data_coleta: '', cliente_id: '', transportadora_cliente: '', nf_venda: '', notas_fiscais: '',
     valor_total_nf: '', volume: '', peso_gramas: '', valor_frete_reverso: '', motivo: '', status: 'Aguardando Chegada'
   });
 
   const [isTranspModalOpen, setIsTranspModalOpen] = useState(false);
   const [editingTranspId, setEditingTranspId] = useState<string | null>(null);
-  // ADICIONADO NOVOS CAMPOS NA TRANSP
   const [transpFormData, setTranspFormData] = useState({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', modal_padrao: '', telefone: '', email: '' });
 
   const [isClienteModalOpen, setIsClienteModalOpen] = useState(false);
   const [editingClienteId, setEditingClienteId] = useState<string | null>(null);
-  // ADICIONADO NOVOS CAMPOS NO CLIENTE
   const [clienteFormData, setClienteFormData] = useState({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', cidade: '', uf: '', telefone: '', email: '' });
   
   const [isMetaModalOpen, setIsMetaModalOpen] = useState(false);
@@ -185,7 +183,7 @@ export default function App() {
     setIsModalOpen(true);
   }
 
-  function abrirModalNovaDevolucao() { setDevolucaoFormData({ data_coleta: '', cliente_id: '', transportadora_id: '', nf_venda: '', notas_fiscais: '', valor_total_nf: '', volume: '', peso_gramas: '', valor_frete_reverso: '', motivo: '', status: 'Aguardando Chegada' }); setIsDevolucaoModalOpen(true); }
+  function abrirModalNovaDevolucao() { setDevolucaoFormData({ data_coleta: '', cliente_id: '', transportadora_cliente: '', nf_venda: '', notas_fiscais: '', valor_total_nf: '', volume: '', peso_gramas: '', valor_frete_reverso: '', motivo: '', status: 'Aguardando Chegada' }); setIsDevolucaoModalOpen(true); }
   function abrirModalNovaTransportadora() { setEditingTranspId(null); setTranspFormData({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', modal_padrao: '', telefone: '', email: '' }); setIsTranspModalOpen(true); }
   
   function abrirModalEdicaoTransportadora(transp: any) { 
@@ -261,11 +259,18 @@ export default function App() {
     e.preventDefault();
     try {
       const payload = {
-        data_coleta: devolucaoFormData.data_coleta || null, cliente_id: devolucaoFormData.cliente_id, transportadora_id: devolucaoFormData.transportadora_id,
-        nf_venda: devolucaoFormData.nf_venda || null, // CAMPO NOVO ADICIONADO NO PAYLOAD
-        notas_fiscais: devolucaoFormData.notas_fiscais, valor_total_nf: parseFloat(devolucaoFormData.valor_total_nf) || 0,
-        volume: parseInt(devolucaoFormData.volume) || null, peso_gramas: parseFloat(devolucaoFormData.peso_gramas) || null,
-        valor_frete_reverso: parseFloat(devolucaoFormData.valor_frete_reverso) || 0, motivo: devolucaoFormData.motivo, status: devolucaoFormData.status
+        data_coleta: devolucaoFormData.data_coleta || null, 
+        cliente_id: devolucaoFormData.cliente_id, 
+        transportadora_cliente: devolucaoFormData.transportadora_cliente.toUpperCase(), // CAMPO TEXTO NOVO
+        transportadora_id: null, // IGNORAMOS A ID OFICIAL
+        nf_venda: devolucaoFormData.nf_venda || null, 
+        notas_fiscais: devolucaoFormData.notas_fiscais, 
+        valor_total_nf: parseFloat(devolucaoFormData.valor_total_nf) || 0,
+        volume: parseInt(devolucaoFormData.volume) || null, 
+        peso_gramas: parseFloat(devolucaoFormData.peso_gramas) || null,
+        valor_frete_reverso: parseFloat(devolucaoFormData.valor_frete_reverso) || 0, 
+        motivo: devolucaoFormData.motivo, 
+        status: devolucaoFormData.status
       };
       const { data, error } = await supabase.from('devolucoes').insert([payload]).select('*, clientes (nome), transportadoras (nome)');
       if (error) throw error;
@@ -549,7 +554,10 @@ export default function App() {
                   {devolucoes.length === 0 ? ( <tr><td colSpan={10} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma devolução registada.</td></tr> ) : devolucoes.map((dev) => (
                     <tr key={dev.id}>
                       <td>{formatarData(dev.data_coleta)}</td><td style={{ fontWeight: 'bold' }}>{dev.clientes?.nome || '-'}</td>
-                      <td>{dev.transportadoras?.nome || '-'}</td>
+                      
+                      {/* LÓGICA DE EXIBIÇÃO ATUALIZADA AQUI: MOSTRA O TEXTO LIVRE, SE NÃO TIVER MOSTRA O NOME DA ANTIGA */}
+                      <td>{dev.transportadora_cliente || dev.transportadoras?.nome || '-'}</td>
+                      
                       <td style={{ color: 'var(--munila-blue)', fontWeight: 'bold' }}>{dev.nf_venda || '-'}</td>
                       <td style={{ fontWeight: 'bold' }}>{dev.notas_fiscais}</td>
                       <td>R$ {Number(dev.valor_total_nf).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
@@ -630,8 +638,8 @@ export default function App() {
                 <div className="form-group"><label>Cliente</label><select className="form-select" required value={devolucaoFormData.cliente_id} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, cliente_id: e.target.value})}><option value="">Selecione...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
                 <div className="form-group"><label>Data da Coleta (Reversa)</label><input type="date" className="form-input" value={devolucaoFormData.data_coleta} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, data_coleta: e.target.value})} /></div>
                 
-                {/* CAIXA DE SELEÇÃO DA TRANSPORTADORA TOTALMENTE EDITÁVEL PARA O USUÁRIO ESCOLHER */}
-                <div className="form-group"><label>Transportadora</label><select className="form-select" required value={devolucaoFormData.transportadora_id} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, transportadora_id: e.target.value})}><option value="">Selecione a transportadora de devolução...</option>{transportadoras.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}</select></div>
+                {/* CAMPO DE TEXTO LIVRE PARA O USUÁRIO DIGITAR A TRANSPORTADORA */}
+                <div className="form-group"><label>Transportadora</label><input type="text" className="form-input" placeholder="Ex: Correios do Cliente, Loggi, etc..." required value={devolucaoFormData.transportadora_cliente} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, transportadora_cliente: e.target.value})} /></div>
                 
                 <div className="form-group"><label>Valor Total das NFs (R$)</label><input type="number" step="0.01" className="form-input" value={devolucaoFormData.valor_total_nf} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, valor_total_nf: e.target.value})} /></div>
                 <div className="form-group"><label>Custo do Frete Reverso (R$)</label><input type="number" step="0.01" className="form-input" style={{ borderColor: '#ef4444' }} placeholder="Valor que a Munila vai pagar" value={devolucaoFormData.valor_frete_reverso} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, valor_frete_reverso: e.target.value})} /></div>

@@ -45,7 +45,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
     }
   };
 
-  // HANDLER INTELIGENTE DO CLIENTE (Auto-preenche a cidade, mas deixa editável)
   const handleClienteChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const clienteId = e.target.value;
     const clienteSelecionado = clientes.find(c => c.id === clienteId);
@@ -56,7 +55,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
     });
   };
 
-  // HANDLER INTELIGENTE DA TRANSPORTADORA (Auto-preenche o modal, mas deixa editável)
   const handleTranspChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const transpId = e.target.value;
     const transpSelecionada = transportadoras.find(t => t.id === transpId);
@@ -89,7 +87,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               </select>
             </div>
 
-            {/* AQUI ESTÃO OS CAMPOS AGORA EDITÁVEIS */}
             <div className="form-group">
               <label>Cidade / UF do Destino</label>
               <input type="text" className="form-input" value={formData.cidade_destino} onChange={(e) => setFormData({...formData, cidade_destino: e.target.value})} placeholder="Ex: SÃO PAULO - SP" />
@@ -139,9 +136,11 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               <label>Volume (Qtd. Caixas)</label>
               <input type="number" className="form-input" placeholder="Ex: 5" value={formData.volume} onChange={(e) => setFormData({...formData, volume: e.target.value})} />
             </div>
+            
+            {/* AQUI ESTÁ A ALTERAÇÃO PARA KG */}
             <div className="form-group">
-              <label>Peso Total (em Gramas)</label>
-              <input type="number" step="0.01" className="form-input" placeholder="Ex: 2500" value={formData.peso_gramas} onChange={(e) => setFormData({...formData, peso_gramas: e.target.value})} />
+              <label>Peso Total (em Kg)</label>
+              <input type="number" step="0.01" className="form-input" placeholder="Ex: 2.5" value={formData.peso_kg} onChange={(e) => setFormData({...formData, peso_kg: e.target.value})} />
             </div>
 
             <div className="form-group">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Edit, Trash2, Search } from 'lucide-react';
 
 interface ClientesProps {

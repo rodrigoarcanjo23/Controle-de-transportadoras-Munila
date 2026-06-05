@@ -111,7 +111,8 @@ export function Dashboard({
           <thead>
             <tr>
               <th>Data Fat.</th><th>Coleta</th><th>Cliente</th><th>Cidade</th><th>UF</th>
-              <th>Volume</th><th>Peso (g)</th><th>Nº NF</th><th>Valor NF</th><th>Transportadora</th><th>Modal</th>
+              {/* CABEÇALHO ALTERADO PARA KG */}
+              <th>Volume</th><th>Peso (Kg)</th><th>Nº NF</th><th>Valor NF</th><th>Transportadora</th><th>Modal</th>
               <th>Valor Frete</th><th>% Frete</th><th>Agendamento?</th><th>Previsão</th>
               <th>Dt Entrega</th><th>Dias</th><th>Status</th><th>Obs</th>
               <th style={{ textAlign: 'center' }}>Ações</th>
@@ -124,7 +125,6 @@ export function Dashboard({
               <tr><td colSpan={20} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma entrega encontrada na busca.</td></tr>
             ) : entregasFiltradas.map((entrega) => {
               
-              // TRATAMENTO PARA PEGAR O DADO DA ENTREGA, OU O DADO ANTIGO COMO BACKUP
               const cidadeDisplay = entrega.cidade_destino ? entrega.cidade_destino.split('-')[0]?.trim() : (entrega.clientes?.cidade || '-');
               const ufDisplay = entrega.cidade_destino && entrega.cidade_destino.includes('-') ? entrega.cidade_destino.split('-')[1]?.trim() : (entrega.clientes?.uf || '-');
               const modalDisplay = entrega.modal_frete || entrega.transportadoras?.modal_padrao || '-';
@@ -135,17 +135,18 @@ export function Dashboard({
                   <td>{formatarData(entrega.data_coleta)}</td>
                   <td>{entrega.clientes?.nome || '-'}</td>
                   
-                  {/* NOVAS COLUNAS COM DADOS ESPECÍFICOS */}
                   <td style={{ fontWeight: 'bold' }}>{cidadeDisplay}</td>
                   <td style={{ fontWeight: 'bold' }}>{ufDisplay}</td>
 
                   <td style={{ fontWeight: 'bold' }}>{entrega.volume ? `${entrega.volume} Cx` : (entrega.volume_peso || '-')}</td>
-                  <td style={{ fontWeight: 'bold' }}>{entrega.peso_gramas ? `${entrega.peso_gramas}g` : '-'}</td>
+                  
+                  {/* COLUNA ALTERADA PARA KG */}
+                  <td style={{ fontWeight: 'bold' }}>{entrega.peso_kg ? `${entrega.peso_kg} Kg` : '-'}</td>
+                  
                   <td style={{ fontWeight: 'bold' }}>{entrega.nota_fiscal}</td>
                   <td>R$ {Number(entrega.valor_nf).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                   <td>{entrega.transportadoras?.nome || '-'}</td>
                   
-                  {/* NOVA COLUNA MODAL */}
                   <td>{modalDisplay}</td>
 
                   <td>R$ {Number(entrega.valor_frete).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>

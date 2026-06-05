@@ -111,7 +111,6 @@ export function Dashboard({
           <thead>
             <tr>
               <th>Data Fat.</th><th>Coleta</th><th>Cliente</th><th>Cidade</th><th>UF</th>
-              {/* CABEÇALHO ALTERADO PARA KG */}
               <th>Volume</th><th>Peso (Kg)</th><th>Nº NF</th><th>Valor NF</th><th>Transportadora</th><th>Modal</th>
               <th>Valor Frete</th><th>% Frete</th><th>Agendamento?</th><th>Previsão</th>
               <th>Dt Entrega</th><th>Dias</th><th>Status</th><th>Obs</th>
@@ -125,8 +124,8 @@ export function Dashboard({
               <tr><td colSpan={20} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma entrega encontrada na busca.</td></tr>
             ) : entregasFiltradas.map((entrega) => {
               
-              const cidadeDisplay = entrega.cidade_destino ? entrega.cidade_destino.split('-')[0]?.trim() : (entrega.clientes?.cidade || '-');
-              const ufDisplay = entrega.cidade_destino && entrega.cidade_destino.includes('-') ? entrega.cidade_destino.split('-')[1]?.trim() : (entrega.clientes?.uf || '-');
+              const cidadeDisplay = entrega.cidade_destino || entrega.clientes?.cidade || '-';
+              const ufDisplay = entrega.uf_destino || entrega.clientes?.uf || '-';
               const modalDisplay = entrega.modal_frete || entrega.transportadoras?.modal_padrao || '-';
 
               return (
@@ -139,8 +138,6 @@ export function Dashboard({
                   <td style={{ fontWeight: 'bold' }}>{ufDisplay}</td>
 
                   <td style={{ fontWeight: 'bold' }}>{entrega.volume ? `${entrega.volume} Cx` : (entrega.volume_peso || '-')}</td>
-                  
-                  {/* COLUNA ALTERADA PARA KG */}
                   <td style={{ fontWeight: 'bold' }}>{entrega.peso_kg ? `${entrega.peso_kg} Kg` : '-'}</td>
                   
                   <td style={{ fontWeight: 'bold' }}>{entrega.nota_fiscal}</td>

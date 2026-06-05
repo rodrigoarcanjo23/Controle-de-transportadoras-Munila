@@ -42,16 +42,16 @@ export default function App() {
   
   const [formData, setFormData] = useState({
     nota_fiscal: '', cliente_id: '', transportadora_id: '', 
-    cidade_destino: '', modal_frete: '', 
+    cidade_destino: '', uf_destino: '', modal_frete: '', 
     data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', 
-    volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', // MUDADO AQUI
+    volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', 
     data_entrega_agendamento: '', observacoes: '', status: 'Pendente'
   });
 
   const [isDevolucaoModalOpen, setIsDevolucaoModalOpen] = useState(false);
   const [devolucaoFormData, setDevolucaoFormData] = useState({
     data_coleta: '', cliente_id: '', transportadora_cliente: '', nf_venda: '', notas_fiscais: '',
-    valor_total_nf: '', volume: '', peso_kg: '', valor_frete_reverso: '', motivo: '', status: 'Aguardando Chegada' // MUDADO AQUI
+    valor_total_nf: '', volume: '', peso_kg: '', valor_frete_reverso: '', motivo: '', status: 'Aguardando Chegada'
   });
 
   const [isTranspModalOpen, setIsTranspModalOpen] = useState(false);
@@ -161,9 +161,9 @@ export default function App() {
     setEditingId(null);
     setFormData({ 
       nota_fiscal: '', cliente_id: '', transportadora_id: '', 
-      cidade_destino: '', modal_frete: '', 
+      cidade_destino: '', uf_destino: '', modal_frete: '', 
       data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', 
-      volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', // MUDADO AQUI
+      volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', 
       data_entrega_agendamento: '', observacoes: '', status: 'Pendente' 
     });
     setIsModalOpen(true);
@@ -173,16 +173,16 @@ export default function App() {
     setEditingId(entrega.id);
     setFormData({
       nota_fiscal: entrega.nota_fiscal, cliente_id: entrega.cliente_id, transportadora_id: entrega.transportadora_id,
-      cidade_destino: entrega.cidade_destino || '', modal_frete: entrega.modal_frete || '',
+      cidade_destino: entrega.cidade_destino || '', uf_destino: entrega.uf_destino || '', modal_frete: entrega.modal_frete || '',
       data_faturamento: entrega.data_faturamento || '', data_coleta: entrega.data_coleta || '', valor_nf: entrega.valor_nf?.toString() || '',
-      valor_frete: entrega.valor_frete?.toString() || '', volume: entrega.volume?.toString() || '', peso_kg: entrega.peso_kg?.toString() || '', // MUDADO AQUI
+      valor_frete: entrega.valor_frete?.toString() || '', volume: entrega.volume?.toString() || '', peso_kg: entrega.peso_kg?.toString() || '', 
       tem_agendamento: entrega.tem_agendamento || false, data_previsao: entrega.data_previsao || '', data_entrega_agendamento: entrega.data_entrega_agendamento || '', 
       observacoes: entrega.observacoes || '', status: entrega.status
     });
     setIsModalOpen(true);
   }
 
-  function abrirModalNovaDevolucao() { setDevolucaoFormData({ data_coleta: '', cliente_id: '', transportadora_cliente: '', nf_venda: '', notas_fiscais: '', valor_total_nf: '', volume: '', peso_kg: '', valor_frete_reverso: '', motivo: '', status: 'Aguardando Chegada' }); setIsDevolucaoModalOpen(true); } // MUDADO AQUI
+  function abrirModalNovaDevolucao() { setDevolucaoFormData({ data_coleta: '', cliente_id: '', transportadora_cliente: '', nf_venda: '', notas_fiscais: '', valor_total_nf: '', volume: '', peso_kg: '', valor_frete_reverso: '', motivo: '', status: 'Aguardando Chegada' }); setIsDevolucaoModalOpen(true); }
   function abrirModalNovaTransportadora() { setEditingTranspId(null); setTranspFormData({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', modal_padrao: '', telefone: '', email: '' }); setIsTranspModalOpen(true); }
   
   function abrirModalEdicaoTransportadora(transp: any) { 
@@ -234,9 +234,9 @@ export default function App() {
     
     const payload = {
       nota_fiscal: formData.nota_fiscal, cliente_id: formData.cliente_id, transportadora_id: formData.transportadora_id,
-      cidade_destino: formData.cidade_destino || null, modal_frete: formData.modal_frete || null,
+      cidade_destino: formData.cidade_destino || null, uf_destino: formData.uf_destino || null, modal_frete: formData.modal_frete || null,
       data_faturamento: formData.data_faturamento || null, data_coleta: formData.data_coleta || null, valor_nf: nf,
-      valor_frete: frete, volume: parseInt(formData.volume) || null, peso_kg: parseFloat(formData.peso_kg) || null, // MUDADO AQUI
+      valor_frete: frete, volume: parseInt(formData.volume) || null, peso_kg: parseFloat(formData.peso_kg) || null,
       tem_agendamento: formData.tem_agendamento, data_previsao: formData.data_previsao || null, data_entrega_agendamento: formData.data_entrega_agendamento || null,
       observacoes: formData.observacoes, status: formData.status
     };
@@ -266,7 +266,7 @@ export default function App() {
         notas_fiscais: devolucaoFormData.notas_fiscais, 
         valor_total_nf: parseFloat(devolucaoFormData.valor_total_nf) || 0,
         volume: parseInt(devolucaoFormData.volume) || null, 
-        peso_kg: parseFloat(devolucaoFormData.peso_kg) || null, // MUDADO AQUI
+        peso_kg: parseFloat(devolucaoFormData.peso_kg) || null,
         valor_frete_reverso: parseFloat(devolucaoFormData.valor_frete_reverso) || 0, 
         motivo: devolucaoFormData.motivo, 
         status: devolucaoFormData.status
@@ -426,16 +426,15 @@ export default function App() {
 
   const exportarParaExcel = () => {
     if (entregasFiltradas.length === 0) { alert("Não há dados para exportar."); return; }
-    // CABEÇALHO ATUALIZADO PARA KG
     const cabecalho = ["Data Fat.", "Coleta", "Cliente", "Cidade", "UF", "Volume (Cx)", "Peso (Kg)", "Nº NF", "Valor NF", "Transportadora", "Modal", "Valor Frete", "% Frete", "Agendamento", "Previsão", "Dt Entrega", "Dias", "Status", "Observações"].join(";");
     const linhas = entregasFiltradas.map(e => {
-      const cidadeFormatada = e.cidade_destino ? e.cidade_destino.split('-')[0]?.trim() : (e.clientes?.cidade || '-');
-      const ufFormatada = e.cidade_destino && e.cidade_destino.includes('-') ? e.cidade_destino.split('-')[1]?.trim() : (e.clientes?.uf || '-');
+      const cidadeFormatada = e.cidade_destino || e.clientes?.cidade || '-';
+      const ufFormatada = e.uf_destino || e.clientes?.uf || '-';
       const modalFormatado = e.modal_frete || e.transportadoras?.modal_padrao || '-';
 
       return [
         formatarData(e.data_faturamento), formatarData(e.data_coleta), e.clientes?.nome || '-', cidadeFormatada, ufFormatada,
-        e.volume || e.volume_peso || '-', e.peso_kg || '-', e.nota_fiscal, e.valor_nf?.toString().replace('.', ',') || '0,00', e.transportadoras?.nome || '-', modalFormatado, // MUDADO AQUI
+        e.volume || e.volume_peso || '-', e.peso_kg || '-', e.nota_fiscal, e.valor_nf?.toString().replace('.', ',') || '0,00', e.transportadoras?.nome || '-', modalFormatado,
         e.valor_frete?.toString().replace('.', ',') || '0,00', calcularPorcentagemFrete(e.valor_frete, e.valor_nf), e.tem_agendamento ? 'SIM' : 'NÃO',
         formatarData(e.data_previsao), formatarData(e.data_entrega_agendamento), calcularDiasEntrega(e.data_coleta, e.data_entrega_agendamento).replace(' dias', ''), e.status, e.observacoes || '-'
       ].join(";");
@@ -547,7 +546,6 @@ export default function App() {
                 <thead>
                   <tr>
                     <th>Data Coleta</th><th>Cliente</th><th>Transportadora</th><th>NF Venda</th><th>NFs Ref. (Devolução)</th>
-                    {/* TABELA DE DEVOLUÇÕES ALTERADA PARA KG */}
                     <th>Valor NFs (R$)</th><th>Volume</th><th>Peso (Kg)</th><th>Custo Reverso (R$)</th><th>Status</th>
                   </tr>
                 </thead>
@@ -560,10 +558,7 @@ export default function App() {
                       <td style={{ fontWeight: 'bold' }}>{dev.notas_fiscais}</td>
                       <td>R$ {Number(dev.valor_total_nf).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td style={{ fontWeight: 'bold' }}>{dev.volume ? `${dev.volume} Cx` : '-'}</td>
-                      
-                      {/* CÉLULA ALTERADA PARA KG */}
                       <td style={{ fontWeight: 'bold' }}>{dev.peso_kg ? `${dev.peso_kg} Kg` : '-'}</td>
-                      
                       <td style={{ fontWeight: 'bold', color: '#ef4444' }}>R$ {Number(dev.valor_frete_reverso).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                       <td><span className="status-badge" style={getStatusColor(dev.status)}>{dev.status}</span></td>
                     </tr>
@@ -644,10 +639,7 @@ export default function App() {
                 <div className="form-group"><label>Valor Total das NFs (R$)</label><input type="number" step="0.01" className="form-input" value={devolucaoFormData.valor_total_nf} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, valor_total_nf: e.target.value})} /></div>
                 <div className="form-group"><label>Custo do Frete Reverso (R$)</label><input type="number" step="0.01" className="form-input" style={{ borderColor: '#ef4444' }} placeholder="Valor que a Munila vai pagar" value={devolucaoFormData.valor_frete_reverso} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, valor_frete_reverso: e.target.value})} /></div>
                 <div className="form-group"><label>Volume Retornando (Cx)</label><input type="number" className="form-input" placeholder="Ex: 2" value={devolucaoFormData.volume} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, volume: e.target.value})} /></div>
-                
-                {/* CAMPO DE DEVOLUÇÃO MUDADO PARA KG */}
                 <div className="form-group"><label>Peso Retornando (Kg)</label><input type="number" step="0.01" className="form-input" placeholder="Ex: 1.5" value={devolucaoFormData.peso_kg} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, peso_kg: e.target.value})} /></div>
-                
                 <div className="form-group"><label>Status da Devolução</label><select className="form-select" value={devolucaoFormData.status} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, status: e.target.value})}><option value="Aguardando Chegada">Aguardando Chegada</option><option value="Em Transporte">Em Transporte</option><option value="Chegou no Galpão">Chegou no Galpão</option></select></div>
               </div>
               <div className="modal-body" style={{ paddingTop: 0 }}><div className="form-group"><label>Motivo da Devolução / Avaria</label><textarea className="form-input" rows={3} placeholder="Descreva o motivo (ex: validade curta, caixa rasgada, cliente recusou...)" value={devolucaoFormData.motivo} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, motivo: e.target.value})} /></div></div>

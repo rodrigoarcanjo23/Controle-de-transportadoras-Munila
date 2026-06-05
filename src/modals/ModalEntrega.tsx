@@ -48,10 +48,13 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
   const handleClienteChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const clienteId = e.target.value;
     const clienteSelecionado = clientes.find(c => c.id === clienteId);
+    
+    // Agora preenchemos cidade e UF separadamente
     setFormData({
       ...formData,
       cliente_id: clienteId,
-      cidade_destino: clienteSelecionado ? `${clienteSelecionado.cidade} - ${clienteSelecionado.uf}` : formData.cidade_destino
+      cidade_destino: clienteSelecionado ? clienteSelecionado.cidade : formData.cidade_destino,
+      uf_destino: clienteSelecionado ? clienteSelecionado.uf : formData.uf_destino
     });
   };
 
@@ -64,6 +67,9 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
       modal_frete: transpSelecionada?.modal_padrao || formData.modal_frete
     });
   };
+
+  // Lista de estados do Brasil para o Select
+  const estadosBR = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 
   return (
     <div className="modal-overlay">
@@ -87,10 +93,18 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               </select>
             </div>
 
+            {/* AQUI FIZ A DIVISÃO CIDADE E UF NO MESMO BLOCO */}
             <div className="form-group">
-              <label>Cidade / UF do Destino</label>
-              <input type="text" className="form-input" value={formData.cidade_destino} onChange={(e) => setFormData({...formData, cidade_destino: e.target.value})} placeholder="Ex: SÃO PAULO - SP" />
+              <label>Cidade e UF de Destino</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input type="text" className="form-input" style={{ flex: 2 }} value={formData.cidade_destino} onChange={(e) => setFormData({...formData, cidade_destino: e.target.value})} placeholder="Ex: SÃO PAULO" />
+                <select className="form-select" style={{ flex: 1 }} value={formData.uf_destino} onChange={(e) => setFormData({...formData, uf_destino: e.target.value})}>
+                  <option value="">UF</option>
+                  {estadosBR.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                </select>
+              </div>
             </div>
+
             <div className="form-group">
               <label>Transportadora</label>
               <select className="form-select" required value={formData.transportadora_id} onChange={handleTranspChange}>
@@ -136,8 +150,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               <label>Volume (Qtd. Caixas)</label>
               <input type="number" className="form-input" placeholder="Ex: 5" value={formData.volume} onChange={(e) => setFormData({...formData, volume: e.target.value})} />
             </div>
-            
-            {/* AQUI ESTÁ A ALTERAÇÃO PARA KG */}
             <div className="form-group">
               <label>Peso Total (em Kg)</label>
               <input type="number" step="0.01" className="form-input" placeholder="Ex: 2.5" value={formData.peso_kg} onChange={(e) => setFormData({...formData, peso_kg: e.target.value})} />

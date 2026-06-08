@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit, DollarSign, TrendingUp, AlertCircle, Target, Package, Scale } from 'lucide-react';
+import { Edit, Trash2, DollarSign, TrendingUp, AlertCircle, Target, Package, Scale } from 'lucide-react';
 import { Header } from '../components/Header';
 
 interface DashboardProps {
@@ -35,6 +35,7 @@ interface DashboardProps {
   calcularDiasEntrega: (coleta: string, entrega: string) => string;
   getStatusColor: (status: string) => React.CSSProperties;
   abrirModalEdicao: (entrega: any) => void;
+  handleDeleteEntrega: (id: string) => void; // NOVA FUNÇÃO NO PROPS
 }
 
 export function Dashboard({
@@ -46,10 +47,9 @@ export function Dashboard({
   faturamentoTotal, progressoMeta, freteTotal, freteMedio, atrasados,
   volumeTotal, pesoTotal,
   loading, entregasFiltradas, formatarData, calcularPorcentagemFrete,
-  calcularDiasEntrega, getStatusColor, abrirModalEdicao
+  calcularDiasEntrega, getStatusColor, abrirModalEdicao, handleDeleteEntrega // DECLARADA AQUI
 }: DashboardProps) {
 
-  // ESTILOS AVANÇADOS PARA CONGELAR TÍTULOS E AÇÕES
   const thStyle: React.CSSProperties = { 
     position: 'sticky', top: 0, backgroundColor: '#f8fafc', zIndex: 10, 
     borderBottom: '2px solid #e2e8f0', padding: '12px 16px', color: '#475569', 
@@ -68,10 +68,8 @@ export function Dashboard({
   };
 
   return (
-    // CAIXA MESTRA DO DASHBOARD: Trava a tela e impede que ela sangre para fora do main-content
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, width: '100%', height: '100%', minHeight: 0, overflow: 'hidden' }}>
       
-      {/* HEADER (flexShrink: 0 impede que ele seja esmagado) */}
       <div style={{ flexShrink: 0 }}>
         <Header 
           searchTerm={searchTerm} setSearchTerm={setSearchTerm}
@@ -88,7 +86,6 @@ export function Dashboard({
         />
       </div>
 
-      {/* CARTÕES: Ajustados para caberem todos numa linha usando CSS Grid responsivo */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '16px', marginBottom: '24px', flexShrink: 0 }}>
         
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
@@ -154,7 +151,6 @@ export function Dashboard({
 
       </div>
 
-      {/* O SEGREDO DO SCROLL: O flex: 1 com minHeight: 0 obriga a tabela a parar de crescer exatamente antes de tocar no rodapé da página! */}
       <div className="table-container" style={{ flex: 1, minHeight: 0, overflow: 'auto', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'white', position: 'relative' }}>
         <table style={{ width: '100%', minWidth: '1600px', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
@@ -227,10 +223,16 @@ export function Dashboard({
                   <td style={tdStyle}><span className="status-badge" style={getStatusColor(entrega.status)}>{entrega.status}</span></td>
                   <td style={{ ...tdStyle, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={entrega.observacoes}>{entrega.observacoes || '-'}</td>
                   
+                  {/* COLUNA DE AÇÕES COM OS DOIS BOTÕES (Editar e Excluir) */}
                   <td style={tdAcoesStyle}>
-                    <button onClick={() => abrirModalEdicao(entrega)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }} title="Editar Entrega">
-                      <Edit size={18} />
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                      <button onClick={() => abrirModalEdicao(entrega)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }} title="Editar Entrega">
+                        <Edit size={18} />
+                      </button>
+                      <button onClick={() => handleDeleteEntrega(entrega.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '4px' }} title="Excluir Entrega">
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );

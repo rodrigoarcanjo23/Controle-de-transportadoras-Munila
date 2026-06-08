@@ -18,22 +18,54 @@
 body {
   background-color: var(--bg-color);
   color: var(--text-main);
-  overflow: hidden;
+  overflow: hidden; /* Trava o scroll global */
+  height: 100vh;
+  width: 100vw;
 }
 
 .app-container {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
 }
 
-/* Menu Lateral */
+/* ==========================================
+   PERSONALIZAÇÃO DA BARRA DE ROLAGEM
+   Deixa a barra mais grossa e fácil de clicar!
+   ========================================== */
+::-webkit-scrollbar {
+  width: 12px;  /* Largura da barra vertical */
+  height: 14px; /* Altura da barra horizontal (mais grossa para arrastar fácil) */
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 8px;
+  margin: 4px; /* Evita que a barra toque nas bordas da tabela */
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 8px;
+  border: 3px solid #f1f5f9; /* Cria um "espaço" em volta para parecer menor e mais elegante */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8; /* Escurece quando passa o rato */
+}
+
+/* ==========================================
+   MENU LATERAL
+   ========================================== */
 .sidebar {
   width: 260px;
+  flex-shrink: 0; /* Impede o menu de encolher */
   background-color: white;
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  z-index: 10;
+  z-index: 20;
 }
 
 .sidebar-header {
@@ -85,20 +117,24 @@ body {
   font-weight: 600;
 }
 
-/* Área Principal */
+/* ==========================================
+   ÁREA PRINCIPAL E TABELA (CORREÇÃO DE SCROLL)
+   ========================================== */
 .main-content {
   flex: 1;
-  padding: 32px;
+  padding: 24px 32px 16px 32px; /* Reduzi o padding inferior para dar espaço à scrollbar */
   display: flex;
   flex-direction: column;
   height: 100vh;
+  overflow: hidden; /* A MÁGICA: Corta tudo que passar da tela principal */
+  min-width: 0;     /* A MÁGICA 2: Impede que o flexbox tente "alargar" a tela */
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 .header h2 {
@@ -131,22 +167,25 @@ body {
   background-color: var(--munila-dark);
 }
 
-/* Tabela de Dados (Atualizada com Scroll Horizontal) */
+/* Container da Tabela - Agora respeita os limites e rola certinho! */
 .table-container {
   background: white;
   border-radius: 12px;
   border: 1px solid var(--border-color);
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  flex: 1;
-  overflow-x: auto;
-  overflow-y: auto;
+  
+  flex: 1; /* Pega o espaço restante */
+  min-height: 0; /* A MÁGICA 3: Permite a tabela encolher e acionar o scroll interno */
+  overflow: auto; /* Liga o scroll X e Y */
+  position: relative;
 }
 
 table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate; /* Modificado para as bordas rolarem corretamente */
+  border-spacing: 0;
   text-align: left;
-  white-space: nowrap;
+  white-space: nowrap; /* Mantém o texto numa linha e força o scroll horizontal */
 }
 
 thead th {
@@ -155,7 +194,7 @@ thead th {
   font-size: 0.75rem;
   text-transform: uppercase;
   color: var(--text-muted);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 2px solid var(--border-color);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -168,7 +207,7 @@ tbody td {
   font-weight: 500;
 }
 
-tbody tr:hover {
+.trow-hover:hover td {
   background-color: #f8fafc;
 }
 
@@ -181,7 +220,9 @@ tbody tr:hover {
   color: #334155;
 }
 
-/* Estilos do Modal (Formulário Nova Entrega) */
+/* ==========================================
+   ESTILOS DO MODAL E FORMULÁRIOS
+   ========================================== */
 .modal-overlay {
   position: fixed;
   top: 0;

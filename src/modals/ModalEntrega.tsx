@@ -49,7 +49,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
     const clienteId = e.target.value;
     const clienteSelecionado = clientes.find(c => c.id === clienteId);
     
-    // Agora preenchemos cidade e UF separadamente
     setFormData({
       ...formData,
       cliente_id: clienteId,
@@ -68,7 +67,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
     });
   };
 
-  // Lista de estados do Brasil para o Select
   const estadosBR = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 
   return (
@@ -93,7 +91,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               </select>
             </div>
 
-            {/* AQUI FIZ A DIVISÃO CIDADE E UF NO MESMO BLOCO */}
             <div className="form-group">
               <label>Cidade e UF de Destino</label>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -105,18 +102,20 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               </div>
             </div>
 
+            {/* AQUI FOI RETIRADA A OBRIGATORIEDADE */}
             <div className="form-group">
               <label>Transportadora</label>
-              <select className="form-select" required value={formData.transportadora_id} onChange={handleTranspChange}>
-                <option value="">Selecione...</option>
+              <select className="form-select" value={formData.transportadora_id} onChange={handleTranspChange}>
+                <option value="">Ainda não definida...</option>
                 {transportadoras.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
               </select>
             </div>
 
+            {/* AQUI TAMBÉM FOI RETIRADA A OBRIGATORIEDADE */}
             <div className="form-group">
               <label>Modal de Envio</label>
-              <select className="form-select" required value={formData.modal_frete} onChange={(e) => setFormData({...formData, modal_frete: e.target.value})}>
-                <option value="">Selecione o Modal...</option>
+              <select className="form-select" value={formData.modal_frete} onChange={(e) => setFormData({...formData, modal_frete: e.target.value})}>
+                <option value="">Ainda não definido...</option>
                 <option value="AÉREO">Aéreo</option>
                 <option value="RODOVIÁRIO">Rodoviário</option>
                 <option value="PAC">PAC</option>

@@ -124,7 +124,9 @@ export default function App() {
 
   async function buscarEntregas() {
     try {
-      const { data, error } = await supabase.from('entregas').select('*, clientes (nome, cidade, uf, telefone, email), transportadoras (nome, modal_padrao, telefone, email)').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('entregas')
+        .select('*, clientes (nome, cidade, uf, telefone, email), transportadoras (nome, modal_padrao, telefone, email)')
+        .order('data_faturamento', { ascending: false, nullsFirst: false });
       if (error) throw error;
       if (data) setEntregas(data);
     } catch (error) { console.error(error); } finally { setLoading(false); }
@@ -132,7 +134,9 @@ export default function App() {
 
   async function buscarDevolucoes() {
     try {
-      const { data, error } = await supabase.from('devolucoes').select('*, clientes (nome), transportadoras (nome)').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('devolucoes')
+        .select('*, clientes (nome), transportadoras (nome)')
+        .order('data_coleta', { ascending: false, nullsFirst: false });
       if (error) throw error;
       if (data) setDevolucoes(data);
     } catch (error) { console.error(error); }
@@ -233,12 +237,23 @@ export default function App() {
     }
     
     const payload = {
-      nota_fiscal: formData.nota_fiscal, cliente_id: formData.cliente_id, transportadora_id: formData.transportadora_id,
-      cidade_destino: formData.cidade_destino || null, uf_destino: formData.uf_destino || null, modal_frete: formData.modal_frete || null,
-      data_faturamento: formData.data_faturamento || null, data_coleta: formData.data_coleta || null, valor_nf: nf,
-      valor_frete: frete, volume: parseInt(formData.volume) || null, peso_kg: parseFloat(formData.peso_kg) || null,
-      tem_agendamento: formData.tem_agendamento, data_previsao: formData.data_previsao || null, data_entrega_agendamento: formData.data_entrega_agendamento || null,
-      observacoes: formData.observacoes, status: formData.status
+      nota_fiscal: formData.nota_fiscal, 
+      cliente_id: formData.cliente_id, 
+      transportadora_id: formData.transportadora_id || null,
+      cidade_destino: formData.cidade_destino || null, 
+      uf_destino: formData.uf_destino || null, 
+      modal_frete: formData.modal_frete || null,
+      data_faturamento: formData.data_faturamento || null, 
+      data_coleta: formData.data_coleta || null, 
+      valor_nf: nf,
+      valor_frete: frete, 
+      volume: parseInt(formData.volume) || null, 
+      peso_kg: parseFloat(formData.peso_kg) || null,
+      tem_agendamento: formData.tem_agendamento, 
+      data_previsao: formData.data_previsao || null, 
+      data_entrega_agendamento: formData.data_entrega_agendamento || null,
+      observacoes: formData.observacoes, 
+      status: formData.status
     };
     
     try {
@@ -422,6 +437,10 @@ export default function App() {
     const passaStatus = filtroStatus ? entrega.status === filtroStatus : true;
 
     return passaTexto && passaData && passaTransp && passaModal && passaStatus;
+  }).sort((a, b) => {
+    const dataA = new Date(a.data_faturamento || a.created_at || 0).getTime();
+    const dataB = new Date(b.data_faturamento || b.created_at || 0).getTime();
+    return dataB - dataA;
   });
 
   const exportarParaExcel = () => {
@@ -454,15 +473,18 @@ export default function App() {
   const freteMedio = faturamentoTotal > 0 ? ((freteTotal / faturamentoTotal) * 100).toFixed(2) : '0.00';
   const atrasados = entregasFiltradas.filter(e => e.status === 'Atrasado').length;
   
+  const volumeTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.volume) || 0), 0);
+  const pesoTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.peso_kg) || 0), 0);
+  
   const metaAnual = 25000000;
   const progressoMeta = ((faturamentoTotal / metaAnual) * 100).toFixed(2);
   
   const produtoSelecionado = produtos.find(p => p.id === calcProdutoId);
   const quantidadeDesejada = parseInt(calcQuantidade) || 0;
-  let totalCaixas = 0; let pesoTotal = "0.00";
+  let totalCaixas = 0; let pesoTotalCalc = "0.00";
   if (produtoSelecionado && quantidadeDesejada > 0) {
     totalCaixas = Math.ceil(quantidadeDesejada / produtoSelecionado.unidades_por_caixa);
-    pesoTotal = (totalCaixas * produtoSelecionado.peso_caixa_kg).toFixed(2);
+    pesoTotalCalc = (totalCaixas * produtoSelecionado.peso_caixa_kg).toFixed(2);
   }
 
   return (
@@ -488,6 +510,8 @@ export default function App() {
             freteTotal={freteTotal}
             freteMedio={freteMedio}
             atrasados={atrasados}
+            volumeTotal={volumeTotal}
+            pesoTotal={pesoTotal}
             loading={loading}
             entregasFiltradas={entregasFiltradas}
             formatarData={formatarData}
@@ -591,8 +615,8 @@ export default function App() {
                 {produtoSelecionado ? (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
                     <div style={{ padding: '16px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}><p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Volume Total (Caixaria)</p><p style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-main)' }}>{totalCaixas} <span style={{ fontSize: '1rem', fontWeight: 'normal' }}>caixa(s)</span></p></div>
-                    <div style={{ padding: '16px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}><p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Peso Bruto Total</p><p style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-main)' }}>{pesoTotal} <span style={{ fontSize: '1rem', fontWeight: 'normal' }}>KG</span></p></div>
-                    <div style={{ padding: '16px', backgroundColor: 'var(--munila-light)', borderRadius: '8px', border: '1px solid var(--munila-blue)' }}><p style={{ fontSize: '0.875rem', color: 'var(--munila-dark)', fontWeight: 600, textTransform: 'uppercase' }}>Preenchimento da Coluna VOL/PESO</p><p style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--munila-blue)', marginTop: '4px' }}>{totalCaixas}CX {pesoTotal}KG</p><p style={{ fontSize: '0.85rem', color: 'var(--munila-dark)', marginTop: '8px' }}>Cubagem Padrão: {produtoSelecionado.medidas_cm}</p></div>
+                    <div style={{ padding: '16px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}><p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Peso Bruto Total</p><p style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-main)' }}>{pesoTotalCalc} <span style={{ fontSize: '1rem', fontWeight: 'normal' }}>KG</span></p></div>
+                    <div style={{ padding: '16px', backgroundColor: 'var(--munila-light)', borderRadius: '8px', border: '1px solid var(--munila-blue)' }}><p style={{ fontSize: '0.875rem', color: 'var(--munila-dark)', fontWeight: 600, textTransform: 'uppercase' }}>Preenchimento da Coluna VOL/PESO</p><p style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--munila-blue)', marginTop: '4px' }}>{totalCaixas}CX {pesoTotalCalc}KG</p><p style={{ fontSize: '0.85rem', color: 'var(--munila-dark)', marginTop: '8px' }}>Cubagem Padrão: {produtoSelecionado.medidas_cm}</p></div>
                   </div>
                 ) : (
                   <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}><Calculator size={48} style={{ opacity: 0.2, margin: '0 auto 16px auto' }} /><p>Selecione um produto e digite a quantidade para calcular o peso e volume automático.</p></div>

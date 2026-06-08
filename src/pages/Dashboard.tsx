@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit, DollarSign, TrendingUp, AlertCircle, Target } from 'lucide-react';
+import { Edit, DollarSign, TrendingUp, AlertCircle, Target, Package, Scale } from 'lucide-react';
 import { Header } from '../components/Header';
 
 interface DashboardProps {
@@ -26,6 +26,8 @@ interface DashboardProps {
   freteTotal: number;
   freteMedio: string;
   atrasados: number;
+  volumeTotal: number; // NOVO
+  pesoTotal: number;   // NOVO
   loading: boolean;
   entregasFiltradas: any[];
   formatarData: (dataStr: string) => string;
@@ -42,6 +44,7 @@ export function Dashboard({
   filtroStatus, setFiltroStatus, transportadoras, limparFiltros,
   exportarParaExcel, abrirModalNovaEntrega,
   faturamentoTotal, progressoMeta, freteTotal, freteMedio, atrasados,
+  volumeTotal, pesoTotal, // RECEBENDO AQUI
   loading, entregasFiltradas, formatarData, calcularPorcentagemFrete,
   calcularDiasEntrega, getStatusColor, abrirModalEdicao
 }: DashboardProps) {
@@ -62,7 +65,9 @@ export function Dashboard({
         abrirModalNovaEntrega={abrirModalNovaEntrega}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '32px' }}>
+      {/* GRELHA ATUALIZADA PARA 3 COLUNAS (Vai formar 2 linhas com os 6 cartões) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '32px' }}>
+        
         <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 600 }}>Faturamento Despachado</p>
@@ -95,6 +100,28 @@ export function Dashboard({
           <h3 style={{ fontSize: '1.75rem', color: 'var(--munila-blue)' }}>{freteMedio}%</h3>
         </div>
 
+        {/* CARTÃO NOVO: VOLUME TOTAL */}
+        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 600 }}>Volume Total Despachado</p>
+            <Package size={20} color="#8b5cf6" />
+          </div>
+          <h3 style={{ fontSize: '1.75rem', color: 'var(--text-main)' }}>
+            {volumeTotal.toLocaleString('pt-BR')} <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>Cx</span>
+          </h3>
+        </div>
+
+        {/* CARTÃO NOVO: PESO TOTAL */}
+        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 600 }}>Peso Total Despachado</p>
+            <Scale size={20} color="#eab308" />
+          </div>
+          <h3 style={{ fontSize: '1.75rem', color: 'var(--text-main)' }}>
+            {pesoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>Kg</span>
+          </h3>
+        </div>
+
         <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 600 }}>Entregas em Atraso</p>
@@ -104,6 +131,7 @@ export function Dashboard({
             {atrasados} <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>NFs</span>
           </h3>
         </div>
+
       </div>
 
       <div className="table-container">

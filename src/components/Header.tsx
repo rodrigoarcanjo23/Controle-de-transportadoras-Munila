@@ -1,4 +1,4 @@
-import { Search, Filter, Download } from 'lucide-react';
+import { Search, Filter, Download, Plus } from 'lucide-react';
 
 interface HeaderProps {
   searchTerm: string;
@@ -22,70 +22,71 @@ interface HeaderProps {
 }
 
 export function Header({
-  searchTerm, setSearchTerm,
-  mostrarFiltros, setMostrarFiltros,
-  filtroDataInicio, setFiltroDataInicio,
-  filtroDataFim, setFiltroDataFim,
-  filtroTransportadora, setFiltroTransportadora,
-  filtroModal, setFiltroModal,
-  filtroStatus, setFiltroStatus,
-  transportadoras,
-  limparFiltros,
-  exportarParaExcel,
-  abrirModalNovaEntrega
+  searchTerm, setSearchTerm, mostrarFiltros, setMostrarFiltros,
+  filtroDataInicio, setFiltroDataInicio, filtroDataFim, setFiltroDataFim,
+  filtroTransportadora, setFiltroTransportadora, filtroModal, setFiltroModal,
+  filtroStatus, setFiltroStatus, transportadoras, limparFiltros,
+  exportarParaExcel, abrirModalNovaEntrega
 }: HeaderProps) {
-
   return (
-    <header className="header" style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'flex-start' }}>
+    <div style={{ marginBottom: '24px' }}>
+      <div className="header">
         <div>
           <h2>Acompanhamento Logístico</h2>
-          <p>Gerenciamento de entregas de 2026</p>
+          <p>Gerenciamento de entregas de {new Date().getFullYear()}</p>
         </div>
         
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '12px' }}>
           <div style={{ position: 'relative' }}>
-            <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+            <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '11px' }} />
             <input 
               type="text" 
               placeholder="Buscar NF, Cliente ou Status..." 
-              value={searchTerm} 
-              onChange={(e) => setSearchTerm(e.target.value)} 
-              style={{ padding: '10px 12px 10px 38px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', width: '220px' }} 
+              className="form-input" 
+              style={{ paddingLeft: '36px', width: '250px' }}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <button className="btn-secondary" onClick={() => setMostrarFiltros(!mostrarFiltros)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          
+          <button 
+            className="btn-secondary" 
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: mostrarFiltros ? '#f1f5f9' : 'white' }}
+            onClick={() => setMostrarFiltros(!mostrarFiltros)}
+          >
             <Filter size={18} /> Filtros
           </button>
+          
           <button className="btn-secondary" onClick={exportarParaExcel} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Download size={18} /> Exportar
           </button>
-          <button className="btn-primary" onClick={abrirModalNovaEntrega}>+ Nova Entrega</button>
+
+          <button className="btn-primary" onClick={abrirModalNovaEntrega}>
+            <Plus size={18} /> Nova Entrega
+          </button>
         </div>
       </div>
 
-      {/* BARRA DE FILTROS AVANÇADOS */}
       {mostrarFiltros && (
-        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Data Início (Fat.)</label>
-            <input type="date" className="form-input" style={{ padding: '8px' }} value={filtroDataInicio} onChange={(e) => setFiltroDataInicio(e.target.value)} />
+        <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div className="form-group">
+            <label style={{ fontSize: '0.75rem' }}>Data Início (Fat.)</label>
+            <input type="date" className="form-input" value={filtroDataInicio} onChange={(e) => setFiltroDataInicio(e.target.value)} />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Data Fim (Fat.)</label>
-            <input type="date" className="form-input" style={{ padding: '8px' }} value={filtroDataFim} onChange={(e) => setFiltroDataFim(e.target.value)} />
+          <div className="form-group">
+            <label style={{ fontSize: '0.75rem' }}>Data Fim (Fat.)</label>
+            <input type="date" className="form-input" value={filtroDataFim} onChange={(e) => setFiltroDataFim(e.target.value)} />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Transportadora</label>
-            <select className="form-select" style={{ padding: '8px', width: '180px' }} value={filtroTransportadora} onChange={(e) => setFiltroTransportadora(e.target.value)}>
+          <div className="form-group">
+            <label style={{ fontSize: '0.75rem' }}>Transportadora</label>
+            <select className="form-select" value={filtroTransportadora} onChange={(e) => setFiltroTransportadora(e.target.value)}>
               <option value="">Todas as Transp.</option>
               {transportadoras.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
             </select>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Modal</label>
-            <select className="form-select" style={{ padding: '8px', width: '150px' }} value={filtroModal} onChange={(e) => setFiltroModal(e.target.value)}>
+          <div className="form-group">
+            <label style={{ fontSize: '0.75rem' }}>Modal</label>
+            <select className="form-select" value={filtroModal} onChange={(e) => setFiltroModal(e.target.value)}>
               <option value="">Todos</option>
               <option value="AÉREO">Aéreo</option>
               <option value="RODOVIÁRIO">Rodoviário</option>
@@ -93,22 +94,30 @@ export function Header({
               <option value="SEDEX">Sedex</option>
             </select>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Status da Entrega</label>
-            <select className="form-select" style={{ padding: '8px', width: '150px' }} value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)}>
+          
+          <div className="form-group">
+            <label style={{ fontSize: '0.75rem' }}>Status da Entrega</label>
+            <select className="form-select" value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)}>
               <option value="">Todos</option>
               <option value="Pendente">Pendente</option>
+              <option value="Solicitado Agendamento">Solicitado Agendamento</option>
               <option value="Agendado">Agendado</option>
               <option value="Em Transporte">Em Transporte</option>
               <option value="Entregue">Entregue</option>
               <option value="Atrasado">Atrasado</option>
+              <option value="Devolução">Devolução</option>
             </select>
           </div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', marginLeft: 'auto' }}>
-            <button className="btn-secondary" onClick={limparFiltros} style={{ padding: '8px 16px', color: '#ef4444', borderColor: '#ef4444' }}>Limpar Filtros</button>
-          </div>
+          
+          <button 
+            type="button" 
+            onClick={limparFiltros}
+            style={{ padding: '10px 16px', backgroundColor: 'white', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+          >
+            Limpar Filtros
+          </button>
         </div>
       )}
-    </header>
+    </div>
   );
 }

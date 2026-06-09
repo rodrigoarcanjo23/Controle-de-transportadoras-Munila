@@ -238,6 +238,7 @@ export default function App() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     
+    // Verificação de NF Duplicada
     const nfDuplicada = entregas.find(ent => 
       ent.nota_fiscal.trim().toLowerCase() === formData.nota_fiscal.trim().toLowerCase() && 
       ent.id !== editingId
@@ -438,6 +439,8 @@ export default function App() {
       case 'Pendente': return { backgroundColor: '#ffedd5', color: '#9a3412' }; 
       case 'Aguardando Chegada': return { backgroundColor: '#fef3c7', color: '#92400e' };
       case 'Chegou no Galpão': return { backgroundColor: '#d1fae5', color: '#065f46' };
+      case 'Devolução': return { backgroundColor: '#fecdd3', color: '#881337' };
+      case 'Solicitado Agendamento': return { backgroundColor: '#fef08a', color: '#713f12' };
       default: return { backgroundColor: '#f1f5f9', color: '#334155' };
     }
   };

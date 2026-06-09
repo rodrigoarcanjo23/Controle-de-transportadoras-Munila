@@ -102,7 +102,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               </div>
             </div>
 
-            {/* AQUI FOI RETIRADA A OBRIGATORIEDADE */}
             <div className="form-group">
               <label>Transportadora</label>
               <select className="form-select" value={formData.transportadora_id} onChange={handleTranspChange}>
@@ -111,7 +110,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               </select>
             </div>
 
-            {/* AQUI TAMBÉM FOI RETIRADA A OBRIGATORIEDADE */}
             <div className="form-group">
               <label>Modal de Envio</label>
               <select className="form-select" value={formData.modal_frete} onChange={(e) => setFormData({...formData, modal_frete: e.target.value})}>
@@ -154,14 +152,17 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               <input type="number" step="0.01" className="form-input" placeholder="Ex: 2.5" value={formData.peso_kg} onChange={(e) => setFormData({...formData, peso_kg: e.target.value})} />
             </div>
 
+            {/* ADICIONADO OS NOVOS STATUS AQUI */}
             <div className="form-group">
               <label>Status</label>
               <select className="form-select" value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})}>
                 <option value="Pendente">Pendente</option>
+                <option value="Solicitado Agendamento">Solicitado Agendamento</option>
                 <option value="Agendado">Agendado</option>
                 <option value="Em Transporte">Em Transporte</option>
                 <option value="Entregue">Entregue</option>
                 <option value="Atrasado">Atrasado</option>
+                <option value="Devolução">Devolução</option>
               </select>
             </div>
             <div className="form-group">

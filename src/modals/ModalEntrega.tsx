@@ -152,7 +152,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               <input type="number" step="0.01" className="form-input" placeholder="Ex: 2.5" value={formData.peso_kg} onChange={(e) => setFormData({...formData, peso_kg: e.target.value})} />
             </div>
 
-            {/* ADICIONADO OS NOVOS STATUS AQUI */}
             <div className="form-group">
               <label>Status</label>
               <select className="form-select" value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})}>
@@ -174,10 +173,28 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               <label>Data Efetiva de Entrega</label>
               <input type="date" className="form-input" value={formData.data_entrega_agendamento} onChange={(e) => setFormData({...formData, data_entrega_agendamento: e.target.value})} />
             </div>
-            <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '8px', marginTop: '30px' }}>
-              <input type="checkbox" id="agendamento" checked={formData.tem_agendamento} onChange={(e) => setFormData({...formData, tem_agendamento: e.target.checked})} />
-              <label htmlFor="agendamento" style={{ cursor: 'pointer' }}>Possui Agendamento?</label>
+            
+            {/* O NOVO CARTÃO DE AGENDAMENTO INTELIGENTE FICA AQUI */}
+            <div style={{ 
+              display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '12px', 
+              marginTop: '24px', padding: '12px 16px', 
+              backgroundColor: formData.tem_agendamento ? '#dcfce7' : '#fffbeb', 
+              border: formData.tem_agendamento ? '2px solid #22c55e' : '2px dashed #f59e0b',
+              borderRadius: '8px',
+              transition: 'all 0.3s ease'
+            }}>
+              <input 
+                type="checkbox" 
+                id="agendamento" 
+                checked={formData.tem_agendamento} 
+                onChange={(e) => setFormData({...formData, tem_agendamento: e.target.checked})} 
+                style={{ width: '24px', height: '24px', cursor: 'pointer', accentColor: '#16a34a' }}
+              />
+              <label htmlFor="agendamento" style={{ cursor: 'pointer', fontWeight: 700, fontSize: '1rem', color: formData.tem_agendamento ? '#166534' : '#b45309', userSelect: 'none', margin: 0 }}>
+                {formData.tem_agendamento ? '✅ Entrega com Agendamento' : '⚠️ Esta entrega possui agendamento?'}
+              </label>
             </div>
+
           </div>
 
           <div className="modal-body" style={{ paddingTop: 0 }}>

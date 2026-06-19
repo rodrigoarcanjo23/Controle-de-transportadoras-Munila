@@ -15,6 +15,8 @@ interface HeaderProps {
   setFiltroModal: (value: string) => void;
   filtroStatus: string;
   setFiltroStatus: (value: string) => void;
+  filtroFreteVazio: boolean;
+  setFiltroFreteVazio: (value: boolean) => void;
   transportadoras: any[];
   limparFiltros: () => void;
   exportarParaExcel: () => void;
@@ -25,7 +27,7 @@ export function Header({
   searchTerm, setSearchTerm, mostrarFiltros, setMostrarFiltros,
   filtroDataInicio, setFiltroDataInicio, filtroDataFim, setFiltroDataFim,
   filtroTransportadora, setFiltroTransportadora, filtroModal, setFiltroModal,
-  filtroStatus, setFiltroStatus, transportadoras, limparFiltros,
+  filtroStatus, setFiltroStatus, filtroFreteVazio, setFiltroFreteVazio, transportadoras, limparFiltros,
   exportarParaExcel, abrirModalNovaEntrega
 }: HeaderProps) {
   return (
@@ -106,7 +108,13 @@ export function Header({
               <option value="Entregue">Entregue</option>
               <option value="Atrasado">Atrasado</option>
               <option value="Devolução">Devolução</option>
+              <option value="Frete Conferido">Frete Conferido</option>
             </select>
+          </div>
+
+          <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', paddingBottom: '10px' }}>
+            <input type="checkbox" id="freteVazio" checked={filtroFreteVazio} onChange={(e) => setFiltroFreteVazio(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ef4444' }} />
+            <label htmlFor="freteVazio" style={{ fontSize: '0.85rem', cursor: 'pointer', margin: 0, color: '#ef4444', fontWeight: 'bold' }}>Exibir Fretes Zerados</label>
           </div>
           
           <button 

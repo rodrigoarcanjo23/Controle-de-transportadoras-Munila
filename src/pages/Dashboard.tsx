@@ -17,6 +17,8 @@ interface DashboardProps {
   setFiltroModal: (value: string) => void;
   filtroStatus: string;
   setFiltroStatus: (value: string) => void;
+  filtroFreteVazio: boolean;
+  setFiltroFreteVazio: (value: boolean) => void;
   transportadoras: any[];
   limparFiltros: () => void;
   exportarParaExcel: () => void;
@@ -35,19 +37,19 @@ interface DashboardProps {
   calcularDiasEntrega: (coleta: string, entrega: string) => string;
   getStatusColor: (status: string) => React.CSSProperties;
   abrirModalEdicao: (entrega: any) => void;
-  handleDeleteEntrega: (id: string) => void; // NOVA FUNÇÃO NO PROPS
+  handleDeleteEntrega: (id: string) => void;
 }
 
 export function Dashboard({
   searchTerm, setSearchTerm, mostrarFiltros, setMostrarFiltros,
   filtroDataInicio, setFiltroDataInicio, filtroDataFim, setFiltroDataFim,
   filtroTransportadora, setFiltroTransportadora, filtroModal, setFiltroModal,
-  filtroStatus, setFiltroStatus, transportadoras, limparFiltros,
+  filtroStatus, setFiltroStatus, filtroFreteVazio, setFiltroFreteVazio, transportadoras, limparFiltros,
   exportarParaExcel, abrirModalNovaEntrega,
   faturamentoTotal, progressoMeta, freteTotal, freteMedio, atrasados,
   volumeTotal, pesoTotal,
   loading, entregasFiltradas, formatarData, calcularPorcentagemFrete,
-  calcularDiasEntrega, getStatusColor, abrirModalEdicao, handleDeleteEntrega // DECLARADA AQUI
+  calcularDiasEntrega, getStatusColor, abrirModalEdicao, handleDeleteEntrega
 }: DashboardProps) {
 
   const thStyle: React.CSSProperties = { 
@@ -79,6 +81,7 @@ export function Dashboard({
           filtroTransportadora={filtroTransportadora} setFiltroTransportadora={setFiltroTransportadora}
           filtroModal={filtroModal} setFiltroModal={setFiltroModal}
           filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus}
+          filtroFreteVazio={filtroFreteVazio} setFiltroFreteVazio={setFiltroFreteVazio}
           transportadoras={transportadoras}
           limparFiltros={limparFiltros}
           exportarParaExcel={exportarParaExcel}
@@ -87,7 +90,6 @@ export function Dashboard({
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '16px', marginBottom: '24px', flexShrink: 0 }}>
-        
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Faturamento</p>
@@ -148,7 +150,6 @@ export function Dashboard({
             {atrasados} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>NFs</span>
           </h3>
         </div>
-
       </div>
 
       <div className="table-container" style={{ flex: 1, minHeight: 0, overflow: 'auto', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'white', position: 'relative' }}>
@@ -223,7 +224,6 @@ export function Dashboard({
                   <td style={tdStyle}><span className="status-badge" style={getStatusColor(entrega.status)}>{entrega.status}</span></td>
                   <td style={{ ...tdStyle, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={entrega.observacoes}>{entrega.observacoes || '-'}</td>
                   
-                  {/* COLUNA DE AÇÕES COM OS DOIS BOTÕES (Editar e Excluir) */}
                   <td style={tdAcoesStyle}>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                       <button onClick={() => abrirModalEdicao(entrega)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }} title="Editar Entrega">

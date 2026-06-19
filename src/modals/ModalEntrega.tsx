@@ -162,6 +162,7 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
                 <option value="Entregue">Entregue</option>
                 <option value="Atrasado">Atrasado</option>
                 <option value="Devolução">Devolução</option>
+                <option value="Frete Conferido">Frete Conferido</option>
               </select>
             </div>
             <div className="form-group">
@@ -174,7 +175,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               <input type="date" className="form-input" value={formData.data_entrega_agendamento} onChange={(e) => setFormData({...formData, data_entrega_agendamento: e.target.value})} />
             </div>
             
-            {/* O NOVO CARTÃO DE AGENDAMENTO INTELIGENTE FICA AQUI */}
             <div style={{ 
               display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '12px', 
               marginTop: '24px', padding: '12px 16px', 

@@ -134,6 +134,14 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               <input type="number" step="0.01" className="form-input" value={percentInput} onChange={handlePercentChange} placeholder="Ex: 5.00" style={{ fontWeight: 'bold', color: '#0095DA', borderColor: '#bae6fd' }} />
             </div>
 
+            {/* NOVO CHECKBOX DE FRETE CONFIRMADO */}
+            <div className="form-group" style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', padding: '10px 16px', backgroundColor: formData.frete_confirmado ? '#dcfce7' : '#f8fafc', border: formData.frete_confirmado ? '2px solid #22c55e' : '2px dashed #cbd5e1', borderRadius: '8px', transition: 'all 0.2s' }}>
+              <input type="checkbox" id="freteConfirmado" checked={formData.frete_confirmado} onChange={(e) => setFormData({...formData, frete_confirmado: e.target.checked})} style={{ width: '22px', height: '22px', cursor: 'pointer', accentColor: '#16a34a' }} />
+              <label htmlFor="freteConfirmado" style={{ cursor: 'pointer', margin: 0, color: formData.frete_confirmado ? '#166534' : '#475569', fontWeight: 'bold', fontSize: '0.95rem' }}>
+                {formData.frete_confirmado ? '✅ Frete Auditado e Confirmado' : 'Marcar Frete como Auditado/Confirmado'}
+              </label>
+            </div>
+
             <div className="form-group">
               <label>Data de Faturamento</label>
               <input type="date" className="form-input" value={formData.data_faturamento} onChange={(e) => setFormData({...formData, data_faturamento: e.target.value})} />

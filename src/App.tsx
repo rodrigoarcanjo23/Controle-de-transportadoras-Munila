@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
-// AQUI ESTÁ A CORREÇÃO: Search e Filter foram adicionados à importação!
 import { Calculator, Package, Edit, Trash2, Phone, Mail, X, Search, Filter } from 'lucide-react';
 
 import { Sidebar } from './components/Sidebar';
@@ -39,6 +38,7 @@ export default function App() {
   const [filtroModal, setFiltroModal] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
   const [filtroFreteVazio, setFiltroFreteVazio] = useState(false);
+  const [filtroFreteConfirmado, setFiltroFreteConfirmado] = useState(false);
 
   // Filtros Devoluções
   const [searchTermDev, setSearchTermDev] = useState('');
@@ -52,7 +52,8 @@ export default function App() {
     cidade_destino: '', uf_destino: '', modal_frete: '', 
     data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', 
     volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', 
-    data_entrega_agendamento: '', observacoes: '', status: 'Pendente'
+    data_entrega_agendamento: '', observacoes: '', status: 'Pendente',
+    frete_confirmado: false
   });
 
   const [isDevolucaoModalOpen, setIsDevolucaoModalOpen] = useState(false);
@@ -170,14 +171,15 @@ export default function App() {
     } catch (error) { console.error(error); }
   }
 
+  // ==========================================
+  // FUNÇÕES DE ABERTURA DE MODAIS
+  // ==========================================
   function abrirModalNovaEntrega() {
     setEditingId(null);
     setFormData({ 
-      nota_fiscal: '', cliente_id: '', transportadora_id: '', 
-      cidade_destino: '', uf_destino: '', modal_frete: '', 
-      data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', 
-      volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', 
-      data_entrega_agendamento: '', observacoes: '', status: 'Pendente' 
+      nota_fiscal: '', cliente_id: '', transportadora_id: '', cidade_destino: '', uf_destino: '', modal_frete: '', 
+      data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', volume: '', peso_kg: '', 
+      tem_agendamento: false, data_previsao: '', data_entrega_agendamento: '', observacoes: '', status: 'Pendente', frete_confirmado: false
     });
     setIsModalOpen(true);
   }
@@ -190,21 +192,9 @@ export default function App() {
       data_faturamento: entrega.data_faturamento || '', data_coleta: entrega.data_coleta || '', valor_nf: entrega.valor_nf?.toString() || '',
       valor_frete: entrega.valor_frete?.toString() || '', volume: entrega.volume?.toString() || '', peso_kg: entrega.peso_kg?.toString() || '', 
       tem_agendamento: entrega.tem_agendamento || false, data_previsao: entrega.data_previsao || '', data_entrega_agendamento: entrega.data_entrega_agendamento || '', 
-      observacoes: entrega.observacoes || '', status: entrega.status
+      observacoes: entrega.observacoes || '', status: entrega.status, frete_confirmado: entrega.frete_confirmado || false
     });
     setIsModalOpen(true);
-  }
-
-  async function handleDeleteEntrega(id: string) {
-    if (!window.confirm("⚠️ ATENÇÃO: Tem certeza que deseja excluir esta entrega?\n\nEsta ação apagará a nota fiscal do sistema e não poderá ser desfeita.")) return;
-    try {
-      const { error } = await supabase.from('entregas').delete().eq('id', id);
-      if (error) throw error;
-      setEntregas(entregas.filter(e => e.id !== id));
-    } catch (error) { 
-      console.error(error); 
-      alert("Erro ao excluir a entrega."); 
-    }
   }
 
   function abrirModalNovaDevolucao() { 
@@ -228,6 +218,25 @@ export default function App() {
     setIsDevolucaoModalOpen(true);
   }
 
+  function abrirModalNovaTransportadora() { setEditingTranspId(null); setTranspFormData({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', modal_padrao: '', telefone: '', email: '' }); setIsTranspModalOpen(true); }
+  function abrirModalEdicaoTransportadora(transp: any) { setEditingTranspId(transp.id); setTranspFormData({ nome: transp.nome, cnpj_cpf: transp.cnpj_cpf || '', razao_social: transp.razao_social || '', nome_fantasia: transp.nome_fantasia || '', modal_padrao: transp.modal_padrao || '', telefone: transp.telefone || '', email: transp.email || '' }); setIsTranspModalOpen(true); }
+  function abrirModalNovoCliente() { setEditingClienteId(null); setClienteFormData({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', cidade: '', uf: '', telefone: '', email: '' }); setIsClienteModalOpen(true); }
+  function abrirModalEdicaoCliente(cliente: any) { setEditingClienteId(cliente.id); setClienteFormData({ nome: cliente.nome, cnpj_cpf: cliente.cnpj_cpf || '', razao_social: cliente.razao_social || '', nome_fantasia: cliente.nome_fantasia || '', cidade: cliente.cidade || '', uf: cliente.uf || '', telefone: cliente.telefone || '', email: cliente.email || '' }); setIsClienteModalOpen(true); }
+  function abrirModalNovaMeta() { setMetaFormData({ cliente_id: '', transportadora_id: '', meta_percentual: '' }); setIsMetaModalOpen(true); }
+  function abrirModalNovoPerfil() { setPerfilFormData({ nome: '', email: '', cargo: '', nivel_acesso: 'Operador' }); setIsPerfilModalOpen(true); }
+
+  // ==========================================
+  // FUNÇÕES DE EXCLUSÃO (TODAS PRESENTES!)
+  // ==========================================
+  async function handleDeleteEntrega(id: string) {
+    if (!window.confirm("⚠️ ATENÇÃO: Tem certeza que deseja excluir esta entrega?\n\nEsta ação apagará a nota fiscal do sistema e não poderá ser desfeita.")) return;
+    try {
+      const { error } = await supabase.from('entregas').delete().eq('id', id);
+      if (error) throw error;
+      setEntregas(entregas.filter(e => e.id !== id));
+    } catch (error) { console.error(error); alert("Erro ao excluir a entrega."); }
+  }
+
   async function handleDeleteDevolucao(id: string) {
     if (!window.confirm("⚠️ ATENÇÃO: Tem certeza que deseja excluir este registro de devolução?")) return;
     try {
@@ -237,51 +246,34 @@ export default function App() {
     } catch (error) { console.error(error); alert("Erro ao excluir a devolução."); }
   }
 
-
-  function abrirModalNovaTransportadora() { setEditingTranspId(null); setTranspFormData({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', modal_padrao: '', telefone: '', email: '' }); setIsTranspModalOpen(true); }
-  
-  function abrirModalEdicaoTransportadora(transp: any) { 
-    setEditingTranspId(transp.id); 
-    setTranspFormData({ 
-      nome: transp.nome, 
-      cnpj_cpf: transp.cnpj_cpf || '', 
-      razao_social: transp.razao_social || '', 
-      nome_fantasia: transp.nome_fantasia || '', 
-      modal_padrao: transp.modal_padrao || '', 
-      telefone: transp.telefone || '', 
-      email: transp.email || '' 
-    }); 
-    setIsTranspModalOpen(true); 
+  async function handleDeleteTransportadora(id: string) {
+    if (!window.confirm("Tem certeza que deseja excluir esta transportadora?")) return;
+    try {
+      const { error } = await supabase.from('transportadoras').delete().eq('id', id);
+      if (error) {
+        if (error.code === '23503') alert("Não é possível excluir! Esta transportadora já possui notas fiscais ou metas vinculadas a ela.");
+        else throw error;
+      } else { setTransportadoras(transportadoras.filter(t => t.id !== id)); }
+    } catch (error) { console.error(error); alert("Erro ao excluir transportadora."); }
   }
 
-  function abrirModalNovoCliente() { setEditingClienteId(null); setClienteFormData({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', cidade: '', uf: '', telefone: '', email: '' }); setIsClienteModalOpen(true); }
-  
-  function abrirModalEdicaoCliente(cliente: any) { 
-    setEditingClienteId(cliente.id); 
-    setClienteFormData({ 
-      nome: cliente.nome, 
-      cnpj_cpf: cliente.cnpj_cpf || '', 
-      razao_social: cliente.razao_social || '', 
-      nome_fantasia: cliente.nome_fantasia || '', 
-      cidade: cliente.cidade || '', 
-      uf: cliente.uf || '', 
-      telefone: cliente.telefone || '', 
-      email: cliente.email || '' 
-    }); 
-    setIsClienteModalOpen(true); 
+  async function handleDeleteCliente(id: string) {
+    if (!window.confirm("Tem certeza que deseja excluir este cliente?")) return;
+    try {
+      const { error } = await supabase.from('clientes').delete().eq('id', id);
+      if (error) {
+        if (error.code === '23503') alert("Não é possível excluir! Este cliente já possui notas fiscais ou metas vinculadas a ele.");
+        else throw error;
+      } else { setClientes(clientes.filter(c => c.id !== id)); }
+    } catch (error) { console.error(error); alert("Erro ao excluir cliente."); }
   }
 
-  function abrirModalNovaMeta() { setMetaFormData({ cliente_id: '', transportadora_id: '', meta_percentual: '' }); setIsMetaModalOpen(true); }
-  function abrirModalNovoPerfil() { setPerfilFormData({ nome: '', email: '', cargo: '', nivel_acesso: 'Operador' }); setIsPerfilModalOpen(true); }
-
+  // ==========================================
+  // FUNÇÕES DE SUBMIT
+  // ==========================================
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    
-    const nfDuplicada = entregas.find(ent => 
-      ent.nota_fiscal.trim().toLowerCase() === formData.nota_fiscal.trim().toLowerCase() && 
-      ent.id !== editingId
-    );
-    
+    const nfDuplicada = entregas.find(ent => ent.nota_fiscal.trim().toLowerCase() === formData.nota_fiscal.trim().toLowerCase() && ent.id !== editingId);
     if (nfDuplicada) {
       alert(`⚠️ BLOQUEIO DE SEGURANÇA:\n\nA Nota Fiscal "${formData.nota_fiscal}" já está cadastrada no sistema!\nCliente vinculado: ${nfDuplicada.clientes?.nome || 'Desconhecido'}.\n\nPor favor, verifique o número da NF.`);
       return; 
@@ -302,23 +294,12 @@ export default function App() {
     }
     
     const payload = {
-      nota_fiscal: formData.nota_fiscal, 
-      cliente_id: formData.cliente_id, 
-      transportadora_id: formData.transportadora_id || null, 
-      cidade_destino: formData.cidade_destino || null, 
-      uf_destino: formData.uf_destino || null, 
-      modal_frete: formData.modal_frete || null,
-      data_faturamento: formData.data_faturamento || null, 
-      data_coleta: formData.data_coleta || null, 
-      valor_nf: nf,
-      valor_frete: frete, 
-      volume: parseInt(formData.volume) || null, 
-      peso_kg: parseFloat(formData.peso_kg) || null,
-      tem_agendamento: formData.tem_agendamento, 
-      data_previsao: formData.data_previsao || null, 
-      data_entrega_agendamento: formData.data_entrega_agendamento || null,
-      observacoes: formData.observacoes, 
-      status: formData.status
+      nota_fiscal: formData.nota_fiscal, cliente_id: formData.cliente_id, transportadora_id: formData.transportadora_id || null, 
+      cidade_destino: formData.cidade_destino || null, uf_destino: formData.uf_destino || null, modal_frete: formData.modal_frete || null,
+      data_faturamento: formData.data_faturamento || null, data_coleta: formData.data_coleta || null, valor_nf: nf, valor_frete: frete, 
+      volume: parseInt(formData.volume) || null, peso_kg: parseFloat(formData.peso_kg) || null, tem_agendamento: formData.tem_agendamento, 
+      data_previsao: formData.data_previsao || null, data_entrega_agendamento: formData.data_entrega_agendamento || null,
+      observacoes: formData.observacoes, status: formData.status, frete_confirmado: formData.frete_confirmado
     };
     
     try {
@@ -338,21 +319,14 @@ export default function App() {
     e.preventDefault();
     try {
       const payload = {
-        data_emissao: devolucaoFormData.data_emissao || null, 
-        data_coleta: devolucaoFormData.data_coleta || null, 
-        data_previsao: devolucaoFormData.data_previsao || null, 
-        data_chegada: devolucaoFormData.data_chegada || null, 
+        data_emissao: devolucaoFormData.data_emissao || null, data_coleta: devolucaoFormData.data_coleta || null, 
+        data_previsao: devolucaoFormData.data_previsao || null, data_chegada: devolucaoFormData.data_chegada || null, 
         cliente_id: devolucaoFormData.cliente_id, 
         transportadora_cliente: devolucaoFormData.transportadora_cliente ? devolucaoFormData.transportadora_cliente.toUpperCase() : null,
-        transportadora_id: null, 
-        nf_venda: devolucaoFormData.nf_venda || null, 
-        notas_fiscais: devolucaoFormData.notas_fiscais, 
-        valor_total_nf: parseFloat(devolucaoFormData.valor_total_nf) || 0,
-        volume: parseInt(devolucaoFormData.volume) || null, 
-        peso_kg: parseFloat(devolucaoFormData.peso_kg) || null,
-        valor_frete_reverso: parseFloat(devolucaoFormData.valor_frete_reverso) || 0, 
-        motivo: devolucaoFormData.motivo, 
-        status: devolucaoFormData.status
+        transportadora_id: null, nf_venda: devolucaoFormData.nf_venda || null, notas_fiscais: devolucaoFormData.notas_fiscais, 
+        valor_total_nf: parseFloat(devolucaoFormData.valor_total_nf) || 0, volume: parseInt(devolucaoFormData.volume) || null, 
+        peso_kg: parseFloat(devolucaoFormData.peso_kg) || null, valor_frete_reverso: parseFloat(devolucaoFormData.valor_frete_reverso) || 0, 
+        motivo: devolucaoFormData.motivo, status: devolucaoFormData.status
       };
 
       if (editingDevolucaoId) {
@@ -367,116 +341,14 @@ export default function App() {
     } catch (error) { console.error(error); alert("Erro ao salvar a logística reversa."); }
   }
 
-  async function handleTranspSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const payload = { 
-      nome: transpFormData.nome.toUpperCase(), 
-      cnpj_cpf: transpFormData.cnpj_cpf,
-      razao_social: transpFormData.razao_social.toUpperCase(),
-      nome_fantasia: transpFormData.nome_fantasia.toUpperCase(),
-      modal_padrao: transpFormData.modal_padrao,
-      telefone: transpFormData.telefone,
-      email: transpFormData.email.toLowerCase()
-    };
-    try {
-      if (editingTranspId) {
-        const { data, error } = await supabase.from('transportadoras').update([payload]).eq('id', editingTranspId).select('*');
-        if (error) throw error;
-        if (data) { setTransportadoras(transportadoras.map(t => t.id === editingTranspId ? data[0] : t).sort((a, b) => a.nome.localeCompare(b.nome))); setIsTranspModalOpen(false); }
-      } else {
-        const { data, error } = await supabase.from('transportadoras').insert([payload]).select('*');
-        if (error) throw error;
-        if (data) { setTransportadoras([...transportadoras, data[0]].sort((a, b) => a.nome.localeCompare(b.nome))); setIsTranspModalOpen(false); }
-      }
-    } catch (error) { console.error(error); alert("Erro ao salvar transportadora."); }
-  }
+  async function handleTranspSubmit(e: React.FormEvent) { e.preventDefault(); const payload = { nome: transpFormData.nome.toUpperCase(), cnpj_cpf: transpFormData.cnpj_cpf, razao_social: transpFormData.razao_social.toUpperCase(), nome_fantasia: transpFormData.nome_fantasia.toUpperCase(), modal_padrao: transpFormData.modal_padrao, telefone: transpFormData.telefone, email: transpFormData.email.toLowerCase() }; try { if (editingTranspId) { const { data, error } = await supabase.from('transportadoras').update([payload]).eq('id', editingTranspId).select('*'); if (error) throw error; if (data) { setTransportadoras(transportadoras.map(t => t.id === editingTranspId ? data[0] : t).sort((a, b) => a.nome.localeCompare(b.nome))); setIsTranspModalOpen(false); } } else { const { data, error } = await supabase.from('transportadoras').insert([payload]).select('*'); if (error) throw error; if (data) { setTransportadoras([...transportadoras, data[0]].sort((a, b) => a.nome.localeCompare(b.nome))); setIsTranspModalOpen(false); } } } catch (error) { console.error(error); alert("Erro ao salvar transportadora."); } }
+  async function handleClienteSubmit(e: React.FormEvent) { e.preventDefault(); const payload = { nome: clienteFormData.nome.toUpperCase(), cnpj_cpf: clienteFormData.cnpj_cpf, razao_social: clienteFormData.razao_social.toUpperCase(), nome_fantasia: clienteFormData.nome_fantasia.toUpperCase(), cidade: clienteFormData.cidade.toUpperCase(), uf: clienteFormData.uf.toUpperCase(), telefone: clienteFormData.telefone, email: clienteFormData.email.toLowerCase() }; try { if (editingClienteId) { const { data, error } = await supabase.from('clientes').update([payload]).eq('id', editingClienteId).select('*'); if (error) throw error; if (data) { setClientes(clientes.map(c => c.id === editingClienteId ? data[0] : c).sort((a, b) => a.nome.localeCompare(b.nome))); setIsClienteModalOpen(false); } } else { const { data, error } = await supabase.from('clientes').insert([payload]).select('*'); if (error) throw error; if (data) { setClientes([...clientes, data[0]].sort((a, b) => a.nome.localeCompare(b.nome))); setIsClienteModalOpen(false); } } } catch (error) { console.error(error); alert("Erro ao salvar cliente."); } }
+  async function handleMetaSubmit(e: React.FormEvent) { e.preventDefault(); try { const { data, error } = await supabase.from('metas_frete').insert([{ cliente_id: metaFormData.cliente_id, transportadora_id: metaFormData.transportadora_id, meta_percentual: parseFloat(metaFormData.meta_percentual) }]).select('*, clientes (nome), transportadoras (nome)'); if (error) { if (error.code === '23505') alert("Já existe uma meta de frete cadastrada para esta Transportadora com este Cliente."); else throw error; } else if (data) { setMetas([...metas, data[0]]); setIsMetaModalOpen(false); } } catch (error) { console.error(error); alert("Erro ao cadastrar meta de frete."); } }
+  async function handlePerfilSubmit(e: React.FormEvent) { e.preventDefault(); try { const { data, error } = await supabase.from('perfis').insert([{ nome: perfilFormData.nome, email: perfilFormData.email.toLowerCase(), cargo: perfilFormData.cargo, nivel_acesso: perfilFormData.nivel_acesso }]).select('*'); if (error) { if (error.code === '23505') alert("Este e-mail já está cadastrado."); else throw error; } else if (data) { setPerfis([...perfis, data[0]].sort((a, b) => a.nome.localeCompare(b.nome))); setIsPerfilModalOpen(false); } } catch (error) { console.error(error); alert("Erro ao cadastrar funcionário."); } }
 
-  async function handleDeleteTransportadora(id: string) {
-    if (!window.confirm("Tem certeza que deseja excluir esta transportadora?")) return;
-    try {
-      const { error } = await supabase.from('transportadoras').delete().eq('id', id);
-      if (error) {
-        if (error.code === '23503') alert("Não é possível excluir! Esta transportadora já possui notas fiscais ou metas vinculadas a ela.");
-        else throw error;
-      } else { setTransportadoras(transportadoras.filter(t => t.id !== id)); }
-    } catch (error) { console.error(error); alert("Erro ao excluir transportadora."); }
-  }
-
-  async function handleClienteSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const payload = { 
-      nome: clienteFormData.nome.toUpperCase(), 
-      cnpj_cpf: clienteFormData.cnpj_cpf,
-      razao_social: clienteFormData.razao_social.toUpperCase(),
-      nome_fantasia: clienteFormData.nome_fantasia.toUpperCase(),
-      cidade: clienteFormData.cidade.toUpperCase(), 
-      uf: clienteFormData.uf.toUpperCase(),
-      telefone: clienteFormData.telefone,
-      email: clienteFormData.email.toLowerCase()
-    };
-    try {
-      if (editingClienteId) {
-        const { data, error } = await supabase.from('clientes').update([payload]).eq('id', editingClienteId).select('*');
-        if (error) throw error;
-        if (data) { setClientes(clientes.map(c => c.id === editingClienteId ? data[0] : c).sort((a, b) => a.nome.localeCompare(b.nome))); setIsClienteModalOpen(false); }
-      } else {
-        const { data, error } = await supabase.from('clientes').insert([payload]).select('*');
-        if (error) throw error;
-        if (data) { setClientes([...clientes, data[0]].sort((a, b) => a.nome.localeCompare(b.nome))); setIsClienteModalOpen(false); }
-      }
-    } catch (error) { console.error(error); alert("Erro ao salvar cliente."); }
-  }
-
-  async function handleDeleteCliente(id: string) {
-    if (!window.confirm("Tem certeza que deseja excluir este cliente?")) return;
-    try {
-      const { error } = await supabase.from('clientes').delete().eq('id', id);
-      if (error) {
-        if (error.code === '23503') alert("Não é possível excluir! Este cliente já possui notas fiscais ou metas vinculadas a ele.");
-        else throw error;
-      } else { setClientes(clientes.filter(c => c.id !== id)); }
-    } catch (error) { console.error(error); alert("Erro ao excluir cliente."); }
-  }
-
-  async function handleMetaSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      const { data, error } = await supabase.from('metas_frete').insert([{ cliente_id: metaFormData.cliente_id, transportadora_id: metaFormData.transportadora_id, meta_percentual: parseFloat(metaFormData.meta_percentual) }]).select('*, clientes (nome), transportadoras (nome)');
-      if (error) {
-        if (error.code === '23505') alert("Já existe uma meta de frete cadastrada para esta Transportadora com este Cliente.");
-        else throw error;
-      } else if (data) { setMetas([...metas, data[0]]); setIsMetaModalOpen(false); }
-    } catch (error) { console.error(error); alert("Erro ao cadastrar meta de frete."); }
-  }
-
-  async function handlePerfilSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      const { data, error } = await supabase.from('perfis').insert([{ nome: perfilFormData.nome, email: perfilFormData.email.toLowerCase(), cargo: perfilFormData.cargo, nivel_acesso: perfilFormData.nivel_acesso }]).select('*');
-      if (error) {
-        if (error.code === '23505') alert("Este e-mail já está cadastrado.");
-        else throw error;
-      } else if (data) { setPerfis([...perfis, data[0]].sort((a, b) => a.nome.localeCompare(b.nome))); setIsPerfilModalOpen(false); }
-    } catch (error) { console.error(error); alert("Erro ao cadastrar funcionário."); }
-  }
-
-  const calcularPorcentagemFrete = (frete: number, nf: number) => {
-    if (!frete || !nf || nf === 0) return '0.00%';
-    return ((frete / nf) * 100).toFixed(2) + '%';
-  };
-
-  const calcularDiasEntrega = (coleta: string, entrega: string) => {
-    if (!coleta || !entrega) return '-';
-    const diffTime = Math.abs(new Date(entrega).getTime() - new Date(coleta).getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + ' dias';
-  };
-
-  const formatarData = (dataStr: string) => {
-    if (!dataStr) return '-';
-    const data = new Date(dataStr);
-    data.setMinutes(data.getMinutes() + data.getTimezoneOffset());
-    return data.toLocaleDateString('pt-BR');
-  };
+  const calcularPorcentagemFrete = (frete: number, nf: number) => { if (!frete || !nf || nf === 0) return '0.00%'; return ((frete / nf) * 100).toFixed(2) + '%'; };
+  const calcularDiasEntrega = (coleta: string, entrega: string) => { if (!coleta || !entrega) return '-'; const diffTime = Math.abs(new Date(entrega).getTime() - new Date(coleta).getTime()); return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + ' dias'; };
+  const formatarData = (dataStr: string) => { if (!dataStr) return '-'; const data = new Date(dataStr); data.setMinutes(data.getMinutes() + data.getTimezoneOffset()); return data.toLocaleDateString('pt-BR'); };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -500,7 +372,7 @@ export default function App() {
   };
 
   function limparFiltros() {
-    setSearchTerm(''); setFiltroDataInicio(''); setFiltroDataFim(''); setFiltroTransportadora(''); setFiltroModal(''); setFiltroStatus(''); setFiltroFreteVazio(false);
+    setSearchTerm(''); setFiltroDataInicio(''); setFiltroDataFim(''); setFiltroTransportadora(''); setFiltroModal(''); setFiltroStatus(''); setFiltroFreteVazio(false); setFiltroFreteConfirmado(false);
   }
 
   const entregasFiltradas = entregas.filter(entrega => {
@@ -520,13 +392,10 @@ export default function App() {
     const passaStatus = filtroStatus ? entrega.status === filtroStatus : true;
     
     const passaFreteVazio = filtroFreteVazio ? (!entrega.valor_frete || Number(entrega.valor_frete) === 0) : true;
+    const passaFreteConfirmado = filtroFreteConfirmado ? entrega.frete_confirmado === true : true;
 
-    return passaTexto && passaData && passaTransp && passaModal && passaStatus && passaFreteVazio;
-  }).sort((a, b) => {
-    const dataA = new Date(a.data_faturamento || a.created_at || 0).getTime();
-    const dataB = new Date(b.data_faturamento || b.created_at || 0).getTime();
-    return dataB - dataA;
-  });
+    return passaTexto && passaData && passaTransp && passaModal && passaStatus && passaFreteVazio && passaFreteConfirmado;
+  }).sort((a, b) => new Date(b.data_faturamento || b.created_at || 0).getTime() - new Date(a.data_faturamento || a.created_at || 0).getTime());
 
   const devolucoesFiltradas = devolucoes.filter(dev => {
     const termo = searchTermDev.toLowerCase();
@@ -544,17 +413,16 @@ export default function App() {
 
   const exportarParaExcel = () => {
     if (entregasFiltradas.length === 0) { alert("Não há dados para exportar."); return; }
-    const cabecalho = ["Data Fat.", "Coleta", "Cliente", "Cidade", "UF", "Volume (Cx)", "Peso (Kg)", "Nº NF", "Valor NF", "Transportadora", "Modal", "Valor Frete", "% Frete", "Agendamento", "Previsão", "Dt Entrega", "Dias", "Status", "Observações"].join(";");
+    const cabecalho = ["Data Fat.", "Coleta", "Cliente", "Cidade", "UF", "Volume (Cx)", "Peso (Kg)", "Nº NF", "Valor NF", "Transportadora", "Modal", "Valor Frete", "% Frete", "Agendamento", "Previsão", "Dt Entrega", "Dias", "Status", "Frete Confirmado", "Observações"].join(";");
     const linhas = entregasFiltradas.map(e => {
       const cidadeFormatada = e.cidade_destino || e.clientes?.cidade || '-';
       const ufFormatada = e.uf_destino || e.clientes?.uf || '-';
       const modalFormatado = e.modal_frete || e.transportadoras?.modal_padrao || '-';
-
       return [
         formatarData(e.data_faturamento), formatarData(e.data_coleta), e.clientes?.nome || '-', cidadeFormatada, ufFormatada,
         e.volume || e.volume_peso || '-', e.peso_kg || '-', e.nota_fiscal, e.valor_nf?.toString().replace('.', ',') || '0,00', e.transportadoras?.nome || '-', modalFormatado,
         e.valor_frete?.toString().replace('.', ',') || '0,00', calcularPorcentagemFrete(e.valor_frete, e.valor_nf), e.tem_agendamento ? 'SIM' : 'NÃO',
-        formatarData(e.data_previsao), formatarData(e.data_entrega_agendamento), calcularDiasEntrega(e.data_coleta, e.data_entrega_agendamento).replace(' dias', ''), e.status, e.observacoes || '-'
+        formatarData(e.data_previsao), formatarData(e.data_entrega_agendamento), calcularDiasEntrega(e.data_coleta, e.data_entrega_agendamento).replace(' dias', ''), e.status, e.frete_confirmado ? 'SIM' : 'NÃO', e.observacoes || '-'
       ].join(";");
     });
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + cabecalho + "\n" + linhas.join("\n");
@@ -562,16 +430,13 @@ export default function App() {
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
     link.setAttribute("download", `MunilaLog_Exportacao_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
   const faturamentoTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
   const freteTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_frete) || 0), 0);
   const freteMedio = faturamentoTotal > 0 ? ((freteTotal / faturamentoTotal) * 100).toFixed(2) : '0.00';
   const atrasados = entregasFiltradas.filter(e => e.status === 'Atrasado').length;
-  
   const volumeTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.volume) || 0), 0);
   const pesoTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.peso_kg) || 0), 0);
   
@@ -606,25 +471,12 @@ export default function App() {
             filtroModal={filtroModal} setFiltroModal={setFiltroModal}
             filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus}
             filtroFreteVazio={filtroFreteVazio} setFiltroFreteVazio={setFiltroFreteVazio}
-            transportadoras={transportadoras}
-            limparFiltros={limparFiltros}
-            exportarParaExcel={exportarParaExcel}
-            abrirModalNovaEntrega={abrirModalNovaEntrega}
-            faturamentoTotal={faturamentoTotal}
-            progressoMeta={progressoMeta}
-            freteTotal={freteTotal}
-            freteMedio={freteMedio}
-            atrasados={atrasados}
-            volumeTotal={volumeTotal}
-            pesoTotal={pesoTotal}
-            loading={loading}
-            entregasFiltradas={entregasFiltradas}
-            formatarData={formatarData}
-            calcularPorcentagemFrete={calcularPorcentagemFrete}
-            calcularDiasEntrega={calcularDiasEntrega}
-            getStatusColor={getStatusColor}
-            abrirModalEdicao={abrirModalEdicao}
-            handleDeleteEntrega={handleDeleteEntrega}
+            filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado}
+            transportadoras={transportadoras} limparFiltros={limparFiltros}
+            exportarParaExcel={exportarParaExcel} abrirModalNovaEntrega={abrirModalNovaEntrega}
+            faturamentoTotal={faturamentoTotal} progressoMeta={progressoMeta} freteTotal={freteTotal} freteMedio={freteMedio} atrasados={atrasados} volumeTotal={volumeTotal} pesoTotal={pesoTotal} loading={loading}
+            entregasFiltradas={entregasFiltradas} formatarData={formatarData} calcularPorcentagemFrete={calcularPorcentagemFrete} calcularDiasEntrega={calcularDiasEntrega} getStatusColor={getStatusColor}
+            abrirModalEdicao={abrirModalEdicao} handleDeleteEntrega={handleDeleteEntrega}
           />
         )}
         {activeTab === 'equipe' && <Equipe perfis={perfis} abrirModalNovoPerfil={abrirModalNovoPerfil} />}
@@ -676,14 +528,7 @@ export default function App() {
               <div style={{ display: 'flex', gap: '12px', width: '100%', alignItems: 'center', backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
                 <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
                   <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '11px' }} />
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    placeholder="Buscar por NF, Cliente, CNPJ/CPF..." 
-                    value={searchTermDev} 
-                    onChange={e => setSearchTermDev(e.target.value)} 
-                    style={{ paddingLeft: '36px', width: '100%' }} 
-                  />
+                  <input type="text" className="form-input" placeholder="Buscar por NF, Cliente, CNPJ/CPF..." value={searchTermDev} onChange={e => setSearchTermDev(e.target.value)} style={{ paddingLeft: '36px', width: '100%' }} />
                 </div>
                 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -707,39 +552,13 @@ export default function App() {
               <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
                 <thead>
                   <tr>
-                    <th style={thStyle}>Dt Emissão</th>
-                    <th style={thStyle}>Dt Coleta</th>
-                    <th style={thStyle}>Cliente</th>
-                    <th style={thStyle}>Transportadora</th>
-                    <th style={thStyle}>NF Venda</th>
-                    <th style={thStyle}>NFs (Devolução)</th>
-                    <th style={thStyle}>Valor NFs</th>
-                    <th style={thStyle}>Volume</th>
-                    <th style={thStyle}>Peso (Kg)</th>
-                    <th style={thStyle}>Custo Reverso</th>
-                    <th style={thStyle}>Dt Previsão</th>
-                    <th style={thStyle}>Dt Chegada</th>
-                    <th style={thStyle}>Status</th>
-                    <th style={thAcoesStyle}>Ações</th>
+                    <th style={thStyle}>Dt Emissão</th><th style={thStyle}>Dt Coleta</th><th style={thStyle}>Cliente</th><th style={thStyle}>Transportadora</th><th style={thStyle}>NF Venda</th><th style={thStyle}>NFs (Devolução)</th><th style={thStyle}>Valor NFs</th><th style={thStyle}>Volume</th><th style={thStyle}>Peso (Kg)</th><th style={thStyle}>Custo Reverso</th><th style={thStyle}>Dt Previsão</th><th style={thStyle}>Dt Chegada</th><th style={thStyle}>Status</th><th style={thAcoesStyle}>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {devolucoesFiltradas.length === 0 ? ( <tr><td colSpan={14} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma devolução encontrada.</td></tr> ) : devolucoesFiltradas.map((dev) => (
                     <tr key={dev.id} className="trow-hover">
-                      <td style={tdStyle}>{formatarData(dev.data_emissao)}</td>
-                      <td style={tdStyle}>{formatarData(dev.data_coleta)}</td>
-                      <td style={{ ...tdStyle, fontWeight: 'bold' }}>{dev.clientes?.nome || '-'}</td>
-                      <td style={tdStyle}>{dev.transportadora_cliente || dev.transportadoras?.nome || '-'}</td>
-                      <td style={{ ...tdStyle, color: 'var(--munila-blue)', fontWeight: 'bold' }}>{dev.nf_venda || '-'}</td>
-                      <td style={{ ...tdStyle, fontWeight: 'bold' }}>{dev.notas_fiscais}</td>
-                      <td style={tdStyle}>R$ {Number(dev.valor_total_nf).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td style={{ ...tdStyle, fontWeight: 'bold' }}>{dev.volume ? `${dev.volume} Cx` : '-'}</td>
-                      <td style={{ ...tdStyle, fontWeight: 'bold' }}>{dev.peso_kg ? `${dev.peso_kg} Kg` : '-'}</td>
-                      <td style={{ ...tdStyle, fontWeight: 'bold', color: '#ef4444' }}>R$ {Number(dev.valor_frete_reverso).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td style={tdStyle}>{formatarData(dev.data_previsao)}</td>
-                      <td style={tdStyle}>{formatarData(dev.data_chegada)}</td>
-                      <td style={tdStyle}><span className="status-badge" style={getStatusColor(dev.status)}>{dev.status}</span></td>
-                      
+                      <td style={tdStyle}>{formatarData(dev.data_emissao)}</td><td style={tdStyle}>{formatarData(dev.data_coleta)}</td><td style={{ ...tdStyle, fontWeight: 'bold' }}>{dev.clientes?.nome || '-'}</td><td style={tdStyle}>{dev.transportadora_cliente || dev.transportadoras?.nome || '-'}</td><td style={{ ...tdStyle, color: 'var(--munila-blue)', fontWeight: 'bold' }}>{dev.nf_venda || '-'}</td><td style={{ ...tdStyle, fontWeight: 'bold' }}>{dev.notas_fiscais}</td><td style={tdStyle}>R$ {Number(dev.valor_total_nf).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td><td style={{ ...tdStyle, fontWeight: 'bold' }}>{dev.volume ? `${dev.volume} Cx` : '-'}</td><td style={{ ...tdStyle, fontWeight: 'bold' }}>{dev.peso_kg ? `${dev.peso_kg} Kg` : '-'}</td><td style={{ ...tdStyle, fontWeight: 'bold', color: '#ef4444' }}>R$ {Number(dev.valor_frete_reverso).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td><td style={tdStyle}>{formatarData(dev.data_previsao)}</td><td style={tdStyle}>{formatarData(dev.data_chegada)}</td><td style={tdStyle}><span className="status-badge" style={getStatusColor(dev.status)}>{dev.status}</span></td>
                       <td style={tdAcoesStyle}>
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                           <button onClick={() => abrirModalEdicaoDevolucao(dev)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }} title="Editar Devolução"><Edit size={18} /></button>
@@ -789,23 +608,11 @@ export default function App() {
       </main>
 
       <ModalEntrega 
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleSubmit}
-        formData={formData}
-        setFormData={setFormData}
-        isEditing={!!editingId}
-        clientes={clientes}
-        transportadoras={transportadoras}
+        isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleSubmit} formData={formData} setFormData={setFormData} isEditing={!!editingId} clientes={clientes} transportadoras={transportadoras}
       />
 
       <ModalCliente 
-        isOpen={isClienteModalOpen}
-        onClose={() => setIsClienteModalOpen(false)}
-        onSubmit={handleClienteSubmit}
-        formData={clienteFormData}
-        setFormData={setClienteFormData}
-        isEditing={!!editingClienteId}
+        isOpen={isClienteModalOpen} onClose={() => setIsClienteModalOpen(false)} onSubmit={handleClienteSubmit} formData={clienteFormData} setFormData={setClienteFormData} isEditing={!!editingClienteId}
       />
 
       {isDevolucaoModalOpen && (

@@ -19,6 +19,8 @@ interface DashboardProps {
   setFiltroStatus: (value: string) => void;
   filtroFreteVazio: boolean;
   setFiltroFreteVazio: (value: boolean) => void;
+  filtroFreteConfirmado: boolean; // NOVO
+  setFiltroFreteConfirmado: (value: boolean) => void; // NOVO
   transportadoras: any[];
   limparFiltros: () => void;
   exportarParaExcel: () => void;
@@ -44,7 +46,8 @@ export function Dashboard({
   searchTerm, setSearchTerm, mostrarFiltros, setMostrarFiltros,
   filtroDataInicio, setFiltroDataInicio, filtroDataFim, setFiltroDataFim,
   filtroTransportadora, setFiltroTransportadora, filtroModal, setFiltroModal,
-  filtroStatus, setFiltroStatus, filtroFreteVazio, setFiltroFreteVazio, transportadoras, limparFiltros,
+  filtroStatus, setFiltroStatus, filtroFreteVazio, setFiltroFreteVazio, 
+  filtroFreteConfirmado, setFiltroFreteConfirmado, transportadoras, limparFiltros, // NOVO
   exportarParaExcel, abrirModalNovaEntrega,
   faturamentoTotal, progressoMeta, freteTotal, freteMedio, atrasados,
   volumeTotal, pesoTotal,
@@ -52,22 +55,10 @@ export function Dashboard({
   calcularDiasEntrega, getStatusColor, abrirModalEdicao, handleDeleteEntrega
 }: DashboardProps) {
 
-  const thStyle: React.CSSProperties = { 
-    position: 'sticky', top: 0, backgroundColor: '#f8fafc', zIndex: 10, 
-    borderBottom: '2px solid #e2e8f0', padding: '12px 16px', color: '#475569', 
-    fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', whiteSpace: 'nowrap' 
-  };
-  const thAcoesStyle: React.CSSProperties = { 
-    ...thStyle, right: 0, zIndex: 11, textAlign: 'center', borderLeft: '1px solid #e2e8f0' 
-  };
-  const tdStyle: React.CSSProperties = { 
-    padding: '10px 16px', borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap', 
-    fontSize: '0.85rem', color: '#334155' 
-  };
-  const tdAcoesStyle: React.CSSProperties = { 
-    ...tdStyle, textAlign: 'center', position: 'sticky', right: 0, 
-    backgroundColor: 'white', zIndex: 1, borderLeft: '1px solid #e2e8f0' 
-  };
+  const thStyle: React.CSSProperties = { position: 'sticky', top: 0, backgroundColor: '#f8fafc', zIndex: 10, borderBottom: '2px solid #e2e8f0', padding: '12px 16px', color: '#475569', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', whiteSpace: 'nowrap' };
+  const thAcoesStyle: React.CSSProperties = { ...thStyle, right: 0, zIndex: 11, textAlign: 'center', borderLeft: '1px solid #e2e8f0' };
+  const tdStyle: React.CSSProperties = { padding: '10px 16px', borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap', fontSize: '0.85rem', color: '#334155' };
+  const tdAcoesStyle: React.CSSProperties = { ...tdStyle, textAlign: 'center', position: 'sticky', right: 0, backgroundColor: 'white', zIndex: 1, borderLeft: '1px solid #e2e8f0' };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, width: '100%', height: '100%', minHeight: 0, overflow: 'hidden' }}>
@@ -82,6 +73,7 @@ export function Dashboard({
           filtroModal={filtroModal} setFiltroModal={setFiltroModal}
           filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus}
           filtroFreteVazio={filtroFreteVazio} setFiltroFreteVazio={setFiltroFreteVazio}
+          filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado} // NOVO
           transportadoras={transportadoras}
           limparFiltros={limparFiltros}
           exportarParaExcel={exportarParaExcel}
@@ -90,6 +82,7 @@ export function Dashboard({
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '16px', marginBottom: '24px', flexShrink: 0 }}>
+        
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Faturamento</p>
@@ -150,6 +143,7 @@ export function Dashboard({
             {atrasados} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>NFs</span>
           </h3>
         </div>
+
       </div>
 
       <div className="table-container" style={{ flex: 1, minHeight: 0, overflow: 'auto', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'white', position: 'relative' }}>
@@ -188,6 +182,11 @@ export function Dashboard({
               const cidadeDisplay = entrega.cidade_destino || entrega.clientes?.cidade || '-';
               const ufDisplay = entrega.uf_destino || entrega.clientes?.uf || '-';
               const modalDisplay = entrega.modal_frete || entrega.transportadoras?.modal_padrao || '-';
+              
+              // IDENTIFICADOR DE FRETE CONFIRMADO
+              const isFreteConfirmado = entrega.frete_confirmado;
+              const freteColor = isFreteConfirmado ? '#166534' : 'inherit'; // Verde escuro se confirmado
+              const freteBg = isFreteConfirmado ? '#dcfce7' : 'transparent'; // Fundo verde claro se confirmado
 
               return (
                 <tr key={entrega.id} className="trow-hover">
@@ -207,8 +206,13 @@ export function Dashboard({
                   
                   <td style={tdStyle}>{modalDisplay}</td>
 
-                  <td style={tdStyle}>R$ {Number(entrega.valor_frete).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                  <td style={{ ...tdStyle, fontWeight: 'bold', color: '#0095DA' }}>{calcularPorcentagemFrete(entrega.valor_frete, entrega.valor_nf)}</td>
+                  {/* CÉLULAS COM A MAGIA DA COR VERDE PARA O FRETE */}
+                  <td style={{ ...tdStyle, backgroundColor: freteBg, color: freteColor, fontWeight: isFreteConfirmado ? 'bold' : 'normal' }}>
+                    R$ {Number(entrega.valor_frete).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} {isFreteConfirmado && '✅'}
+                  </td>
+                  <td style={{ ...tdStyle, backgroundColor: freteBg, fontWeight: 'bold', color: isFreteConfirmado ? freteColor : '#0095DA' }}>
+                    {calcularPorcentagemFrete(entrega.valor_frete, entrega.valor_nf)}
+                  </td>
                   
                   <td style={{ ...tdStyle, textAlign: 'center' }}>
                     {entrega.tem_agendamento ? (

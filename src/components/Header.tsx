@@ -17,6 +17,8 @@ interface HeaderProps {
   setFiltroStatus: (value: string) => void;
   filtroFreteVazio: boolean;
   setFiltroFreteVazio: (value: boolean) => void;
+  filtroFreteConfirmado: boolean; // NOVO
+  setFiltroFreteConfirmado: (value: boolean) => void; // NOVO
   transportadoras: any[];
   limparFiltros: () => void;
   exportarParaExcel: () => void;
@@ -27,7 +29,8 @@ export function Header({
   searchTerm, setSearchTerm, mostrarFiltros, setMostrarFiltros,
   filtroDataInicio, setFiltroDataInicio, filtroDataFim, setFiltroDataFim,
   filtroTransportadora, setFiltroTransportadora, filtroModal, setFiltroModal,
-  filtroStatus, setFiltroStatus, filtroFreteVazio, setFiltroFreteVazio, transportadoras, limparFiltros,
+  filtroStatus, setFiltroStatus, filtroFreteVazio, setFiltroFreteVazio, 
+  filtroFreteConfirmado, setFiltroFreteConfirmado, transportadoras, limparFiltros,
   exportarParaExcel, abrirModalNovaEntrega
 }: HeaderProps) {
   return (
@@ -112,15 +115,22 @@ export function Header({
             </select>
           </div>
 
-          <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', paddingBottom: '10px' }}>
-            <input type="checkbox" id="freteVazio" checked={filtroFreteVazio} onChange={(e) => setFiltroFreteVazio(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ef4444' }} />
-            <label htmlFor="freteVazio" style={{ fontSize: '0.85rem', cursor: 'pointer', margin: 0, color: '#ef4444', fontWeight: 'bold' }}>Exibir Fretes Zerados</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '4px' }}>
+            <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
+              <input type="checkbox" id="freteVazio" checked={filtroFreteVazio} onChange={(e) => setFiltroFreteVazio(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ef4444' }} />
+              <label htmlFor="freteVazio" style={{ fontSize: '0.85rem', cursor: 'pointer', margin: 0, color: '#ef4444', fontWeight: 'bold' }}>Exibir Fretes Zerados</label>
+            </div>
+            {/* NOVO CHECKBOX PARA FILTRAR OS FRETES CONFIRMADOS */}
+            <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
+              <input type="checkbox" id="freteConfirmadoFiltro" checked={filtroFreteConfirmado} onChange={(e) => setFiltroFreteConfirmado(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#16a34a' }} />
+              <label htmlFor="freteConfirmadoFiltro" style={{ fontSize: '0.85rem', cursor: 'pointer', margin: 0, color: '#166534', fontWeight: 'bold' }}>Apenas Fretes Confirmados</label>
+            </div>
           </div>
           
           <button 
             type="button" 
             onClick={limparFiltros}
-            style={{ padding: '10px 16px', backgroundColor: 'white', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+            style={{ padding: '10px 16px', backgroundColor: 'white', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, height: '42px', marginLeft: 'auto' }}
           >
             Limpar Filtros
           </button>

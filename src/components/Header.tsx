@@ -17,8 +17,12 @@ interface HeaderProps {
   setFiltroStatus: (value: string) => void;
   filtroFreteVazio: boolean;
   setFiltroFreteVazio: (value: boolean) => void;
-  filtroFreteConfirmado: boolean; // NOVO
-  setFiltroFreteConfirmado: (value: boolean) => void; // NOVO
+  filtroFreteConfirmado: boolean;
+  setFiltroFreteConfirmado: (value: boolean) => void;
+  filtroComAgendamento: boolean; // NOVO
+  setFiltroComAgendamento: (value: boolean) => void; // NOVO
+  filtroSemAgendamento: boolean; // NOVO
+  setFiltroSemAgendamento: (value: boolean) => void; // NOVO
   transportadoras: any[];
   limparFiltros: () => void;
   exportarParaExcel: () => void;
@@ -30,7 +34,10 @@ export function Header({
   filtroDataInicio, setFiltroDataInicio, filtroDataFim, setFiltroDataFim,
   filtroTransportadora, setFiltroTransportadora, filtroModal, setFiltroModal,
   filtroStatus, setFiltroStatus, filtroFreteVazio, setFiltroFreteVazio, 
-  filtroFreteConfirmado, setFiltroFreteConfirmado, transportadoras, limparFiltros,
+  filtroFreteConfirmado, setFiltroFreteConfirmado, 
+  filtroComAgendamento, setFiltroComAgendamento, // NOVO
+  filtroSemAgendamento, setFiltroSemAgendamento, // NOVO
+  transportadoras, limparFiltros,
   exportarParaExcel, abrirModalNovaEntrega
 }: HeaderProps) {
   return (
@@ -73,15 +80,18 @@ export function Header({
       </div>
 
       {mostrarFiltros && (
-        <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          
           <div className="form-group">
             <label style={{ fontSize: '0.75rem' }}>Data Início (Fat.)</label>
             <input type="date" className="form-input" value={filtroDataInicio} onChange={(e) => setFiltroDataInicio(e.target.value)} />
           </div>
+          
           <div className="form-group">
             <label style={{ fontSize: '0.75rem' }}>Data Fim (Fat.)</label>
             <input type="date" className="form-input" value={filtroDataFim} onChange={(e) => setFiltroDataFim(e.target.value)} />
           </div>
+          
           <div className="form-group">
             <label style={{ fontSize: '0.75rem' }}>Transportadora</label>
             <select className="form-select" value={filtroTransportadora} onChange={(e) => setFiltroTransportadora(e.target.value)}>
@@ -89,6 +99,7 @@ export function Header({
               {transportadoras.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
             </select>
           </div>
+          
           <div className="form-group">
             <label style={{ fontSize: '0.75rem' }}>Modal</label>
             <select className="form-select" value={filtroModal} onChange={(e) => setFiltroModal(e.target.value)}>
@@ -115,25 +126,39 @@ export function Header({
             </select>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '4px' }}>
-            <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
-              <input type="checkbox" id="freteVazio" checked={filtroFreteVazio} onChange={(e) => setFiltroFreteVazio(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ef4444' }} />
-              <label htmlFor="freteVazio" style={{ fontSize: '0.85rem', cursor: 'pointer', margin: 0, color: '#ef4444', fontWeight: 'bold' }}>Exibir Fretes Zerados</label>
+          <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', marginLeft: 'auto' }}>
+            {/* GRUPO DE FRETES */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
+                <input type="checkbox" id="freteVazio" checked={filtroFreteVazio} onChange={(e) => setFiltroFreteVazio(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ef4444' }} />
+                <label htmlFor="freteVazio" style={{ fontSize: '0.85rem', cursor: 'pointer', margin: 0, color: '#ef4444', fontWeight: 'bold' }}>Exibir Fretes Zerados</label>
+              </div>
+              <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
+                <input type="checkbox" id="freteConfirmadoFiltro" checked={filtroFreteConfirmado} onChange={(e) => setFiltroFreteConfirmado(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#16a34a' }} />
+                <label htmlFor="freteConfirmadoFiltro" style={{ fontSize: '0.85rem', cursor: 'pointer', margin: 0, color: '#166534', fontWeight: 'bold' }}>Apenas Fretes Confirmados</label>
+              </div>
             </div>
-            {/* NOVO CHECKBOX PARA FILTRAR OS FRETES CONFIRMADOS */}
-            <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
-              <input type="checkbox" id="freteConfirmadoFiltro" checked={filtroFreteConfirmado} onChange={(e) => setFiltroFreteConfirmado(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#16a34a' }} />
-              <label htmlFor="freteConfirmadoFiltro" style={{ fontSize: '0.85rem', cursor: 'pointer', margin: 0, color: '#166534', fontWeight: 'bold' }}>Apenas Fretes Confirmados</label>
+
+            {/* GRUPO DE AGENDAMENTOS (NOVOS) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
+                <input type="checkbox" id="comAgendamento" checked={filtroComAgendamento} onChange={(e) => setFiltroComAgendamento(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#8b5cf6' }} />
+                <label htmlFor="comAgendamento" style={{ fontSize: '0.85rem', cursor: 'pointer', margin: 0, color: '#6d28d9', fontWeight: 'bold' }}>Com Agendamento (SIM)</label>
+              </div>
+              <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
+                <input type="checkbox" id="semAgendamento" checked={filtroSemAgendamento} onChange={(e) => setFiltroSemAgendamento(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#64748b' }} />
+                <label htmlFor="semAgendamento" style={{ fontSize: '0.85rem', cursor: 'pointer', margin: 0, color: '#475569', fontWeight: 'bold' }}>Sem Agendamento (NÃO)</label>
+              </div>
             </div>
+            
+            <button 
+              type="button" 
+              onClick={limparFiltros}
+              style={{ padding: '10px 16px', backgroundColor: 'white', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, height: '42px', marginLeft: '8px' }}
+            >
+              Limpar Filtros
+            </button>
           </div>
-          
-          <button 
-            type="button" 
-            onClick={limparFiltros}
-            style={{ padding: '10px 16px', backgroundColor: 'white', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, height: '42px', marginLeft: 'auto' }}
-          >
-            Limpar Filtros
-          </button>
         </div>
       )}
     </div>

@@ -39,6 +39,10 @@ export default function App() {
   const [filtroStatus, setFiltroStatus] = useState('');
   const [filtroFreteVazio, setFiltroFreteVazio] = useState(false);
   const [filtroFreteConfirmado, setFiltroFreteConfirmado] = useState(false);
+  
+  // NOVOS FILTROS DE AGENDAMENTO
+  const [filtroComAgendamento, setFiltroComAgendamento] = useState(false);
+  const [filtroSemAgendamento, setFiltroSemAgendamento] = useState(false);
 
   // Filtros Devoluções
   const [searchTermDev, setSearchTermDev] = useState('');
@@ -171,15 +175,13 @@ export default function App() {
     } catch (error) { console.error(error); }
   }
 
-  // ==========================================
-  // FUNÇÕES DE ABERTURA DE MODAIS
-  // ==========================================
   function abrirModalNovaEntrega() {
     setEditingId(null);
     setFormData({ 
       nota_fiscal: '', cliente_id: '', transportadora_id: '', cidade_destino: '', uf_destino: '', modal_frete: '', 
       data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', volume: '', peso_kg: '', 
-      tem_agendamento: false, data_previsao: '', data_entrega_agendamento: '', observacoes: '', status: 'Pendente', frete_confirmado: false
+      tem_agendamento: false, data_previsao: '', data_entrega_agendamento: '', observacoes: '', status: 'Pendente',
+      frete_confirmado: false
     });
     setIsModalOpen(true);
   }
@@ -225,35 +227,24 @@ export default function App() {
   function abrirModalNovaMeta() { setMetaFormData({ cliente_id: '', transportadora_id: '', meta_percentual: '' }); setIsMetaModalOpen(true); }
   function abrirModalNovoPerfil() { setPerfilFormData({ nome: '', email: '', cargo: '', nivel_acesso: 'Operador' }); setIsPerfilModalOpen(true); }
 
-  // ==========================================
-  // FUNÇÕES DE EXCLUSÃO (TODAS PRESENTES!)
-  // ==========================================
   async function handleDeleteEntrega(id: string) {
     if (!window.confirm("⚠️ ATENÇÃO: Tem certeza que deseja excluir esta entrega?\n\nEsta ação apagará a nota fiscal do sistema e não poderá ser desfeita.")) return;
-    try {
-      const { error } = await supabase.from('entregas').delete().eq('id', id);
-      if (error) throw error;
-      setEntregas(entregas.filter(e => e.id !== id));
-    } catch (error) { console.error(error); alert("Erro ao excluir a entrega."); }
+    try { const { error } = await supabase.from('entregas').delete().eq('id', id); if (error) throw error; setEntregas(entregas.filter(e => e.id !== id)); } 
+    catch (error) { console.error(error); alert("Erro ao excluir a entrega."); }
   }
 
   async function handleDeleteDevolucao(id: string) {
     if (!window.confirm("⚠️ ATENÇÃO: Tem certeza que deseja excluir este registro de devolução?")) return;
-    try {
-      const { error } = await supabase.from('devolucoes').delete().eq('id', id);
-      if (error) throw error;
-      setDevolucoes(devolucoes.filter(d => d.id !== id));
-    } catch (error) { console.error(error); alert("Erro ao excluir a devolução."); }
+    try { const { error } = await supabase.from('devolucoes').delete().eq('id', id); if (error) throw error; setDevolucoes(devolucoes.filter(d => d.id !== id)); } 
+    catch (error) { console.error(error); alert("Erro ao excluir a devolução."); }
   }
 
   async function handleDeleteTransportadora(id: string) {
     if (!window.confirm("Tem certeza que deseja excluir esta transportadora?")) return;
     try {
       const { error } = await supabase.from('transportadoras').delete().eq('id', id);
-      if (error) {
-        if (error.code === '23503') alert("Não é possível excluir! Esta transportadora já possui notas fiscais ou metas vinculadas a ela.");
-        else throw error;
-      } else { setTransportadoras(transportadoras.filter(t => t.id !== id)); }
+      if (error) { if (error.code === '23503') alert("Não é possível excluir! Esta transportadora já possui notas fiscais ou metas vinculadas a ela."); else throw error; } 
+      else { setTransportadoras(transportadoras.filter(t => t.id !== id)); }
     } catch (error) { console.error(error); alert("Erro ao excluir transportadora."); }
   }
 
@@ -261,16 +252,11 @@ export default function App() {
     if (!window.confirm("Tem certeza que deseja excluir este cliente?")) return;
     try {
       const { error } = await supabase.from('clientes').delete().eq('id', id);
-      if (error) {
-        if (error.code === '23503') alert("Não é possível excluir! Este cliente já possui notas fiscais ou metas vinculadas a ele.");
-        else throw error;
-      } else { setClientes(clientes.filter(c => c.id !== id)); }
+      if (error) { if (error.code === '23503') alert("Não é possível excluir! Este cliente já possui notas fiscais ou metas vinculadas a ele."); else throw error; } 
+      else { setClientes(clientes.filter(c => c.id !== id)); }
     } catch (error) { console.error(error); alert("Erro ao excluir cliente."); }
   }
 
-  // ==========================================
-  // FUNÇÕES DE SUBMIT
-  // ==========================================
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const nfDuplicada = entregas.find(ent => ent.nota_fiscal.trim().toLowerCase() === formData.nota_fiscal.trim().toLowerCase() && ent.id !== editingId);
@@ -360,7 +346,6 @@ export default function App() {
       case 'Solicitado Agendamento': return { backgroundColor: '#fef08a', color: '#713f12' }; 
       case 'Pendente': return { backgroundColor: '#ffedd5', color: '#9a3412' }; 
       case 'Frete Conferido': return { backgroundColor: '#e0e7ff', color: '#4338ca' };
-      
       case 'Aguardando Chegada': return { backgroundColor: '#fef3c7', color: '#92400e' };
       case 'Chegou no Galpão': return { backgroundColor: '#d1fae5', color: '#065f46' };
       case 'Coletada': return { backgroundColor: '#e0f2fe', color: '#075985' };
@@ -372,7 +357,9 @@ export default function App() {
   };
 
   function limparFiltros() {
-    setSearchTerm(''); setFiltroDataInicio(''); setFiltroDataFim(''); setFiltroTransportadora(''); setFiltroModal(''); setFiltroStatus(''); setFiltroFreteVazio(false); setFiltroFreteConfirmado(false);
+    setSearchTerm(''); setFiltroDataInicio(''); setFiltroDataFim(''); setFiltroTransportadora(''); 
+    setFiltroModal(''); setFiltroStatus(''); setFiltroFreteVazio(false); setFiltroFreteConfirmado(false);
+    setFiltroComAgendamento(false); setFiltroSemAgendamento(false); // LIMPA OS NOVOS FILTROS DE AGENDAMENTO
   }
 
   const entregasFiltradas = entregas.filter(entrega => {
@@ -393,8 +380,12 @@ export default function App() {
     
     const passaFreteVazio = filtroFreteVazio ? (!entrega.valor_frete || Number(entrega.valor_frete) === 0) : true;
     const passaFreteConfirmado = filtroFreteConfirmado ? entrega.frete_confirmado === true : true;
+    
+    // REGRA DE FILTRO PARA AGENDAMENTO
+    const passaComAgendamento = filtroComAgendamento ? entrega.tem_agendamento === true : true;
+    const passaSemAgendamento = filtroSemAgendamento ? (!entrega.tem_agendamento) : true;
 
-    return passaTexto && passaData && passaTransp && passaModal && passaStatus && passaFreteVazio && passaFreteConfirmado;
+    return passaTexto && passaData && passaTransp && passaModal && passaStatus && passaFreteVazio && passaFreteConfirmado && passaComAgendamento && passaSemAgendamento;
   }).sort((a, b) => new Date(b.data_faturamento || b.created_at || 0).getTime() - new Date(a.data_faturamento || a.created_at || 0).getTime());
 
   const devolucoesFiltradas = devolucoes.filter(dev => {
@@ -472,6 +463,8 @@ export default function App() {
             filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus}
             filtroFreteVazio={filtroFreteVazio} setFiltroFreteVazio={setFiltroFreteVazio}
             filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado}
+            filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento} // NOVO PROPS
+            filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento} // NOVO PROPS
             transportadoras={transportadoras} limparFiltros={limparFiltros}
             exportarParaExcel={exportarParaExcel} abrirModalNovaEntrega={abrirModalNovaEntrega}
             faturamentoTotal={faturamentoTotal} progressoMeta={progressoMeta} freteTotal={freteTotal} freteMedio={freteMedio} atrasados={atrasados} volumeTotal={volumeTotal} pesoTotal={pesoTotal} loading={loading}
@@ -479,6 +472,7 @@ export default function App() {
             abrirModalEdicao={abrirModalEdicao} handleDeleteEntrega={handleDeleteEntrega}
           />
         )}
+        
         {activeTab === 'equipe' && <Equipe perfis={perfis} abrirModalNovoPerfil={abrirModalNovoPerfil} />}
         {activeTab === 'clientes' && <Clientes clientes={clientes} metas={metas} abrirModalNovoCliente={abrirModalNovoCliente} abrirModalNovaMeta={abrirModalNovaMeta} abrirModalEdicaoCliente={abrirModalEdicaoCliente} handleDeleteCliente={handleDeleteCliente} />}
         

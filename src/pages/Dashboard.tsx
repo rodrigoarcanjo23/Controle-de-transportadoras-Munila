@@ -19,8 +19,12 @@ interface DashboardProps {
   setFiltroStatus: (value: string) => void;
   filtroFreteVazio: boolean;
   setFiltroFreteVazio: (value: boolean) => void;
-  filtroFreteConfirmado: boolean; // NOVO
-  setFiltroFreteConfirmado: (value: boolean) => void; // NOVO
+  filtroFreteConfirmado: boolean;
+  setFiltroFreteConfirmado: (value: boolean) => void;
+  filtroComAgendamento: boolean; // NOVO
+  setFiltroComAgendamento: (value: boolean) => void; // NOVO
+  filtroSemAgendamento: boolean; // NOVO
+  setFiltroSemAgendamento: (value: boolean) => void; // NOVO
   transportadoras: any[];
   limparFiltros: () => void;
   exportarParaExcel: () => void;
@@ -47,7 +51,10 @@ export function Dashboard({
   filtroDataInicio, setFiltroDataInicio, filtroDataFim, setFiltroDataFim,
   filtroTransportadora, setFiltroTransportadora, filtroModal, setFiltroModal,
   filtroStatus, setFiltroStatus, filtroFreteVazio, setFiltroFreteVazio, 
-  filtroFreteConfirmado, setFiltroFreteConfirmado, transportadoras, limparFiltros, // NOVO
+  filtroFreteConfirmado, setFiltroFreteConfirmado, 
+  filtroComAgendamento, setFiltroComAgendamento, // NOVO
+  filtroSemAgendamento, setFiltroSemAgendamento, // NOVO
+  transportadoras, limparFiltros,
   exportarParaExcel, abrirModalNovaEntrega,
   faturamentoTotal, progressoMeta, freteTotal, freteMedio, atrasados,
   volumeTotal, pesoTotal,
@@ -73,7 +80,9 @@ export function Dashboard({
           filtroModal={filtroModal} setFiltroModal={setFiltroModal}
           filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus}
           filtroFreteVazio={filtroFreteVazio} setFiltroFreteVazio={setFiltroFreteVazio}
-          filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado} // NOVO
+          filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado}
+          filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento} // NOVO
+          filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento} // NOVO
           transportadoras={transportadoras}
           limparFiltros={limparFiltros}
           exportarParaExcel={exportarParaExcel}
@@ -183,10 +192,9 @@ export function Dashboard({
               const ufDisplay = entrega.uf_destino || entrega.clientes?.uf || '-';
               const modalDisplay = entrega.modal_frete || entrega.transportadoras?.modal_padrao || '-';
               
-              // IDENTIFICADOR DE FRETE CONFIRMADO
               const isFreteConfirmado = entrega.frete_confirmado;
-              const freteColor = isFreteConfirmado ? '#166534' : 'inherit'; // Verde escuro se confirmado
-              const freteBg = isFreteConfirmado ? '#dcfce7' : 'transparent'; // Fundo verde claro se confirmado
+              const freteColor = isFreteConfirmado ? '#166534' : 'inherit';
+              const freteBg = isFreteConfirmado ? '#dcfce7' : 'transparent';
 
               return (
                 <tr key={entrega.id} className="trow-hover">
@@ -206,7 +214,6 @@ export function Dashboard({
                   
                   <td style={tdStyle}>{modalDisplay}</td>
 
-                  {/* CÉLULAS COM A MAGIA DA COR VERDE PARA O FRETE */}
                   <td style={{ ...tdStyle, backgroundColor: freteBg, color: freteColor, fontWeight: isFreteConfirmado ? 'bold' : 'normal' }}>
                     R$ {Number(entrega.valor_frete).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} {isFreteConfirmado && '✅'}
                   </td>

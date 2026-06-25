@@ -13,52 +13,56 @@ interface ModalClienteProps {
 export function ModalCliente({ isOpen, onClose, onSubmit, formData, setFormData, isEditing }: ModalClienteProps) {
   if (!isOpen) return null;
 
+  const estadosBR = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
+
   return (
     <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '700px' }}>
+      <div className="modal-content">
         <div className="modal-header">
           <h3>{isEditing ? 'Editar Cliente' : 'Cadastrar Novo Cliente'}</h3>
           <button type="button" className="close-btn" onClick={onClose}><X size={24} /></button>
         </div>
         <form onSubmit={onSubmit}>
-          <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            
-            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-              <label>Nome Principal (Identificação rápida no sistema)</label>
-              <input type="text" className="form-input" placeholder="Ex: DROGA RAIA" required value={formData.nome} onChange={(e) => setFormData({...formData, nome: e.target.value})} />
+          <div className="modal-body">
+            <div className="form-group">
+              <label>Nome Principal (Identificação no sistema)</label>
+              <input type="text" className="form-input" required placeholder="Ex: Farmácia São João" value={formData.nome} onChange={(e) => setFormData({...formData, nome: e.target.value})} />
             </div>
-
             <div className="form-group">
               <label>CNPJ / CPF</label>
               <input type="text" className="form-input" placeholder="00.000.000/0000-00" value={formData.cnpj_cpf} onChange={(e) => setFormData({...formData, cnpj_cpf: e.target.value})} />
             </div>
-            
+            <div className="form-group">
+              <label>Razão Social</label>
+              <input type="text" className="form-input" placeholder="Razão Social LTDA" value={formData.razao_social} onChange={(e) => setFormData({...formData, razao_social: e.target.value})} />
+            </div>
             <div className="form-group">
               <label>Nome Fantasia</label>
-              <input type="text" className="form-input" placeholder="Raia Drogasil" value={formData.nome_fantasia} onChange={(e) => setFormData({...formData, nome_fantasia: e.target.value})} />
-            </div>
-
-            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-              <label>Razão Social</label>
-              <input type="text" className="form-input" placeholder="RAIA DROGASIL S/A" value={formData.razao_social} onChange={(e) => setFormData({...formData, razao_social: e.target.value})} />
+              <input type="text" className="form-input" placeholder="Nome Fantasia" value={formData.nome_fantasia} onChange={(e) => setFormData({...formData, nome_fantasia: e.target.value})} />
             </div>
             
-            <div className="form-group">
-              <label>Telefone / WhatsApp Comercial</label>
-              <input type="text" className="form-input" placeholder="Ex: (11) 99999-9999" value={formData.telefone} onChange={(e) => setFormData({...formData, telefone: e.target.value})} />
-            </div>
-            <div className="form-group">
-              <label>E-mail de Contato</label>
-              <input type="email" className="form-input" placeholder="comprador@cliente.com" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+            {/* CAMPOS DE CIDADE E UF AGORA SÃO OPCIONAIS */}
+            <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '8px' }}>
+              <div>
+                <label>Cidade <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>(Opcional)</span></label>
+                <input type="text" className="form-input" placeholder="Ex: Fortaleza" value={formData.cidade} onChange={(e) => setFormData({...formData, cidade: e.target.value})} />
+              </div>
+              <div>
+                <label>UF <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>(Opcional)</span></label>
+                <select className="form-select" value={formData.uf} onChange={(e) => setFormData({...formData, uf: e.target.value})}>
+                  <option value="">Selecione...</option>
+                  {estadosBR.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                </select>
+              </div>
             </div>
 
             <div className="form-group">
-              <label>Cidade</label>
-              <input type="text" className="form-input" placeholder="Ex: SÃO PAULO" required value={formData.cidade} onChange={(e) => setFormData({...formData, cidade: e.target.value})} />
+              <label>Telefone / WhatsApp</label>
+              <input type="text" className="form-input" placeholder="(00) 00000-0000" value={formData.telefone} onChange={(e) => setFormData({...formData, telefone: e.target.value})} />
             </div>
             <div className="form-group">
-              <label>UF</label>
-              <input type="text" className="form-input" placeholder="Ex: SP" maxLength={2} required value={formData.uf} onChange={(e) => setFormData({...formData, uf: e.target.value})} />
+              <label>E-mail</label>
+              <input type="email" className="form-input" placeholder="contato@cliente.com" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
             </div>
           </div>
           <div className="modal-footer">

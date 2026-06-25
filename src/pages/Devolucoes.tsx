@@ -19,6 +19,10 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
   const [importLoading, setImportLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // NOVOS ESTADOS PARA O DROPDOWN INTELIGENTE DE CLIENTES
+  const [buscaCliente, setBuscaCliente] = useState('');
+  const [mostrarDropdownCliente, setMostrarDropdownCliente] = useState(false);
+
   const [devolucaoFormData, setDevolucaoFormData] = useState({
     data_emissao: '', data_coleta: '', data_previsao: '', data_chegada: '', 
     cliente_id: '', transportadora_cliente: '', nf_venda: '', notas_fiscais: '',
@@ -107,6 +111,7 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
       cliente_id: '', transportadora_cliente: '', nf_venda: '', notas_fiscais: '', 
       valor_total_nf: '', volume: '', peso_kg: '', valor_frete_reverso: '', motivo: '', status: 'Pendente' 
     });
+    setBuscaCliente(''); // Limpa a busca ao abrir um novo cadastro
     setIsDevolucaoModalOpen(true);
   }
 
@@ -118,6 +123,11 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
       valor_total_nf: dev.valor_total_nf?.toString() || '', volume: dev.volume?.toString() || '', peso_kg: dev.peso_kg?.toString() || '',
       valor_frete_reverso: dev.valor_frete_reverso?.toString() || '', motivo: dev.motivo || '', status: dev.status || 'Pendente'
     });
+    
+    // Preenche o campo de busca com o nome do cliente que já estava salvo
+    const nomeEncontrado = clientes.find(c => c.id === dev.cliente_id)?.nome || '';
+    setBuscaCliente(nomeEncontrado);
+    
     setIsDevolucaoModalOpen(true);
   }
 
@@ -132,6 +142,13 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
 
   async function handleDevolucaoSubmit(e: React.FormEvent) {
     e.preventDefault();
+    
+    // Validação extra de segurança: obrigar a selecionar um cliente válido da lista
+    if (!devolucaoFormData.cliente_id) {
+      alert("Por favor, selecione um cliente válido na lista de opções.");
+      return;
+    }
+    
     try {
       const payload = {
         data_emissao: devolucaoFormData.data_emissao || null, data_coleta: devolucaoFormData.data_coleta || null, 
@@ -167,6 +184,12 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
 
     return passaTexto && passaStatus;
   });
+  
+  // Função para filtrar clientes no dropdown
+  const clientesFiltradosDropdown = clientes.filter(c => 
+    c.nome.toLowerCase().includes(buscaCliente.toLowerCase()) || 
+    (c.cnpj_cpf && c.cnpj_cpf.includes(buscaCliente))
+  );
 
   const thStyle: React.CSSProperties = { position: 'sticky', top: 0, backgroundColor: '#f8fafc', zIndex: 10, borderBottom: '2px solid #e2e8f0', padding: '12px 16px', color: '#475569', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', whiteSpace: 'nowrap' };
   const thAcoesStyle: React.CSSProperties = { ...thStyle, right: 0, zIndex: 11, textAlign: 'center', borderLeft: '1px solid #e2e8f0' };
@@ -180,20 +203,9 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
           <div><h2>Logística Reversa (Devoluções)</h2><p>Auditoria de coletas e custos de frete reverso</p></div>
           
           <div style={{ display: 'flex', gap: '12px' }}>
-            <input 
-              type="file" 
-              accept=".csv" 
-              ref={fileInputRef}
-              onChange={handleFileUpload}
-              style={{ display: 'none' }} 
-            />
+            <input type="file" accept=".csv" ref={fileInputRef} onChange={handleFileUpload} style={{ display: 'none' }} />
             
-            <button 
-              className="btn-secondary" 
-              onClick={() => fileInputRef.current?.click()}
-              disabled={importLoading}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-            >
+            <button className="btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={importLoading} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Upload size={18} /> {importLoading ? 'A Processar...' : 'Importar CSV'}
             </button>
             
@@ -212,7 +224,6 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
             <select className="form-select" value={filtroStatusDev} onChange={e => setFiltroStatusDev(e.target.value)} style={{ width: '220px' }}>
               <option value="">Todos os Status</option>
               <option value="Pendente">Pendente</option>
-              {/* AS DUAS NOVAS OPÇÕES NO FILTRO AQUI */}
               <option value="Lançada">Lançada</option>
               <option value="Emitida">Emitida</option>
               <option value="Solic. Coleta">Solic. Coleta</option>
@@ -258,7 +269,55 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
               <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div className="form-group"><label>NF de Venda (Origem)</label><input type="text" className="form-input" placeholder="Ex: 12500" value={devolucaoFormData.nf_venda} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, nf_venda: e.target.value})} /></div>
                 <div className="form-group"><label>NFs de Referência (Devolução)</label><input type="text" className="form-input" placeholder="Ex: 12661, 13196" required value={devolucaoFormData.notas_fiscais} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, notas_fiscais: e.target.value})} /></div>
-                <div className="form-group"><label>Cliente</label><select className="form-select" required value={devolucaoFormData.cliente_id} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, cliente_id: e.target.value})}><option value="">Selecione...</option>{clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
+                
+                {/* CAMPO DE CLIENTE SUBSTITUÍDO PELO DROPDOWN INTELIGENTE */}
+                <div className="form-group" style={{ position: 'relative' }}>
+                  <label>Cliente</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Digite o nome ou CNPJ..."
+                    required={!devolucaoFormData.cliente_id}
+                    value={buscaCliente}
+                    onChange={(e) => {
+                      setBuscaCliente(e.target.value);
+                      setMostrarDropdownCliente(true);
+                      setDevolucaoFormData({...devolucaoFormData, cliente_id: ''}); // Limpa o ID se o texto for alterado
+                    }}
+                    onFocus={() => setMostrarDropdownCliente(true)}
+                    onBlur={() => setTimeout(() => setMostrarDropdownCliente(false), 200)}
+                  />
+                  {mostrarDropdownCliente && (
+                    <ul style={{
+                      position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                      backgroundColor: 'white', border: '1px solid var(--border-color)', borderRadius: '6px',
+                      maxHeight: '200px', overflowY: 'auto', margin: '4px 0 0 0', padding: 0, listStyle: 'none',
+                      boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+                    }}>
+                      {clientesFiltradosDropdown.map(c => (
+                        <li
+                          key={c.id}
+                          style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: '0.85rem', color: 'var(--text-main)' }}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setBuscaCliente(c.nome);
+                            setDevolucaoFormData({...devolucaoFormData, cliente_id: c.id});
+                            setMostrarDropdownCliente(false);
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8fafc')}
+                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                        >
+                          <div style={{ fontWeight: 'bold' }}>{c.nome}</div>
+                          {c.cnpj_cpf && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.cnpj_cpf}</div>}
+                        </li>
+                      ))}
+                      {clientesFiltradosDropdown.length === 0 && (
+                        <li style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nenhum cliente encontrado</li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+
                 <div className="form-group"><label>Transportadora (Texto Livre)</label><input type="text" className="form-input" placeholder="Ex: Correios do Cliente, Loggi, etc..." value={devolucaoFormData.transportadora_cliente} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, transportadora_cliente: e.target.value})} /></div>
                 <div className="form-group"><label>Data de Emissão (NF Devolução)</label><input type="date" className="form-input" value={devolucaoFormData.data_emissao} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, data_emissao: e.target.value})} /></div>
                 <div className="form-group"><label>Data da Coleta (Reversa)</label><input type="date" className="form-input" value={devolucaoFormData.data_coleta} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, data_coleta: e.target.value})} /></div>
@@ -270,7 +329,6 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
                 <div className="form-group"><label>Peso Retornando (Kg)</label><input type="number" step="0.01" className="form-input" placeholder="Ex: 1.5" value={devolucaoFormData.peso_kg} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, peso_kg: e.target.value})} /></div>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Status da Devolução</label><select className="form-select" value={devolucaoFormData.status} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, status: e.target.value})}>
                   <option value="Pendente">Pendente</option>
-                  {/* AS DUAS NOVAS OPÇÕES NO FORMULÁRIO AQUI */}
                   <option value="Lançada">Lançada</option>
                   <option value="Emitida">Emitida</option>
                   <option value="Solic. Coleta">Solic. Coleta</option>

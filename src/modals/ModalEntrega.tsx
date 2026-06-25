@@ -13,59 +13,29 @@ interface ModalEntregaProps {
 }
 
 export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData, isEditing, clientes, transportadoras }: ModalEntregaProps) {
-  const [percentInput, setPercentInput] = useState('');
+  // ESTADOS DO DROPDOWN INTELIGENTE
+  const [buscaCliente, setBuscaCliente] = useState('');
+  const [mostrarDropdownCliente, setMostrarDropdownCliente] = useState(false);
 
+  // EFEITO: Sincroniza o texto da busca quando o modal abre (útil para quando for Editar)
   useEffect(() => {
-    const nf = parseFloat(formData.valor_nf) || 0;
-    const frete = parseFloat(formData.valor_frete) || 0;
-    const currentPercent = parseFloat(percentInput) || 0;
-    const calcPercent = (nf > 0 && frete > 0) ? (frete / nf) * 100 : 0;
-
-    if (Math.abs(currentPercent - calcPercent) > 0.01) {
-      setPercentInput(calcPercent > 0 ? calcPercent.toFixed(2) : '');
-    } else if (frete === 0 || isNaN(frete)) {
-      setPercentInput('');
+    if (isOpen) {
+      if (formData.cliente_id) {
+        const clienteEncontrado = clientes.find(c => c.id === formData.cliente_id);
+        setBuscaCliente(clienteEncontrado ? clienteEncontrado.nome : '');
+      } else {
+        setBuscaCliente('');
+      }
     }
-  }, [formData.valor_nf, formData.valor_frete]);
+  }, [isOpen, formData.cliente_id, clientes]);
 
   if (!isOpen) return null;
 
-  const handlePercentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setPercentInput(val);
-
-    const pct = parseFloat(val);
-    const nf = parseFloat(formData.valor_nf) || 0;
-
-    if (!isNaN(pct) && nf > 0) {
-      const freteCalculado = (nf * pct) / 100;
-      setFormData({ ...formData, valor_frete: freteCalculado.toFixed(2) });
-    } else if (val === '') {
-      setFormData({ ...formData, valor_frete: '' });
-    }
-  };
-
-  const handleClienteChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const clienteId = e.target.value;
-    const clienteSelecionado = clientes.find(c => c.id === clienteId);
-    
-    setFormData({
-      ...formData,
-      cliente_id: clienteId,
-      cidade_destino: clienteSelecionado ? clienteSelecionado.cidade : formData.cidade_destino,
-      uf_destino: clienteSelecionado ? clienteSelecionado.uf : formData.uf_destino
-    });
-  };
-
-  const handleTranspChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const transpId = e.target.value;
-    const transpSelecionada = transportadoras.find(t => t.id === transpId);
-    setFormData({
-      ...formData,
-      transportadora_id: transpId,
-      modal_frete: transpSelecionada?.modal_padrao || formData.modal_frete
-    });
-  };
+  // Lógica de filtro da lista baseada no nome ou CNPJ
+  const clientesFiltradosDropdown = clientes.filter(c => 
+    c.nome.toLowerCase().includes(buscaCliente.toLowerCase()) || 
+    (c.cnpj_cpf && c.cnpj_cpf.includes(buscaCliente))
+  );
 
   const estadosBR = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 
@@ -79,89 +49,104 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
         <form onSubmit={onSubmit}>
           <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             
-            <div className="form-group">
-              <label>Número da NF</label>
-              <input type="text" className="form-input" required value={formData.nota_fiscal} onChange={(e) => setFormData({...formData, nota_fiscal: e.target.value})} />
-            </div>
-            <div className="form-group">
+            {/* CAMPO CLIENTE COM DROPDOWN INTELIGENTE (Ocupa as duas colunas) */}
+            <div className="form-group" style={{ position: 'relative', gridColumn: '1 / -1' }}>
               <label>Cliente</label>
-              <select className="form-select" required value={formData.cliente_id} onChange={handleClienteChange}>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Digite o nome ou CNPJ..."
+                required={!formData.cliente_id}
+                value={buscaCliente}
+                onChange={(e) => {
+                  setBuscaCliente(e.target.value);
+                  setMostrarDropdownCliente(true);
+                  setFormData({...formData, cliente_id: ''}); // Limpa o ID se alterar o texto para forçar nova seleção
+                }}
+                onFocus={() => setMostrarDropdownCliente(true)}
+                onBlur={() => setTimeout(() => setMostrarDropdownCliente(false), 200)}
+              />
+              {mostrarDropdownCliente && (
+                <ul style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                  backgroundColor: 'white', border: '1px solid var(--border-color)', borderRadius: '6px',
+                  maxHeight: '200px', overflowY: 'auto', margin: '4px 0 0 0', padding: 0, listStyle: 'none',
+                  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+                }}>
+                  {clientesFiltradosDropdown.map(c => (
+                    <li
+                      key={c.id}
+                      style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: '0.85rem', color: 'var(--text-main)' }}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setBuscaCliente(c.nome);
+                        setFormData({...formData, cliente_id: c.id});
+                        setMostrarDropdownCliente(false);
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8fafc')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    >
+                      <div style={{ fontWeight: 'bold' }}>{c.nome}</div>
+                      {c.cnpj_cpf && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.cnpj_cpf}</div>}
+                    </li>
+                  ))}
+                  {clientesFiltradosDropdown.length === 0 && (
+                    <li style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nenhum cliente encontrado</li>
+                  )}
+                </ul>
+              )}
+            </div>
+
+            <div className="form-group"><label>Nota Fiscal</label><input type="text" className="form-input" required value={formData.nota_fiscal} onChange={(e) => setFormData({...formData, nota_fiscal: e.target.value})} /></div>
+            
+            <div className="form-group"><label>Transportadora</label>
+              <select className="form-select" value={formData.transportadora_id} onChange={(e) => setFormData({...formData, transportadora_id: e.target.value})}>
                 <option value="">Selecione...</option>
-                {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Cidade e UF de Destino</label>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input type="text" className="form-input" style={{ flex: 2 }} value={formData.cidade_destino} onChange={(e) => setFormData({...formData, cidade_destino: e.target.value})} placeholder="Ex: SÃO PAULO" />
-                <select className="form-select" style={{ flex: 1 }} value={formData.uf_destino} onChange={(e) => setFormData({...formData, uf_destino: e.target.value})}>
-                  <option value="">UF</option>
-                  {estadosBR.map(uf => <option key={uf} value={uf}>{uf}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Transportadora</label>
-              <select className="form-select" value={formData.transportadora_id} onChange={handleTranspChange}>
-                <option value="">Ainda não definida...</option>
                 {transportadoras.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
               </select>
             </div>
 
-            <div className="form-group">
-              <label>Modal de Envio</label>
+            <div className="form-group"><label>Cidade de Destino</label><input type="text" className="form-input" value={formData.cidade_destino} onChange={(e) => setFormData({...formData, cidade_destino: e.target.value})} /></div>
+            <div className="form-group"><label>UF Destino</label>
+              <select className="form-select" value={formData.uf_destino} onChange={(e) => setFormData({...formData, uf_destino: e.target.value})}>
+                <option value="">Selecione...</option>
+                {estadosBR.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+              </select>
+            </div>
+
+            <div className="form-group"><label>Data Faturamento</label><input type="date" className="form-input" value={formData.data_faturamento} onChange={(e) => setFormData({...formData, data_faturamento: e.target.value})} /></div>
+            <div className="form-group"><label>Data Coleta</label><input type="date" className="form-input" value={formData.data_coleta} onChange={(e) => setFormData({...formData, data_coleta: e.target.value})} /></div>
+
+            <div className="form-group"><label>Valor da NF (R$)</label><input type="number" step="0.01" className="form-input" value={formData.valor_nf} onChange={(e) => setFormData({...formData, valor_nf: e.target.value})} /></div>
+            <div className="form-group"><label>Custo do Frete (R$)</label><input type="number" step="0.01" className="form-input" value={formData.valor_frete} onChange={(e) => setFormData({...formData, valor_frete: e.target.value})} /></div>
+
+            <div className="form-group"><label>Volume (Caixas)</label><input type="number" className="form-input" value={formData.volume} onChange={(e) => setFormData({...formData, volume: e.target.value})} /></div>
+            <div className="form-group"><label>Peso (Kg)</label><input type="number" step="0.01" className="form-input" value={formData.peso_kg} onChange={(e) => setFormData({...formData, peso_kg: e.target.value})} /></div>
+
+            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input type="checkbox" id="tem_agendamento" checked={formData.tem_agendamento} onChange={(e) => setFormData({...formData, tem_agendamento: e.target.checked})} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+              <label htmlFor="tem_agendamento" style={{ margin: 0, cursor: 'pointer', fontWeight: 'bold', color: 'var(--munila-blue)' }}>Possui Agendamento?</label>
+            </div>
+
+            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input type="checkbox" id="frete_confirmado" checked={formData.frete_confirmado} onChange={(e) => setFormData({...formData, frete_confirmado: e.target.checked})} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#16a34a' }} />
+              <label htmlFor="frete_confirmado" style={{ margin: 0, cursor: 'pointer', fontWeight: 'bold', color: '#166534' }}>Frete Confirmado/Auditado?</label>
+            </div>
+
+            <div className="form-group"><label>Data Previsão</label><input type="date" className="form-input" value={formData.data_previsao} onChange={(e) => setFormData({...formData, data_previsao: e.target.value})} /></div>
+            <div className="form-group"><label>Data Entrega</label><input type="date" className="form-input" value={formData.data_entrega_agendamento} onChange={(e) => setFormData({...formData, data_entrega_agendamento: e.target.value})} /></div>
+
+            <div className="form-group"><label>Modal de Frete</label>
               <select className="form-select" value={formData.modal_frete} onChange={(e) => setFormData({...formData, modal_frete: e.target.value})}>
-                <option value="">Ainda não definido...</option>
+                <option value="">Padrão da Transportadora</option>
                 <option value="AÉREO">Aéreo</option>
                 <option value="RODOVIÁRIO">Rodoviário</option>
                 <option value="PAC">PAC</option>
                 <option value="SEDEX">Sedex</option>
               </select>
             </div>
-            <div className="form-group">
-              <label>Valor da NF (R$)</label>
-              <input type="number" step="0.01" className="form-input" value={formData.valor_nf} onChange={(e) => setFormData({...formData, valor_nf: e.target.value})} />
-            </div>
 
-            <div className="form-group">
-              <label>Valor do Frete (R$)</label>
-              <input type="number" step="0.01" className="form-input" value={formData.valor_frete} onChange={(e) => setFormData({...formData, valor_frete: e.target.value})} />
-            </div>
-            <div className="form-group">
-              <label>% do Frete (Calcula Reais)</label>
-              <input type="number" step="0.01" className="form-input" value={percentInput} onChange={handlePercentChange} placeholder="Ex: 5.00" style={{ fontWeight: 'bold', color: '#0095DA', borderColor: '#bae6fd' }} />
-            </div>
-
-            {/* NOVO CHECKBOX DE FRETE CONFIRMADO */}
-            <div className="form-group" style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px', padding: '10px 16px', backgroundColor: formData.frete_confirmado ? '#dcfce7' : '#f8fafc', border: formData.frete_confirmado ? '2px solid #22c55e' : '2px dashed #cbd5e1', borderRadius: '8px', transition: 'all 0.2s' }}>
-              <input type="checkbox" id="freteConfirmado" checked={formData.frete_confirmado} onChange={(e) => setFormData({...formData, frete_confirmado: e.target.checked})} style={{ width: '22px', height: '22px', cursor: 'pointer', accentColor: '#16a34a' }} />
-              <label htmlFor="freteConfirmado" style={{ cursor: 'pointer', margin: 0, color: formData.frete_confirmado ? '#166534' : '#475569', fontWeight: 'bold', fontSize: '0.95rem' }}>
-                {formData.frete_confirmado ? '✅ Frete Auditado e Confirmado' : 'Marcar Frete como Auditado/Confirmado'}
-              </label>
-            </div>
-
-            <div className="form-group">
-              <label>Data de Faturamento</label>
-              <input type="date" className="form-input" value={formData.data_faturamento} onChange={(e) => setFormData({...formData, data_faturamento: e.target.value})} />
-            </div>
-            <div className="form-group">
-              <label>Data de Coleta</label>
-              <input type="date" className="form-input" value={formData.data_coleta} onChange={(e) => setFormData({...formData, data_coleta: e.target.value})} />
-            </div>
-
-            <div className="form-group">
-              <label>Volume (Qtd. Caixas)</label>
-              <input type="number" className="form-input" placeholder="Ex: 5" value={formData.volume} onChange={(e) => setFormData({...formData, volume: e.target.value})} />
-            </div>
-            <div className="form-group">
-              <label>Peso Total (em Kg)</label>
-              <input type="number" step="0.01" className="form-input" placeholder="Ex: 2.5" value={formData.peso_kg} onChange={(e) => setFormData({...formData, peso_kg: e.target.value})} />
-            </div>
-
-            <div className="form-group">
-              <label>Status</label>
+            <div className="form-group"><label>Status da Entrega</label>
               <select className="form-select" value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})}>
                 <option value="Pendente">Pendente</option>
                 <option value="Solicitado Agendamento">Solicitado Agendamento</option>
@@ -173,44 +158,13 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
                 <option value="Frete Conferido">Frete Conferido</option>
               </select>
             </div>
-            <div className="form-group">
-              <label>Previsão de Entrega</label>
-              <input type="date" className="form-input" value={formData.data_previsao} onChange={(e) => setFormData({...formData, data_previsao: e.target.value})} />
-            </div>
-
-            <div className="form-group">
-              <label>Data Efetiva de Entrega</label>
-              <input type="date" className="form-input" value={formData.data_entrega_agendamento} onChange={(e) => setFormData({...formData, data_entrega_agendamento: e.target.value})} />
-            </div>
-            
-            <div style={{ 
-              display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '12px', 
-              marginTop: '24px', padding: '12px 16px', 
-              backgroundColor: formData.tem_agendamento ? '#dcfce7' : '#fffbeb', 
-              border: formData.tem_agendamento ? '2px solid #22c55e' : '2px dashed #f59e0b',
-              borderRadius: '8px',
-              transition: 'all 0.3s ease'
-            }}>
-              <input 
-                type="checkbox" 
-                id="agendamento" 
-                checked={formData.tem_agendamento} 
-                onChange={(e) => setFormData({...formData, tem_agendamento: e.target.checked})} 
-                style={{ width: '24px', height: '24px', cursor: 'pointer', accentColor: '#16a34a' }}
-              />
-              <label htmlFor="agendamento" style={{ cursor: 'pointer', fontWeight: 700, fontSize: '1rem', color: formData.tem_agendamento ? '#166534' : '#b45309', userSelect: 'none', margin: 0 }}>
-                {formData.tem_agendamento ? '✅ Entrega com Agendamento' : '⚠️ Esta entrega possui agendamento?'}
-              </label>
-            </div>
 
           </div>
 
           <div className="modal-body" style={{ paddingTop: 0 }}>
-            <div className="form-group">
-              <label>Observações</label>
-              <input type="text" className="form-input" value={formData.observacoes} onChange={(e) => setFormData({...formData, observacoes: e.target.value})} />
-            </div>
+            <div className="form-group"><label>Observações</label><textarea className="form-input" rows={2} value={formData.observacoes} onChange={(e) => setFormData({...formData, observacoes: e.target.value})} /></div>
           </div>
+
           <div className="modal-footer">
             <button type="button" className="btn-secondary" onClick={onClose}>Cancelar</button>
             <button type="submit" className="btn-primary">{isEditing ? 'Atualizar Entrega' : 'Salvar Entrega'}</button>

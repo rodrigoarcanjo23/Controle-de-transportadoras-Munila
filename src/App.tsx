@@ -149,29 +149,35 @@ export default function App() {
   async function handleMetaSubmit(e: React.FormEvent) { e.preventDefault(); try { const { data } = await supabase.from('metas_frete').insert([{ cliente_id: metaFormData.cliente_id, transportadora_id: metaFormData.transportadora_id, meta_percentual: parseFloat(metaFormData.meta_percentual) }]).select('*, clientes (nome), transportadoras (nome)'); if (data) setMetas([...metas, data[0]]); setIsMetaModalOpen(false); } catch (error) { alert("Erro ao cadastrar meta."); } }
   async function handlePerfilSubmit(e: React.FormEvent) { e.preventDefault(); try { const { data } = await supabase.from('perfis').insert([{ nome: perfilFormData.nome, email: perfilFormData.email.toLowerCase(), cargo: perfilFormData.cargo, nivel_acesso: perfilFormData.nivel_acesso }]).select('*'); if (data) setPerfis([...perfis, data[0]]); setIsPerfilModalOpen(false); } catch (error) { console.error(error); } }
 
-  const formatarData = (d: string) => (d ? new Date(d).toLocaleDateString('pt-BR') : '-');
+  // FIX 1: Fuso Horário resolvido lendo a data sempre ao meio-dia
+  const formatarData = (d: string) => {
+    if (!d) return '-';
+    return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR');
+  };
+
+  // FIX 2: Restaurada a função que conta os dias do transporte
+  const calcularDiasEntrega = (coleta: string, entrega: string) => {
+    if (!coleta || !entrega) return '-';
+    const d1 = new Date(coleta + 'T12:00:00');
+    const d2 = new Date(entrega + 'T12:00:00');
+    const diffTime = Math.abs(d2.getTime() - d1.getTime());
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + ' dias';
+  };
+
+  const calcularPorcentagemFrete = (frete: number, nf: number) => { 
+    if (!frete || !nf || nf === 0) return '0.00%'; 
+    return ((frete / nf) * 100).toFixed(2) + '%'; 
+  };
   
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Entregue': return { backgroundColor: '#dcfce7', color: '#166534' }; 
-      case 'Atrasado': return { backgroundColor: '#fee2e2', color: '#991b1b' }; 
-      case 'Em Transporte': return { backgroundColor: '#e0f2fe', color: '#075985' }; 
-      case 'Agendado': return { backgroundColor: '#f3e8ff', color: '#6b21a8' }; 
-      case 'Devolução': return { backgroundColor: '#fecdd3', color: '#881337' }; 
-      case 'Solicitado Agendamento': return { backgroundColor: '#fef08a', color: '#713f12' }; 
-      case 'Pendente': return { backgroundColor: '#ffedd5', color: '#9a3412' }; 
-      case 'Frete Conferido': return { backgroundColor: '#e0e7ff', color: '#4338ca' };
-      case 'Aguardando Chegada': return { backgroundColor: '#fef3c7', color: '#92400e' }; 
-      case 'Chegou no Galpão': return { backgroundColor: '#d1fae5', color: '#065f46' };
-      case 'Coletada': return { backgroundColor: '#e0f2fe', color: '#075985' }; 
-      case 'Solic. Coleta': return { backgroundColor: '#fef08a', color: '#713f12' };
-      case 'Recusa': return { backgroundColor: '#fee2e2', color: '#991b1b' }; 
-      case 'Coletada pelo representante.': return { backgroundColor: '#f3e8ff', color: '#6b21a8' };
-      
-      // CORES DOS NOVOS STATUS DA DEVOLUÇÃO
-      case 'Lançada': return { backgroundColor: '#cffafe', color: '#0369a1' }; 
-      case 'Emitida': return { backgroundColor: '#ccfbf1', color: '#0f766e' }; 
-      
+      case 'Entregue': return { backgroundColor: '#dcfce7', color: '#166534' }; case 'Atrasado': return { backgroundColor: '#fee2e2', color: '#991b1b' }; 
+      case 'Em Transporte': return { backgroundColor: '#e0f2fe', color: '#075985' }; case 'Agendado': return { backgroundColor: '#f3e8ff', color: '#6b21a8' }; 
+      case 'Devolução': return { backgroundColor: '#fecdd3', color: '#881337' }; case 'Solicitado Agendamento': return { backgroundColor: '#fef08a', color: '#713f12' }; 
+      case 'Pendente': return { backgroundColor: '#ffedd5', color: '#9a3412' }; case 'Frete Conferido': return { backgroundColor: '#e0e7ff', color: '#4338ca' };
+      case 'Aguardando Chegada': return { backgroundColor: '#fef3c7', color: '#92400e' }; case 'Chegou no Galpão': return { backgroundColor: '#d1fae5', color: '#065f46' };
+      case 'Coletada': return { backgroundColor: '#e0f2fe', color: '#075985' }; case 'Solic. Coleta': return { backgroundColor: '#fef08a', color: '#713f12' };
+      case 'Recusa': return { backgroundColor: '#fee2e2', color: '#991b1b' }; case 'Coletada pelo representante.': return { backgroundColor: '#f3e8ff', color: '#6b21a8' };
       default: return { backgroundColor: '#f1f5f9', color: '#334155' };
     }
   };
@@ -206,6 +212,29 @@ export default function App() {
   let totalCaixas = 0; let pesoTotalCalc = "0.00";
   if (produtoSelecionado && quantidadeDesejada > 0) { totalCaixas = Math.ceil(quantidadeDesejada / produtoSelecionado.unidades_por_caixa); pesoTotalCalc = (totalCaixas * produtoSelecionado.peso_caixa_kg).toFixed(2); }
 
+  // FIX 3: Restaurada a função de Exportar para Excel!
+  const exportarParaExcel = () => {
+    if (entregasFiltradas.length === 0) { alert("Não há dados para exportar."); return; }
+    const cabecalho = ["Data Fat.", "Coleta", "Cliente", "Cidade", "UF", "Volume (Cx)", "Peso (Kg)", "Nº NF", "Valor NF", "Transportadora", "Modal", "Valor Frete", "% Frete", "Agendamento", "Previsão", "Dt Entrega", "Dias", "Status", "Frete Confirmado", "Observações"].join(";");
+    const linhas = entregasFiltradas.map(e => {
+      const cidadeFormatada = e.cidade_destino || e.clientes?.cidade || '-';
+      const ufFormatada = e.uf_destino || e.clientes?.uf || '-';
+      const modalFormatado = e.modal_frete || e.transportadoras?.modal_padrao || '-';
+      return [
+        formatarData(e.data_faturamento), formatarData(e.data_coleta), e.clientes?.nome || '-', cidadeFormatada, ufFormatada,
+        e.volume || e.volume_peso || '-', e.peso_kg || '-', e.nota_fiscal, e.valor_nf?.toString().replace('.', ',') || '0,00', e.transportadoras?.nome || '-', modalFormatado,
+        e.valor_frete?.toString().replace('.', ',') || '0,00', calcularPorcentagemFrete(e.valor_frete, e.valor_nf), e.tem_agendamento ? 'SIM' : 'NÃO',
+        formatarData(e.data_previsao), formatarData(e.data_entrega_agendamento), calcularDiasEntrega(e.data_coleta, e.data_entrega_agendamento).replace(' dias', ''), e.status, e.frete_confirmado ? 'SIM' : 'NÃO', e.observacoes || '-'
+      ].join(";");
+    });
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + cabecalho + "\n" + linhas.join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `MunilaLog_Exportacao_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.csv`);
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  };
+
   return (
     <BrowserRouter>
       <Routes>
@@ -221,9 +250,9 @@ export default function App() {
               filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado}
               filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento}
               filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento}
-              transportadoras={transportadoras} limparFiltros={limparFiltros} exportarParaExcel={() => {}} abrirModalNovaEntrega={abrirModalNovaEntrega}
+              transportadoras={transportadoras} limparFiltros={limparFiltros} exportarParaExcel={exportarParaExcel} abrirModalNovaEntrega={abrirModalNovaEntrega}
               faturamentoTotal={faturamentoTotal} progressoMeta={'0'} freteTotal={freteTotal} freteMedio={freteMedio} atrasados={0} volumeTotal={volumeTotal} pesoTotal={pesoTotal} loading={loading}
-              entregasFiltradas={entregasFiltradas} formatarData={formatarData} calcularPorcentagemFrete={(f, n) => (n > 0 ? ((f/n)*100).toFixed(2)+'%' : '0%')} calcularDiasEntrega={() => '-'} getStatusColor={getStatusColor}
+              entregasFiltradas={entregasFiltradas} formatarData={formatarData} calcularPorcentagemFrete={calcularPorcentagemFrete} calcularDiasEntrega={calcularDiasEntrega} getStatusColor={getStatusColor}
               abrirModalEdicao={abrirModalEdicao} handleDeleteEntrega={handleDeleteEntrega}
             />
           } />
@@ -268,6 +297,7 @@ export default function App() {
         </Route>
       </Routes>
 
+      {/* MODALS */}
       <ModalEntrega isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleSubmit} formData={formData} setFormData={setFormData} isEditing={!!editingId} clientes={clientes} transportadoras={transportadoras} />
       <ModalCliente isOpen={isClienteModalOpen} onClose={() => setIsClienteModalOpen(false)} onSubmit={handleClienteSubmit} formData={clienteFormData} setFormData={setClienteFormData} isEditing={!!editingClienteId} />
 

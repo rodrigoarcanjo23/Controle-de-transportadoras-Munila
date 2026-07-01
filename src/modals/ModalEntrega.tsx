@@ -49,7 +49,7 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
         <form onSubmit={onSubmit}>
           <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             
-            {/* CAMPO CLIENTE COM DROPDOWN INTELIGENTE (Ocupa as duas colunas) */}
+            {/* CAMPO CLIENTE COM DROPDOWN INTELIGENTE */}
             <div className="form-group" style={{ position: 'relative', gridColumn: '1 / -1' }}>
               <label>Cliente</label>
               <input
@@ -61,7 +61,7 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
                 onChange={(e) => {
                   setBuscaCliente(e.target.value);
                   setMostrarDropdownCliente(true);
-                  setFormData({...formData, cliente_id: ''}); // Limpa o ID se alterar o texto para forçar nova seleção
+                  setFormData({...formData, cliente_id: ''}); 
                 }}
                 onFocus={() => setMostrarDropdownCliente(true)}
                 onBlur={() => setTimeout(() => setMostrarDropdownCliente(false), 200)}
@@ -99,8 +99,24 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
 
             <div className="form-group"><label>Nota Fiscal</label><input type="text" className="form-input" required value={formData.nota_fiscal} onChange={(e) => setFormData({...formData, nota_fiscal: e.target.value})} /></div>
             
-            <div className="form-group"><label>Transportadora</label>
-              <select className="form-select" value={formData.transportadora_id} onChange={(e) => setFormData({...formData, transportadora_id: e.target.value})}>
+            {/* GATILHO DA TRANSPORTADORA ADICIONADO AQUI */}
+            <div className="form-group">
+              <label>Transportadora</label>
+              <select 
+                className="form-select" 
+                value={formData.transportadora_id} 
+                onChange={(e) => {
+                  const selectedId = e.target.value;
+                  const transportadoraSelecionada = transportadoras.find(t => t.id === selectedId);
+                  
+                  setFormData({
+                    ...formData, 
+                    transportadora_id: selectedId,
+                    // Preenche automaticamente o modal com o padrão da transportadora (ou vazio se não tiver)
+                    modal_frete: transportadoraSelecionada?.modal_padrao || ''
+                  });
+                }}
+              >
                 <option value="">Selecione...</option>
                 {transportadoras.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
               </select>
@@ -136,7 +152,8 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
             <div className="form-group"><label>Data Previsão</label><input type="date" className="form-input" value={formData.data_previsao} onChange={(e) => setFormData({...formData, data_previsao: e.target.value})} /></div>
             <div className="form-group"><label>Data Entrega</label><input type="date" className="form-input" value={formData.data_entrega_agendamento} onChange={(e) => setFormData({...formData, data_entrega_agendamento: e.target.value})} /></div>
 
-            <div className="form-group"><label>Modal de Frete</label>
+            <div className="form-group">
+              <label>Modal de Frete</label>
               <select className="form-select" value={formData.modal_frete} onChange={(e) => setFormData({...formData, modal_frete: e.target.value})}>
                 <option value="">Padrão da Transportadora</option>
                 <option value="AÉREO">Aéreo</option>

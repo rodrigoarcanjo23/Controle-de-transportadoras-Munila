@@ -127,10 +127,20 @@ export default function App() {
   async function handleDeleteEntrega(id: string) { if (!window.confirm("⚠️ ATENÇÃO: Tem certeza que deseja excluir esta entrega?")) return; try { await supabase.from('entregas').delete().eq('id', id); setEntregas(entregas.filter(e => e.id !== id)); } catch (error) { console.error(error); } }
   async function handleDeleteCliente(id: string) { if (!window.confirm("Tem certeza que deseja excluir este cliente?")) return; try { await supabase.from('clientes').delete().eq('id', id); setClientes(clientes.filter(c => c.id !== id)); } catch (error) { console.error(error); } }
 
+  // CORREÇÃO EFETUADA: Conversão explícita para string impede quebras e vazamentos de duplicidade
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const nfDuplicada = entregas.find(ent => ent.nota_fiscal.trim().toLowerCase() === formData.nota_fiscal.trim().toLowerCase() && ent.id !== editingId);
-    if (nfDuplicada) { alert("Nota Fiscal já cadastrada!"); return; }
+    const nfDuplicada = entregas.find(ent => {
+      const nfBanco = String(ent.nota_fiscal || '').trim().toLowerCase();
+      const nfFormulario = String(formData.nota_fiscal || '').trim().toLowerCase();
+      return nfBanco === nfFormulario && ent.id !== editingId;
+    });
+
+    if (nfDuplicada) { 
+      alert(`⚠️ Nota Fiscal já cadastrada para o cliente: ${nfDuplicada.clientes?.nome || '-'}`); 
+      return; 
+    }
+
     const nf = parseFloat(formData.valor_nf) || 0; const frete = parseFloat(formData.valor_frete) || 0;
     const payload = { nota_fiscal: formData.nota_fiscal, cliente_id: formData.cliente_id, transportadora_id: formData.transportadora_id || null, cidade_destino: formData.cidade_destino || null, uf_destino: formData.uf_destino || null, modal_frete: formData.modal_frete || null, data_faturamento: formData.data_faturamento || null, data_coleta: formData.data_coleta || null, valor_nf: nf, valor_frete: frete, volume: parseInt(formData.volume) || null, peso_kg: parseFloat(formData.peso_kg) || null, tem_agendamento: formData.tem_agendamento, data_previsao: formData.data_previsao || null, data_entrega_agendamento: formData.data_entrega_agendamento || null, observacoes: formData.observacoes, status: formData.status, frete_confirmado: formData.frete_confirmado };
     try {
@@ -177,7 +187,7 @@ export default function App() {
       case 'Pendente': return { backgroundColor: '#ffedd5', color: '#9a3412' }; case 'Frete Conferido': return { backgroundColor: '#e0e7ff', color: '#4338ca' };
       case 'Aguardando Chegada': return { backgroundColor: '#fef3c7', color: '#92400e' }; case 'Chegou no Galpão': return { backgroundColor: '#d1fae5', color: '#065f46' };
       case 'Coletada': return { backgroundColor: '#e0f2fe', color: '#075985' }; case 'Solic. Coleta': return { backgroundColor: '#fef08a', color: '#713f12' };
-      case 'Recusa': return { backgroundColor: '#fee2e2', color: '#991b1b' }; case 'Coletada pelo representante.': return { backgroundColor: '#f3e8ff', color: '#6b21a8' };
+      case 'Recusa': return { backgroundColor: '#fee2e2', color: '#991b1b' }; case 'Coletada pelo representative.': return { backgroundColor: '#f3e8ff', color: '#6b21a8' };
       default: return { backgroundColor: '#f1f5f9', color: '#334155' };
     }
   };

@@ -198,30 +198,31 @@ export function Dashboard({
 
               return (
                 <tr key={entrega.id} className="trow-hover">
-                  <td style={tdStyle}>{formatarData(entrega.data_faturamento)}</td>
-                  <td style={tdStyle}>{formatarData(entrega.data_coleta)}</td>
-                  <td style={tdStyle}>{entrega.clientes?.nome || '-'}</td>
+                  {/* ATENÇÃO: Aqui estão os data-labels que fazem a mágica no mobile! */}
+                  <td style={tdStyle} data-label="Data Fat.">{formatarData(entrega.data_faturamento)}</td>
+                  <td style={tdStyle} data-label="Coleta">{formatarData(entrega.data_coleta)}</td>
+                  <td style={tdStyle} data-label="Cliente">{entrega.clientes?.nome || '-'}</td>
                   
-                  <td style={{ ...tdStyle, fontWeight: 'bold' }}>{cidadeDisplay}</td>
-                  <td style={{ ...tdStyle, fontWeight: 'bold' }}>{ufDisplay}</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold' }} data-label="Cidade">{cidadeDisplay}</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold' }} data-label="UF">{ufDisplay}</td>
 
-                  <td style={{ ...tdStyle, fontWeight: 'bold' }}>{entrega.volume ? `${entrega.volume} Cx` : (entrega.volume_peso || '-')}</td>
-                  <td style={{ ...tdStyle, fontWeight: 'bold' }}>{entrega.peso_kg ? `${entrega.peso_kg} Kg` : '-'}</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold' }} data-label="Volume">{entrega.volume ? `${entrega.volume} Cx` : (entrega.volume_peso || '-')}</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold' }} data-label="Peso (Kg)">{entrega.peso_kg ? `${entrega.peso_kg} Kg` : '-'}</td>
                   
-                  <td style={{ ...tdStyle, fontWeight: 'bold' }}>{entrega.nota_fiscal}</td>
-                  <td style={tdStyle}>R$ {Number(entrega.valor_nf).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                  <td style={tdStyle}>{entrega.transportadoras?.nome || '-'}</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold' }} data-label="Nº NF">{entrega.nota_fiscal}</td>
+                  <td style={tdStyle} data-label="Valor NF">R$ {Number(entrega.valor_nf).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td style={tdStyle} data-label="Transportadora">{entrega.transportadoras?.nome || '-'}</td>
                   
-                  <td style={tdStyle}>{modalDisplay}</td>
+                  <td style={tdStyle} data-label="Modal">{modalDisplay}</td>
 
-                  <td style={{ ...tdStyle, backgroundColor: freteBg, color: freteColor, fontWeight: isFreteConfirmado ? 'bold' : 'normal' }}>
+                  <td style={{ ...tdStyle, backgroundColor: freteBg, color: freteColor, fontWeight: isFreteConfirmado ? 'bold' : 'normal' }} data-label="Valor Frete">
                     R$ {Number(entrega.valor_frete).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} {isFreteConfirmado && '✅'}
                   </td>
-                  <td style={{ ...tdStyle, backgroundColor: freteBg, fontWeight: 'bold', color: isFreteConfirmado ? freteColor : '#0095DA' }}>
+                  <td style={{ ...tdStyle, backgroundColor: freteBg, fontWeight: 'bold', color: isFreteConfirmado ? freteColor : '#0095DA' }} data-label="% Frete">
                     {calcularPorcentagemFrete(entrega.valor_frete, entrega.valor_nf)}
                   </td>
                   
-                  <td style={{ ...tdStyle, textAlign: 'center' }}>
+                  <td style={{ ...tdStyle, textAlign: 'center' }} data-label="Agendamento?">
                     {entrega.tem_agendamento ? (
                       <span style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.70rem' }}>SIM</span>
                     ) : (
@@ -229,13 +230,13 @@ export function Dashboard({
                     )}
                   </td>
 
-                  <td style={tdStyle}>{formatarData(entrega.data_previsao)}</td>
-                  <td style={tdStyle}>{formatarData(entrega.data_entrega_agendamento)}</td>
-                  <td style={tdStyle}>{calcularDiasEntrega(entrega.data_coleta, entrega.data_entrega_agendamento)}</td>
-                  <td style={tdStyle}><span className="status-badge" style={getStatusColor(entrega.status)}>{entrega.status}</span></td>
-                  <td style={{ ...tdStyle, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={entrega.observacoes}>{entrega.observacoes || '-'}</td>
+                  <td style={tdStyle} data-label="Previsão">{formatarData(entrega.data_previsao)}</td>
+                  <td style={tdStyle} data-label="Dt Entrega">{formatarData(entrega.data_entrega_agendamento)}</td>
+                  <td style={tdStyle} data-label="Dias">{calcularDiasEntrega(entrega.data_coleta, entrega.data_entrega_agendamento)}</td>
+                  <td style={tdStyle} data-label="Status"><span className="status-badge" style={getStatusColor(entrega.status)}>{entrega.status}</span></td>
+                  <td style={{ ...tdStyle, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={entrega.observacoes} data-label="Obs">{entrega.observacoes || '-'}</td>
                   
-                  <td style={tdAcoesStyle}>
+                  <td style={tdAcoesStyle} data-label="Ações">
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                       <button onClick={() => abrirModalEdicao(entrega)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }} title="Editar Entrega">
                         <Edit size={18} />

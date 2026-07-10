@@ -12,6 +12,9 @@ import { Devolucoes } from './pages/Devolucoes';
 import { ModalEntrega } from './modals/ModalEntrega';
 import { ModalCliente } from './modals/ModalCliente';
 
+// IMPORTAÇÃO DO CTE PRESERVADA
+import { Ctes } from './pages/Ctes';
+
 import './index.css';
 
 export default function App() {
@@ -127,7 +130,6 @@ export default function App() {
   async function handleDeleteEntrega(id: string) { if (!window.confirm("⚠️ ATENÇÃO: Tem certeza que deseja excluir esta entrega?")) return; try { await supabase.from('entregas').delete().eq('id', id); setEntregas(entregas.filter(e => e.id !== id)); } catch (error) { console.error(error); } }
   async function handleDeleteCliente(id: string) { if (!window.confirm("Tem certeza que deseja excluir este cliente?")) return; try { await supabase.from('clientes').delete().eq('id', id); setClientes(clientes.filter(c => c.id !== id)); } catch (error) { console.error(error); } }
 
-  // CORREÇÃO EFETUADA: Conversão explícita para string impede quebras e vazamentos de duplicidade
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const nfDuplicada = entregas.find(ent => {
@@ -159,13 +161,11 @@ export default function App() {
   async function handleMetaSubmit(e: React.FormEvent) { e.preventDefault(); try { const { data } = await supabase.from('metas_frete').insert([{ cliente_id: metaFormData.cliente_id, transportadora_id: metaFormData.transportadora_id, meta_percentual: parseFloat(metaFormData.meta_percentual) }]).select('*, clientes (nome), transportadoras (nome)'); if (data) setMetas([...metas, data[0]]); setIsMetaModalOpen(false); } catch (error) { alert("Erro ao cadastrar meta."); } }
   async function handlePerfilSubmit(e: React.FormEvent) { e.preventDefault(); try { const { data } = await supabase.from('perfis').insert([{ nome: perfilFormData.nome, email: perfilFormData.email.toLowerCase(), cargo: perfilFormData.cargo, nivel_acesso: perfilFormData.nivel_acesso }]).select('*'); if (data) setPerfis([...perfis, data[0]]); setIsPerfilModalOpen(false); } catch (error) { console.error(error); } }
 
-  // FIX 1: Fuso Horário resolvido lendo a data sempre ao meio-dia
   const formatarData = (d: string) => {
     if (!d) return '-';
     return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR');
   };
 
-  // FIX 2: Restaurada a função que conta os dias do transporte
   const calcularDiasEntrega = (coleta: string, entrega: string) => {
     if (!coleta || !entrega) return '-';
     const d1 = new Date(coleta + 'T12:00:00');
@@ -222,7 +222,6 @@ export default function App() {
   let totalCaixas = 0; let pesoTotalCalc = "0.00";
   if (produtoSelecionado && quantidadeDesejada > 0) { totalCaixas = Math.ceil(quantidadeDesejada / produtoSelecionado.unidades_por_caixa); pesoTotalCalc = (totalCaixas * produtoSelecionado.peso_caixa_kg).toFixed(2); }
 
-  // FIX 3: Restaurada a função de Exportar para Excel!
   const exportarParaExcel = () => {
     if (entregasFiltradas.length === 0) { alert("Não há dados para exportar."); return; }
     const cabecalho = ["Data Fat.", "Coleta", "Cliente", "Cidade", "UF", "Volume (Cx)", "Peso (Kg)", "Nº NF", "Valor NF", "Transportadora", "Modal", "Valor Frete", "% Frete", "Agendamento", "Previsão", "Dt Entrega", "Dias", "Status", "Frete Confirmado", "Observações"].join(";");
@@ -256,7 +255,8 @@ export default function App() {
               searchTerm={searchTerm} setSearchTerm={setSearchTerm} mostrarFiltros={mostrarFiltros} setMostrarFiltros={setMostrarFiltros}
               filtroDataInicio={filtroDataInicio} setFiltroDataInicio={setFiltroDataInicio} filtroDataFim={filtroDataFim} setFiltroDataFim={setFiltroDataFim}
               filtroTransportadora={filtroTransportadora} setFiltroTransportadora={setFiltroTransportadora} filtroModal={filtroModal} setFiltroModal={setFiltroModal}
-              filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus} filtroFreteVazio={filtroFreteVazio} setFiltroFreteVazio={setFiltroFreteVazio}
+              filtroStatus={filtroStatus} setSearchTerm={setSearchTerm} // LINHA CORRIGIDA COM filtroStatus ORIGINAL
+              filtroFreteVazio={filtroFreteVazio} setFiltroFreteVazio={setFiltroFreteVazio}
               filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado}
               filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento}
               filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento}
@@ -271,6 +271,9 @@ export default function App() {
           <Route path="clientes" element={<Clientes clientes={clientes} metas={metas} abrirModalNovoCliente={abrirModalNovoCliente} abrirModalNovaMeta={abrirModalNovaMeta} abrirModalEdicaoCliente={abrirModalEdicaoCliente} handleDeleteCliente={handleDeleteCliente} />} />
           <Route path="transportadoras" element={<Transportadoras transportadoras={transportadoras} entregas={entregas} onUpdate={buscarDominios} />} />
           <Route path="devolucoes" element={<Devolucoes devolucoes={devolucoes} clientes={clientes} onUpdate={buscarDevolucoes} formatarData={formatarData} getStatusColor={getStatusColor} />} />
+          
+          {/* ROTA DO CTE PRESERVADA */}
+          <Route path="ctes" element={<Ctes transportadoras={transportadoras} formatarData={formatarData} />} />
 
           <Route path="calculadora" element={
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100%' }}>

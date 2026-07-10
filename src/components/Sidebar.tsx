@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, UserSquare2, Truck, RefreshCcw, Calculator, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, UserSquare2, Truck, RefreshCcw, Calculator, LogOut, FileText } from 'lucide-react';
 
 interface SidebarProps {
   handleLogout: () => void;
@@ -42,6 +42,12 @@ export function Sidebar({ handleLogout, onNavigate }: SidebarProps) {
           <li>
             <NavLink to="/calculadora" onClick={onNavigate} className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
               <Calculator size={20} /> Calculadora
+            </NavLink>
+          </li>
+          {/* NOVO LINK DO CTE */}
+          <li>
+            <NavLink to="/ctes" onClick={onNavigate} className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
+              <FileText size={20} /> Registro de CTE
             </NavLink>
           </li>
         </ul>

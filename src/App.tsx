@@ -12,7 +12,7 @@ import { Devolucoes } from './pages/Devolucoes';
 import { ModalEntrega } from './modals/ModalEntrega';
 import { ModalCliente } from './modals/ModalCliente';
 
-// IMPORTAÇÃO DO CTE PRESERVADA
+// IMPORTAÇÃO DO CTE
 import { Ctes } from './pages/Ctes';
 
 import './index.css';
@@ -187,7 +187,8 @@ export default function App() {
       case 'Pendente': return { backgroundColor: '#ffedd5', color: '#9a3412' }; case 'Frete Conferido': return { backgroundColor: '#e0e7ff', color: '#4338ca' };
       case 'Aguardando Chegada': return { backgroundColor: '#fef3c7', color: '#92400e' }; case 'Chegou no Galpão': return { backgroundColor: '#d1fae5', color: '#065f46' };
       case 'Coletada': return { backgroundColor: '#e0f2fe', color: '#075985' }; case 'Solic. Coleta': return { backgroundColor: '#fef08a', color: '#713f12' };
-      case 'Recusa': return { backgroundColor: '#fee2e2', color: '#991b1b' }; case 'Coletada pelo representative.': return { backgroundColor: '#f3e8ff', color: '#6b21a8' };
+      case 'Recusa': return { backgroundColor: '#fee2e2', color: '#991b1b' }; case 'Coletada pelo representante.': return { backgroundColor: '#f3e8ff', color: '#6b21a8' };
+      case 'Lançada': return { backgroundColor: '#cffafe', color: '#0369a1' }; case 'Emitida': return { backgroundColor: '#ccfbf1', color: '#0f766e' }; 
       default: return { backgroundColor: '#f1f5f9', color: '#334155' };
     }
   };
@@ -196,7 +197,12 @@ export default function App() {
 
   const entregasFiltradas = entregas.filter(entrega => {
     const termo = searchTerm.toLowerCase();
-    const passaTexto = (entrega.nota_fiscal?.toLowerCase() || '').includes(termo) || (entrega.clientes?.nome?.toLowerCase() || '').includes(termo) || (entrega.transportadoras?.nome?.toLowerCase() || '').includes(termo) || (entrega.status?.toLowerCase() || '').includes(termo);
+    const passaTexto = 
+      String(entrega.nota_fiscal || '').toLowerCase().includes(termo) || 
+      String(entrega.clientes?.nome || '').toLowerCase().includes(termo) || 
+      String(entrega.transportadoras?.nome || '').toLowerCase().includes(termo) || 
+      String(entrega.status || '').toLowerCase().includes(termo);
+      
     let passaData = true;
     if (filtroDataInicio && entrega.data_faturamento < filtroDataInicio) passaData = false;
     if (filtroDataFim && entrega.data_faturamento > filtroDataFim) passaData = false;
@@ -255,7 +261,7 @@ export default function App() {
               searchTerm={searchTerm} setSearchTerm={setSearchTerm} mostrarFiltros={mostrarFiltros} setMostrarFiltros={setMostrarFiltros}
               filtroDataInicio={filtroDataInicio} setFiltroDataInicio={setFiltroDataInicio} filtroDataFim={filtroDataFim} setFiltroDataFim={setFiltroDataFim}
               filtroTransportadora={filtroTransportadora} setFiltroTransportadora={setFiltroTransportadora} filtroModal={filtroModal} setFiltroModal={setFiltroModal}
-              filtroStatus={filtroStatus} setSearchTerm={setSearchTerm} // LINHA CORRIGIDA COM filtroStatus ORIGINAL
+              filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus} /* CORREÇÃO APLICADA AQUI ✅ */
               filtroFreteVazio={filtroFreteVazio} setFiltroFreteVazio={setFiltroFreteVazio}
               filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado}
               filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento}
@@ -268,11 +274,10 @@ export default function App() {
           } />
 
           <Route path="equipe" element={<Equipe perfis={perfis} abrirModalNovoPerfil={abrirModalNovoPerfil} />} />
-          <Route path="clientes" element={<Clientes clientes={clientes} metas={metas} abrirModalNovoCliente={abrirModalNovoCliente} abrirModalNovaMeta={abrirModalNovaMeta} abrirModalEdicaoCliente={abrirModalEdicaoCliente} handleDeleteCliente={handleDeleteCliente} />} />
+          <Route path="clientes" element={<Clientes clientes={clientes} metas={metas} abrirModalNovoCliente={abrirModalNovoCliente} abrirModalNovaMeta={abrirModalNovaMeta} abrirModalEdicaoCliente={abrirModalEdicaoCliente} handleDeleteCliente={handleDeleteCliente} onUpdate={carregarDadosDoBanco} />} />
           <Route path="transportadoras" element={<Transportadoras transportadoras={transportadoras} entregas={entregas} onUpdate={buscarDominios} />} />
           <Route path="devolucoes" element={<Devolucoes devolucoes={devolucoes} clientes={clientes} onUpdate={buscarDevolucoes} formatarData={formatarData} getStatusColor={getStatusColor} />} />
           
-          {/* ROTA DO CTE PRESERVADA */}
           <Route path="ctes" element={<Ctes transportadoras={transportadoras} formatarData={formatarData} />} />
 
           <Route path="calculadora" element={

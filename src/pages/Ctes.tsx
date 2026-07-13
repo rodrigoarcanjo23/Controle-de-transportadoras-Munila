@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { FileText, Save, Trash2, Edit, UploadCloud, Download, Printer, XCircle } from 'lucide-react';
+import { FileText, Save, Trash2, Edit, UploadCloud, Download, Printer, XCircle, Filter } from 'lucide-react';
 
 interface CtesProps {
   transportadoras: any[];
@@ -14,6 +14,15 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Estados dos Filtros Dinâmicos
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const [filtroNumeroDoc, setFiltroNumeroDoc] = useState('');
+  const [filtroEmitente, setFiltroEmitente] = useState('');
+  const [filtroCfop, setFiltroCfop] = useState('');
+  const [filtroSituacao, setFiltroSituacao] = useState('');
+  const [filtroDataInicio, setFiltroDataInicio] = useState('');
+  const [filtroDataFim, setFiltroDataFim] = useState('');
 
   // Estado do Formulário
   const [formData, setFormData] = useState({
@@ -38,6 +47,25 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   }
 
   // ==========================================
+  // LÓGICA DE FILTRAGEM DINÂMICA
+  // ==========================================
+  const ctesFiltrados = ctes.filter(cte => {
+    let passa = true;
+    if (filtroNumeroDoc && !cte.numero_documento?.toLowerCase().includes(filtroNumeroDoc.toLowerCase())) passa = false;
+    if (filtroEmitente && !cte.razao_social_emitente?.toLowerCase().includes(filtroEmitente.toLowerCase())) passa = false;
+    if (filtroCfop && !cte.cfop?.toLowerCase().includes(filtroCfop.toLowerCase())) passa = false;
+    if (filtroSituacao && cte.situacao !== filtroSituacao) passa = false;
+    if (filtroDataInicio && cte.data_emissao < filtroDataInicio) passa = false;
+    if (filtroDataFim && cte.data_emissao > filtroDataFim) passa = false;
+    return passa;
+  });
+
+  function limparFiltros() {
+    setFiltroNumeroDoc(''); setFiltroEmitente(''); setFiltroCfop(''); 
+    setFiltroSituacao(''); setFiltroDataInicio(''); setFiltroDataFim('');
+  }
+
+  // ==========================================
   // LÓGICA DE SALVAR (CRIAR E ATUALIZAR)
   // ==========================================
   async function handleSubmit(e: React.FormEvent) {
@@ -58,7 +86,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
 
     try {
       if (editingId) {
-        // MODO EDIÇÃO
         const { data, error } = await supabase.from('ctes').update(payload).eq('id', editingId).select('*');
         if (error) throw error;
         if (data) {
@@ -66,7 +93,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
           alert("✅ CTE atualizado com sucesso!");
         }
       } else {
-        // MODO NOVO REGISTO
         const { data, error } = await supabase.from('ctes').insert([payload]).select('*');
         if (error) throw error;
         if (data) {
@@ -74,8 +100,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
           alert("✅ CTE registrado com sucesso!");
         }
       }
-      
-      // Limpa o formulário após a ação
       cancelarEdicao();
     } catch (error) {
       console.error(error);
@@ -98,7 +122,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
       data_emissao: cte.data_emissao || '',
       observacao: cte.observacao || ''
     });
-    // Rola a tela suavemente para o topo do formulário
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -136,19 +159,17 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
           return el ? el.textContent || '' : '';
         };
 
-        // Identifica o nó de Emitente
         const emitenteNode = xmlDoc.getElementsByTagName("emit")[0];
         const cnpj = emitenteNode ? emitenteNode.getElementsByTagName("CNPJ")[0]?.textContent || '' : '';
         const razaoSocial = emitenteNode ? emitenteNode.getElementsByTagName("xNome")[0]?.textContent || '' : '';
 
-        // Tenta capturar NFe ou CTe baseado na estrutura SEFAZ
         const nDoc = getTagValue("nNF") || getTagValue("nCT");
         const chAcesso = getTagValue("chNFe") || getTagValue("chCTe");
         const cfop = getTagValue("CFOP");
         const valor = getTagValue("vNF") || getTagValue("vTPrest") || getTagValue("vProd");
         
         let dataEmissao = getTagValue("dhEmi");
-        if(dataEmissao) dataEmissao = dataEmissao.split('T')[0]; // Isola apenas a data (YYYY-MM-DD)
+        if(dataEmissao) dataEmissao = dataEmissao.split('T')[0];
 
         setFormData({
           ...formData,
@@ -167,7 +188,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
       }
     };
     reader.readAsText(file);
-    // Limpa o input para poder importar o mesmo ficheiro novamente se necessário
     if(fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -175,9 +195,9 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   // LÓGICA DE EXPORTAÇÃO EXCEL E IMPRESSÃO PDF
   // ==========================================
   const exportarParaExcel = () => {
-    if (ctes.length === 0) { alert("Não há dados para exportar."); return; }
+    if (ctesFiltrados.length === 0) { alert("Não há dados para exportar com estes filtros."); return; }
     const cabecalho = ["Data", "Nº Doc", "Emitente", "CNPJ", "CFOP", "Valor Serv. (R$)", "Situação", "Observação"].join(";");
-    const linhas = ctes.map(c => {
+    const linhas = ctesFiltrados.map(c => {
       return [
         formatarData(c.data_emissao), c.numero_documento, c.razao_social_emitente || '-', c.cnpj_emitente || '-', c.cfop || '-',
         c.valor_total_servico?.toString().replace('.', ',') || '0,00', c.situacao, c.observacao || '-'
@@ -215,7 +235,10 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
             </div>
           </div>
           
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button type="button" className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: mostrarFiltros ? '#f1f5f9' : 'white' }} onClick={() => setMostrarFiltros(!mostrarFiltros)}>
+              <Filter size={16} /> Filtros
+            </button>
             <input type="file" accept=".xml" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} />
             <button type="button" className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => fileInputRef.current?.click()}>
               <UploadCloud size={16} /> Importar XML
@@ -229,6 +252,24 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
           </div>
         </div>
 
+        {/* BARRA DE FILTROS DINÂMICOS (Toggle) */}
+        {mostrarFiltros && (
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '24px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            <div className="form-group" style={{ flex: 1, minWidth: '150px' }}><label>Nº Documento</label><input type="text" className="form-input" placeholder="Buscar..." value={filtroNumeroDoc} onChange={e => setFiltroNumeroDoc(e.target.value)} /></div>
+            <div className="form-group" style={{ flex: 2, minWidth: '200px' }}><label>Emitente</label><input type="text" className="form-input" placeholder="Buscar nome..." value={filtroEmitente} onChange={e => setFiltroEmitente(e.target.value)} /></div>
+            <div className="form-group" style={{ flex: 1, minWidth: '120px' }}><label>CFOP</label><input type="text" className="form-input" placeholder="Ex: 5351" value={filtroCfop} onChange={e => setFiltroCfop(e.target.value)} /></div>
+            <div className="form-group" style={{ flex: 1, minWidth: '120px' }}><label>Situação</label>
+              <select className="form-select" value={filtroSituacao} onChange={e => setFiltroSituacao(e.target.value)}>
+                <option value="">Todas</option><option value="ABERTO">ABERTO</option><option value="FECHADO">FECHADO</option><option value="OUTROS">OUTROS</option>
+              </select>
+            </div>
+            <div className="form-group" style={{ flex: 1, minWidth: '130px' }}><label>Data Início</label><input type="date" className="form-input" value={filtroDataInicio} onChange={e => setFiltroDataInicio(e.target.value)} /></div>
+            <div className="form-group" style={{ flex: 1, minWidth: '130px' }}><label>Data Fim</label><input type="date" className="form-input" value={filtroDataFim} onChange={e => setFiltroDataFim(e.target.value)} /></div>
+            <div style={{ display: 'flex', alignItems: 'flex-end' }}><button type="button" className="btn-secondary" onClick={limparFiltros}>Limpar</button></div>
+          </div>
+        )}
+
+        {/* FORMULÁRIO DE CADASTRO/EDIÇÃO */}
         <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
           <div className="form-group"><label>Nº Documento Fiscal</label><input type="text" className="form-input" required placeholder="Ex: 15488" value={formData.numero_documento} onChange={e => setFormData({...formData, numero_documento: e.target.value})} /></div>
           <div className="form-group" style={{ gridColumn: 'span 2' }}><label>Nº Chave de Acesso</label><input type="text" className="form-input" placeholder="0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000" value={formData.chave_acesso} onChange={e => setFormData({...formData, chave_acesso: e.target.value})} /></div>
@@ -259,7 +300,7 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
         </form>
       </div>
 
-      {/* SEÇÃO INFERIOR: HISTÓRICO */}
+      {/* SEÇÃO INFERIOR: HISTÓRICO DE DADOS (USANDO ctesFiltrados) */}
       <div className="table-container" style={{ flex: 1, minHeight: 0, overflow: 'auto', backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '0', position: 'relative' }}>
         <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
@@ -276,8 +317,8 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
           </thead>
           <tbody>
             {loading ? <tr><td colSpan={8} style={{ textAlign: 'center', padding: '24px' }}>A carregar histórico...</td></tr> : 
-             ctes.length === 0 ? <tr><td colSpan={8} style={{ textAlign: 'center', padding: '24px' }}>Nenhum CTE registrado ainda.</td></tr> :
-             ctes.map(cte => (
+             ctesFiltrados.length === 0 ? <tr><td colSpan={8} style={{ textAlign: 'center', padding: '24px' }}>Nenhum CTE encontrado com estes filtros.</td></tr> :
+             ctesFiltrados.map(cte => (
                <tr key={cte.id} className="trow-hover">
                  <td style={tdStyle}>{formatarData(cte.data_emissao)}</td>
                  <td style={{...tdStyle, fontWeight: 'bold', color: 'var(--munila-blue)'}}>{cte.numero_documento}</td>

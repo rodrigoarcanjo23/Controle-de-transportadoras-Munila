@@ -13,11 +13,9 @@ interface ModalEntregaProps {
 }
 
 export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData, isEditing, clientes, transportadoras }: ModalEntregaProps) {
-  // ESTADOS DO DROPDOWN INTELIGENTE
   const [buscaCliente, setBuscaCliente] = useState('');
   const [mostrarDropdownCliente, setMostrarDropdownCliente] = useState(false);
 
-  // EFEITO: Sincroniza o texto da busca quando o modal abre (útil para quando for Editar)
   useEffect(() => {
     if (isOpen) {
       if (formData.cliente_id) {
@@ -31,7 +29,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
 
   if (!isOpen) return null;
 
-  // Lógica de filtro da lista baseada no nome ou CNPJ
   const clientesFiltradosDropdown = clientes.filter(c => 
     c.nome.toLowerCase().includes(buscaCliente.toLowerCase()) || 
     (c.cnpj_cpf && c.cnpj_cpf.includes(buscaCliente))
@@ -49,7 +46,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
         <form onSubmit={onSubmit}>
           <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             
-            {/* CAMPO CLIENTE COM DROPDOWN INTELIGENTE */}
             <div className="form-group" style={{ position: 'relative', gridColumn: '1 / -1' }}>
               <label>Cliente</label>
               <input
@@ -80,7 +76,11 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
                       onMouseDown={(e) => {
                         e.preventDefault();
                         setBuscaCliente(c.nome);
-                        setFormData({...formData, cliente_id: c.id});
+                        setFormData({
+                          ...formData, 
+                          cliente_id: c.id,
+                          tem_agendamento: c.exige_agendamento || false
+                        });
                         setMostrarDropdownCliente(false);
                       }}
                       onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8fafc')}
@@ -99,7 +99,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
 
             <div className="form-group"><label>Nota Fiscal</label><input type="text" className="form-input" required value={formData.nota_fiscal} onChange={(e) => setFormData({...formData, nota_fiscal: e.target.value})} /></div>
             
-            {/* GATILHO DA TRANSPORTADORA ADICIONADO AQUI */}
             <div className="form-group">
               <label>Transportadora</label>
               <select 
@@ -112,7 +111,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
                   setFormData({
                     ...formData, 
                     transportadora_id: selectedId,
-                    // Preenche automaticamente o modal com o padrão da transportadora (ou vazio se não tiver)
                     modal_frete: transportadoraSelecionada?.modal_padrao || ''
                   });
                 }}
@@ -150,7 +148,23 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
             </div>
 
             <div className="form-group"><label>Data Previsão</label><input type="date" className="form-input" value={formData.data_previsao} onChange={(e) => setFormData({...formData, data_previsao: e.target.value})} /></div>
-            <div className="form-group"><label>Data Entrega</label><input type="date" className="form-input" value={formData.data_entrega_agendamento} onChange={(e) => setFormData({...formData, data_entrega_agendamento: e.target.value})} /></div>
+            
+            <div className="form-group">
+              <label>Data Entrega</label>
+              <input 
+                type="date" 
+                className="form-input" 
+                value={formData.data_entrega_agendamento} 
+                onChange={(e) => {
+                  const novaData = e.target.value;
+                  setFormData({
+                    ...formData, 
+                    data_entrega_agendamento: novaData,
+                    status: novaData ? 'Entregue' : formData.status
+                  });
+                }} 
+              />
+            </div>
 
             <div className="form-group">
               <label>Modal de Frete</label>
@@ -163,9 +177,12 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               </select>
             </div>
 
+            {/* NOVAS OPÇÕES DE STATUS ADICIONADAS AQUI */}
             <div className="form-group"><label>Status da Entrega</label>
               <select className="form-select" value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})}>
                 <option value="Pendente">Pendente</option>
+                <option value="Pendente agendamento">Pendente agendamento</option>
+                <option value="Aguardando coleta">Aguardando coleta</option>
                 <option value="Solicitado Agendamento">Solicitado Agendamento</option>
                 <option value="Agendado">Agendado</option>
                 <option value="Em Transporte">Em Transporte</option>

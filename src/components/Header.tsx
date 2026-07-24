@@ -116,6 +116,8 @@ export function Header({
             <select className="form-select" value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)}>
               <option value="">Todos</option>
               <option value="Pendente">Pendente</option>
+              <option value="Pendente agendamento">Pendente agendamento</option>
+              <option value="Aguardando coleta">Aguardando coleta</option>
               <option value="Solicitado Agendamento">Solicitado Agendamento</option>
               <option value="Agendado">Agendado</option>
               <option value="Em Transporte">Em Transporte</option>

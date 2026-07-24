@@ -11,8 +11,6 @@ import { Transportadoras } from './pages/Transportadoras';
 import { Devolucoes } from './pages/Devolucoes';
 import { ModalEntrega } from './modals/ModalEntrega';
 import { ModalCliente } from './modals/ModalCliente';
-
-// IMPORTAÇÃO DO CTE
 import { Ctes } from './pages/Ctes';
 
 import './index.css';
@@ -58,7 +56,8 @@ export default function App() {
 
   const [isClienteModalOpen, setIsClienteModalOpen] = useState(false);
   const [editingClienteId, setEditingClienteId] = useState<string | null>(null);
-  const [clienteFormData, setClienteFormData] = useState({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', cidade: '', uf: '', telefone: '', email: '' });
+  
+  const [clienteFormData, setClienteFormData] = useState({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', cidade: '', uf: '', telefone: '', email: '', exige_agendamento: false });
   
   const [isMetaModalOpen, setIsMetaModalOpen] = useState(false);
   const [metaFormData, setMetaFormData] = useState({ cliente_id: '', transportadora_id: '', meta_percentual: '' });
@@ -115,15 +114,17 @@ export default function App() {
     );
   }
 
-  async function buscarEntregas() { try { const { data } = await supabase.from('entregas').select('*, clientes (nome, cidade, uf, telefone, email), transportadoras (nome, modal_padrao, telefone, email)').order('data_faturamento', { ascending: false }); if (data) setEntregas(data); } catch (error) { console.error(error); } finally { setLoading(false); } }
+  async function buscarEntregas() { try { const { data } = await supabase.from('entregas').select('*, clientes (nome, cidade, uf, telefone, email, exige_agendamento), transportadoras (nome, modal_padrao, telefone, email)').order('data_faturamento', { ascending: false }); if (data) setEntregas(data); } catch (error) { console.error(error); } finally { setLoading(false); } }
   async function buscarDevolucoes() { try { const { data } = await supabase.from('devolucoes').select('*, clientes (nome, cnpj_cpf), transportadoras (nome)').order('created_at', { ascending: false }); if (data) setDevolucoes(data); } catch (error) { console.error(error); } }
   async function buscarDominios() { const { data: c } = await supabase.from('clientes').select('*').order('nome'); const { data: t } = await supabase.from('transportadoras').select('*').order('nome'); const { data: m } = await supabase.from('metas_frete').select('*, clientes (nome), transportadoras (nome)'); const { data: p } = await supabase.from('produtos').select('*').order('nome'); if (c) setClientes(c); if (t) setTransportadoras(t); if (m) setMetas(m); if (p) setProdutos(p); }
   async function buscarPerfis() { try { const { data } = await supabase.from('perfis').select('*').order('nome'); if (data) setPerfis(data); } catch (error) { console.error(error); } }
 
   function abrirModalNovaEntrega() { setEditingId(null); setFormData({ nota_fiscal: '', cliente_id: '', transportadora_id: '', cidade_destino: '', uf_destino: '', modal_frete: '', data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', data_entrega_agendamento: '', observacoes: '', status: 'Pendente', frete_confirmado: false }); setIsModalOpen(true); }
   function abrirModalEdicao(entrega: any) { setEditingId(entrega.id); setFormData({ nota_fiscal: entrega.nota_fiscal, cliente_id: entrega.cliente_id, transportadora_id: entrega.transportadora_id, cidade_destino: entrega.cidade_destino || '', uf_destino: entrega.uf_destino || '', modal_frete: entrega.modal_frete || '', data_faturamento: entrega.data_faturamento || '', data_coleta: entrega.data_coleta || '', valor_nf: entrega.valor_nf?.toString() || '', valor_frete: entrega.valor_frete?.toString() || '', volume: entrega.volume?.toString() || '', peso_kg: entrega.peso_kg?.toString() || '', tem_agendamento: entrega.tem_agendamento || false, data_previsao: entrega.data_previsao || '', data_entrega_agendamento: entrega.data_entrega_agendamento || '', observacoes: entrega.observacoes || '', status: entrega.status, frete_confirmado: entrega.frete_confirmado || false }); setIsModalOpen(true); }
-  function abrirModalNovoCliente() { setEditingClienteId(null); setClienteFormData({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', cidade: '', uf: '', telefone: '', email: '' }); setIsClienteModalOpen(true); }
-  function abrirModalEdicaoCliente(cliente: any) { setEditingClienteId(cliente.id); setClienteFormData({ nome: cliente.nome, cnpj_cpf: cliente.cnpj_cpf || '', razao_social: cliente.razao_social || '', nome_fantasia: cliente.nome_fantasia || '', cidade: cliente.cidade || '', uf: cliente.uf || '', telefone: cliente.telefone || '', email: cliente.email || '' }); setIsClienteModalOpen(true); }
+  
+  function abrirModalNovoCliente() { setEditingClienteId(null); setClienteFormData({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', cidade: '', uf: '', telefone: '', email: '', exige_agendamento: false }); setIsClienteModalOpen(true); }
+  function abrirModalEdicaoCliente(cliente: any) { setEditingClienteId(cliente.id); setClienteFormData({ nome: cliente.nome, cnpj_cpf: cliente.cnpj_cpf || '', razao_social: cliente.razao_social || '', nome_fantasia: cliente.nome_fantasia || '', cidade: cliente.cidade || '', uf: cliente.uf || '', telefone: cliente.telefone || '', email: cliente.email || '', exige_agendamento: cliente.exige_agendamento || false }); setIsClienteModalOpen(true); }
+  
   function abrirModalNovaMeta() { setMetaFormData({ cliente_id: '', transportadora_id: '', meta_percentual: '' }); setIsMetaModalOpen(true); }
   function abrirModalNovoPerfil() { setPerfilFormData({ nome: '', email: '', cargo: '', nivel_acesso: 'Operador' }); setIsPerfilModalOpen(true); }
 
@@ -147,17 +148,41 @@ export default function App() {
     const payload = { nota_fiscal: formData.nota_fiscal, cliente_id: formData.cliente_id, transportadora_id: formData.transportadora_id || null, cidade_destino: formData.cidade_destino || null, uf_destino: formData.uf_destino || null, modal_frete: formData.modal_frete || null, data_faturamento: formData.data_faturamento || null, data_coleta: formData.data_coleta || null, valor_nf: nf, valor_frete: frete, volume: parseInt(formData.volume) || null, peso_kg: parseFloat(formData.peso_kg) || null, tem_agendamento: formData.tem_agendamento, data_previsao: formData.data_previsao || null, data_entrega_agendamento: formData.data_entrega_agendamento || null, observacoes: formData.observacoes, status: formData.status, frete_confirmado: formData.frete_confirmado };
     try {
       if (editingId) {
-        const { data } = await supabase.from('entregas').update([payload]).eq('id', editingId).select('*, clientes (nome, cidade, uf, telefone, email), transportadoras (nome, modal_padrao, telefone, email)');
+        const { data } = await supabase.from('entregas').update([payload]).eq('id', editingId).select('*, clientes (nome, cidade, uf, telefone, email, exige_agendamento), transportadoras (nome, modal_padrao, telefone, email)');
         if (data) setEntregas(entregas.map(e => e.id === editingId ? data[0] : e));
       } else {
-        const { data } = await supabase.from('entregas').insert([payload]).select('*, clientes (nome, cidade, uf, telefone, email), transportadoras (nome, modal_padrao, telefone, email)');
+        const { data } = await supabase.from('entregas').insert([payload]).select('*, clientes (nome, cidade, uf, telefone, email, exige_agendamento), transportadoras (nome, modal_padrao, telefone, email)');
         if (data) setEntregas([data[0], ...entregas]);
       }
       setIsModalOpen(false);
     } catch (error) { console.error(error); }
   }
 
-  async function handleClienteSubmit(e: React.FormEvent) { e.preventDefault(); const payload = { nome: clienteFormData.nome.toUpperCase(), cnpj_cpf: clienteFormData.cnpj_cpf, razao_social: clienteFormData.razao_social.toUpperCase(), nome_fantasia: clienteFormData.nome_fantasia.toUpperCase(), cidade: clienteFormData.cidade.toUpperCase(), uf: clienteFormData.uf.toUpperCase(), telefone: clienteFormData.telefone, email: clienteFormData.email.toLowerCase() }; try { if (editingClienteId) { const { data } = await supabase.from('clientes').update([payload]).eq('id', editingClienteId).select('*'); if (data) setClientes(clientes.map(c => c.id === editingClienteId ? data[0] : c)); } else { const { data } = await supabase.from('clientes').insert([payload]).select('*'); if (data) setClientes([...clientes, data[0]]); } setIsClienteModalOpen(false); } catch (error) { console.error(error); } }
+  async function handleClienteSubmit(e: React.FormEvent) { 
+    e.preventDefault(); 
+    const payload = { 
+      nome: clienteFormData.nome.toUpperCase(), 
+      cnpj_cpf: clienteFormData.cnpj_cpf, 
+      razao_social: clienteFormData.razao_social.toUpperCase(), 
+      nome_fantasia: clienteFormData.nome_fantasia.toUpperCase(), 
+      cidade: clienteFormData.cidade.toUpperCase(), 
+      uf: clienteFormData.uf.toUpperCase(), 
+      telefone: clienteFormData.telefone, 
+      email: clienteFormData.email.toLowerCase(),
+      exige_agendamento: clienteFormData.exige_agendamento 
+    }; 
+    try { 
+      if (editingClienteId) { 
+        const { data } = await supabase.from('clientes').update([payload]).eq('id', editingClienteId).select('*'); 
+        if (data) setClientes(clientes.map(c => c.id === editingClienteId ? data[0] : c)); 
+      } else { 
+        const { data } = await supabase.from('clientes').insert([payload]).select('*'); 
+        if (data) setClientes([...clientes, data[0]]); 
+      } 
+      setIsClienteModalOpen(false); 
+    } catch (error) { console.error(error); } 
+  }
+
   async function handleMetaSubmit(e: React.FormEvent) { e.preventDefault(); try { const { data } = await supabase.from('metas_frete').insert([{ cliente_id: metaFormData.cliente_id, transportadora_id: metaFormData.transportadora_id, meta_percentual: parseFloat(metaFormData.meta_percentual) }]).select('*, clientes (nome), transportadoras (nome)'); if (data) setMetas([...metas, data[0]]); setIsMetaModalOpen(false); } catch (error) { alert("Erro ao cadastrar meta."); } }
   async function handlePerfilSubmit(e: React.FormEvent) { e.preventDefault(); try { const { data } = await supabase.from('perfis').insert([{ nome: perfilFormData.nome, email: perfilFormData.email.toLowerCase(), cargo: perfilFormData.cargo, nivel_acesso: perfilFormData.nivel_acesso }]).select('*'); if (data) setPerfis([...perfis, data[0]]); setIsPerfilModalOpen(false); } catch (error) { console.error(error); } }
 
@@ -179,16 +204,27 @@ export default function App() {
     return ((frete / nf) * 100).toFixed(2) + '%'; 
   };
   
+  // ADICIONADAS NOVAS CORES DE STATUS AQUI
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Entregue': return { backgroundColor: '#dcfce7', color: '#166534' }; case 'Atrasado': return { backgroundColor: '#fee2e2', color: '#991b1b' }; 
-      case 'Em Transporte': return { backgroundColor: '#e0f2fe', color: '#075985' }; case 'Agendado': return { backgroundColor: '#f3e8ff', color: '#6b21a8' }; 
-      case 'Devolução': return { backgroundColor: '#fecdd3', color: '#881337' }; case 'Solicitado Agendamento': return { backgroundColor: '#fef08a', color: '#713f12' }; 
-      case 'Pendente': return { backgroundColor: '#ffedd5', color: '#9a3412' }; case 'Frete Conferido': return { backgroundColor: '#e0e7ff', color: '#4338ca' };
-      case 'Aguardando Chegada': return { backgroundColor: '#fef3c7', color: '#92400e' }; case 'Chegou no Galpão': return { backgroundColor: '#d1fae5', color: '#065f46' };
-      case 'Coletada': return { backgroundColor: '#e0f2fe', color: '#075985' }; case 'Solic. Coleta': return { backgroundColor: '#fef08a', color: '#713f12' };
-      case 'Recusa': return { backgroundColor: '#fee2e2', color: '#991b1b' }; case 'Coletada pelo representante.': return { backgroundColor: '#f3e8ff', color: '#6b21a8' };
-      case 'Lançada': return { backgroundColor: '#cffafe', color: '#0369a1' }; case 'Emitida': return { backgroundColor: '#ccfbf1', color: '#0f766e' }; 
+      case 'Entregue': return { backgroundColor: '#dcfce7', color: '#166534' }; 
+      case 'Atrasado': return { backgroundColor: '#fee2e2', color: '#991b1b' }; 
+      case 'Em Transporte': return { backgroundColor: '#e0f2fe', color: '#075985' }; 
+      case 'Agendado': return { backgroundColor: '#f3e8ff', color: '#6b21a8' }; 
+      case 'Devolução': return { backgroundColor: '#fecdd3', color: '#881337' }; 
+      case 'Solicitado Agendamento': return { backgroundColor: '#fef08a', color: '#713f12' }; 
+      case 'Pendente agendamento': return { backgroundColor: '#fce7f3', color: '#be185d' }; // Rosa
+      case 'Aguardando coleta': return { backgroundColor: '#fef3c7', color: '#d97706' }; // Âmbar
+      case 'Pendente': return { backgroundColor: '#ffedd5', color: '#9a3412' }; 
+      case 'Frete Conferido': return { backgroundColor: '#e0e7ff', color: '#4338ca' };
+      case 'Aguardando Chegada': return { backgroundColor: '#fef3c7', color: '#92400e' }; 
+      case 'Chegou no Galpão': return { backgroundColor: '#d1fae5', color: '#065f46' };
+      case 'Coletada': return { backgroundColor: '#e0f2fe', color: '#075985' }; 
+      case 'Solic. Coleta': return { backgroundColor: '#fef08a', color: '#713f12' };
+      case 'Recusa': return { backgroundColor: '#fee2e2', color: '#991b1b' }; 
+      case 'Coletada pelo representante.': return { backgroundColor: '#f3e8ff', color: '#6b21a8' };
+      case 'Lançada': return { backgroundColor: '#cffafe', color: '#0369a1' }; 
+      case 'Emitida': return { backgroundColor: '#ccfbf1', color: '#0f766e' }; 
       default: return { backgroundColor: '#f1f5f9', color: '#334155' };
     }
   };
@@ -243,9 +279,8 @@ export default function App() {
       ].join(";");
     });
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + cabecalho + "\n" + linhas.join("\n");
-    const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", encodeURI(csvContent));
     link.setAttribute("download", `MunilaLog_Exportacao_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.csv`);
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
@@ -261,7 +296,7 @@ export default function App() {
               searchTerm={searchTerm} setSearchTerm={setSearchTerm} mostrarFiltros={mostrarFiltros} setMostrarFiltros={setMostrarFiltros}
               filtroDataInicio={filtroDataInicio} setFiltroDataInicio={setFiltroDataInicio} filtroDataFim={filtroDataFim} setFiltroDataFim={setFiltroDataFim}
               filtroTransportadora={filtroTransportadora} setFiltroTransportadora={setFiltroTransportadora} filtroModal={filtroModal} setFiltroModal={setFiltroModal}
-              filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus} /* CORREÇÃO APLICADA AQUI ✅ */
+              filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus} 
               filtroFreteVazio={filtroFreteVazio} setFiltroFreteVazio={setFiltroFreteVazio}
               filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado}
               filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento}
@@ -277,7 +312,6 @@ export default function App() {
           <Route path="clientes" element={<Clientes clientes={clientes} metas={metas} abrirModalNovoCliente={abrirModalNovoCliente} abrirModalNovaMeta={abrirModalNovaMeta} abrirModalEdicaoCliente={abrirModalEdicaoCliente} handleDeleteCliente={handleDeleteCliente} onUpdate={carregarDadosDoBanco} />} />
           <Route path="transportadoras" element={<Transportadoras transportadoras={transportadoras} entregas={entregas} onUpdate={buscarDominios} />} />
           <Route path="devolucoes" element={<Devolucoes devolucoes={devolucoes} clientes={clientes} onUpdate={buscarDevolucoes} formatarData={formatarData} getStatusColor={getStatusColor} />} />
-          
           <Route path="ctes" element={<Ctes transportadoras={transportadoras} formatarData={formatarData} />} />
 
           <Route path="calculadora" element={

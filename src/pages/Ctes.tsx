@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { FileText, Save, Trash2, Edit, UploadCloud, Download, Printer, XCircle, Filter } from 'lucide-react';
+import { FileText, Save, Trash2, Edit, UploadCloud, Download, Printer, XCircle, Filter, PlusCircle } from 'lucide-react';
 
 interface CtesProps {
   transportadoras: any[];
@@ -18,16 +18,24 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   // Estados dos Filtros Dinâmicos
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [filtroNumeroDoc, setFiltroNumeroDoc] = useState('');
+  const [filtroChaveAcesso, setFiltroChaveAcesso] = useState('');
   const [filtroEmitente, setFiltroEmitente] = useState('');
   const [filtroCfop, setFiltroCfop] = useState('');
   const [filtroSituacao, setFiltroSituacao] = useState('');
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
   const [filtroDataFim, setFiltroDataFim] = useState('');
 
-  // Estado do Formulário
+  // Estado do Formulário (Chave de Acesso como Array dinâmico)
   const [formData, setFormData] = useState({
-    numero_documento: '', chave_acesso: '', razao_social_emitente: '', cnpj_emitente: '',
-    cfop: '', valor_total_servico: '', situacao: 'ABERTO', data_emissao: '', observacao: ''
+    numero_documento: '', 
+    chave_acesso: [''], 
+    razao_social_emitente: '', 
+    cnpj_emitente: '',
+    cfop: '', 
+    valor_total_servico: '', 
+    situacao: 'ABERTO', 
+    data_emissao: '', 
+    observacao: ''
   });
 
   useEffect(() => {
@@ -52,6 +60,7 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   const ctesFiltrados = ctes.filter(cte => {
     let passa = true;
     if (filtroNumeroDoc && !cte.numero_documento?.toLowerCase().includes(filtroNumeroDoc.toLowerCase())) passa = false;
+    if (filtroChaveAcesso && !cte.chave_acesso?.toLowerCase().includes(filtroChaveAcesso.toLowerCase())) passa = false;
     if (filtroEmitente && !cte.razao_social_emitente?.toLowerCase().includes(filtroEmitente.toLowerCase())) passa = false;
     if (filtroCfop && !cte.cfop?.toLowerCase().includes(filtroCfop.toLowerCase())) passa = false;
     if (filtroSituacao && cte.situacao !== filtroSituacao) passa = false;
@@ -61,7 +70,7 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   });
 
   function limparFiltros() {
-    setFiltroNumeroDoc(''); setFiltroEmitente(''); setFiltroCfop(''); 
+    setFiltroNumeroDoc(''); setFiltroChaveAcesso(''); setFiltroEmitente(''); setFiltroCfop(''); 
     setFiltroSituacao(''); setFiltroDataInicio(''); setFiltroDataFim('');
   }
 
@@ -72,9 +81,11 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
     e.preventDefault();
     setSubmitting(true);
 
+    const chavesLimpas = formData.chave_acesso.filter(chave => chave.trim() !== '').join(',');
+
     const payload = {
       numero_documento: formData.numero_documento,
-      chave_acesso: formData.chave_acesso,
+      chave_acesso: chavesLimpas,
       razao_social_emitente: formData.razao_social_emitente.toUpperCase(),
       cnpj_emitente: formData.cnpj_emitente,
       cfop: formData.cfop,
@@ -111,9 +122,11 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
 
   function handleEdit(cte: any) {
     setEditingId(cte.id);
+    const chavesArray = cte.chave_acesso ? cte.chave_acesso.split(',') : [''];
+
     setFormData({
       numero_documento: cte.numero_documento || '',
-      chave_acesso: cte.chave_acesso || '',
+      chave_acesso: chavesArray.length > 0 ? chavesArray : [''],
       razao_social_emitente: cte.razao_social_emitente || '',
       cnpj_emitente: cte.cnpj_emitente || '',
       cfop: cte.cfop || '',
@@ -127,7 +140,7 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
 
   function cancelarEdicao() {
     setEditingId(null);
-    setFormData({ numero_documento: '', chave_acesso: '', razao_social_emitente: '', cnpj_emitente: '', cfop: '', valor_total_servico: '', situacao: 'ABERTO', data_emissao: '', observacao: '' });
+    setFormData({ numero_documento: '', chave_acesso: [''], razao_social_emitente: '', cnpj_emitente: '', cfop: '', valor_total_servico: '', situacao: 'ABERTO', data_emissao: '', observacao: '' });
   }
 
   async function handleDelete(id: string) {
@@ -141,7 +154,25 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   }
 
   // ==========================================
-  // LÓGICA DO LEITOR AUTOMÁTICO DE XML
+  // LÓGICA DE GESTÃO DO ARRAY DE CHAVES (UI)
+  // ==========================================
+  const handleChaveChange = (index: number, valor: string) => {
+    const novasChaves = [...formData.chave_acesso];
+    novasChaves[index] = valor;
+    setFormData({ ...formData, chave_acesso: novasChaves });
+  };
+
+  const adicionarChave = () => {
+    setFormData({ ...formData, chave_acesso: [...formData.chave_acesso, ''] });
+  };
+
+  const removerChave = (index: number) => {
+    const novasChaves = formData.chave_acesso.filter((_, i) => i !== index);
+    setFormData({ ...formData, chave_acesso: novasChaves });
+  };
+
+  // ==========================================
+  // LÓGICA DO LEITOR INTELIGENTE DE XML
   // ==========================================
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -160,29 +191,52 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
         };
 
         const emitenteNode = xmlDoc.getElementsByTagName("emit")[0];
-        const cnpj = emitenteNode ? emitenteNode.getElementsByTagName("CNPJ")[0]?.textContent || '' : '';
+        let cnpjRaw = emitenteNode ? emitenteNode.getElementsByTagName("CNPJ")[0]?.textContent || '' : '';
         const razaoSocial = emitenteNode ? emitenteNode.getElementsByTagName("xNome")[0]?.textContent || '' : '';
 
-        const nDoc = getTagValue("nNF") || getTagValue("nCT");
-        const chAcesso = getTagValue("chNFe") || getTagValue("chCTe");
+        let cnpjFormatado = cnpjRaw;
+        if (cnpjRaw.length === 14) {
+          cnpjFormatado = cnpjRaw.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+        }
+
+        const nDoc = getTagValue("nCT") || getTagValue("nNF");
         const cfop = getTagValue("CFOP");
-        const valor = getTagValue("vNF") || getTagValue("vTPrest") || getTagValue("vProd");
+        const valor = getTagValue("vTPrest") || getTagValue("vNF") || getTagValue("vProd");
+        const observacao = getTagValue("xObs") || getTagValue("infCpl");
         
         let dataEmissao = getTagValue("dhEmi");
         if(dataEmissao) dataEmissao = dataEmissao.split('T')[0];
 
+        let chavesExtraidas: string[] = [];
+        const nfeNodes = xmlDoc.getElementsByTagName("infNFe");
+        
+        for (let i = 0; i < nfeNodes.length; i++) {
+          const chaveVinculada = nfeNodes[i].getElementsByTagName("chave")[0]?.textContent;
+          if (chaveVinculada) chavesExtraidas.push(chaveVinculada);
+        }
+
+        if (chavesExtraidas.length === 0) {
+          const chNFe = getTagValue("chNFe");
+          const chCTe = getTagValue("chCTe");
+          if (chNFe) chavesExtraidas.push(chNFe);
+          else if (chCTe) chavesExtraidas.push(chCTe);
+        }
+
+        if (chavesExtraidas.length === 0) chavesExtraidas = [''];
+
         setFormData({
           ...formData,
           numero_documento: nDoc,
-          chave_acesso: chAcesso,
+          chave_acesso: chavesExtraidas,
           razao_social_emitente: razaoSocial,
-          cnpj_emitente: cnpj,
+          cnpj_emitente: cnpjFormatado,
           cfop: cfop,
           valor_total_servico: valor,
-          data_emissao: dataEmissao
+          data_emissao: dataEmissao,
+          observacao: observacao
         });
         
-        alert("✅ XML lido e formulário preenchido com sucesso!");
+        alert(`✅ XML lido com sucesso! Encontrada(s) ${chavesExtraidas.length} chave(s) vinculada(s).`);
       } catch (err) {
         alert("Erro ao ler o ficheiro XML. Certifique-se que é um formato válido.");
       }
@@ -196,11 +250,13 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   // ==========================================
   const exportarParaExcel = () => {
     if (ctesFiltrados.length === 0) { alert("Não há dados para exportar com estes filtros."); return; }
-    const cabecalho = ["Data", "Nº Doc", "Emitente", "CNPJ", "CFOP", "Valor Serv. (R$)", "Situação", "Observação"].join(";");
+    const cabecalho = ["Data", "Nº Doc", "Emitente", "CNPJ", "CFOP", "Valor Serv. (R$)", "Chaves Vinculadas", "Situação", "Observação"].join(";");
     const linhas = ctesFiltrados.map(c => {
+      const chavesFormatadas = c.chave_acesso ? c.chave_acesso.replace(/,/g, ' | ') : '-';
+      
       return [
         formatarData(c.data_emissao), c.numero_documento, c.razao_social_emitente || '-', c.cnpj_emitente || '-', c.cfop || '-',
-        c.valor_total_servico?.toString().replace('.', ',') || '0,00', c.situacao, c.observacao || '-'
+        c.valor_total_servico?.toString().replace('.', ',') || '0,00', chavesFormatadas, c.situacao, c.observacao || '-'
       ].join(";");
     });
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + cabecalho + "\n" + linhas.join("\n");
@@ -223,7 +279,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
       {/* SEÇÃO SUPERIOR: FORMULÁRIO */}
       <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', flexShrink: 0 }}>
         
-        {/* CABEÇALHO DA PÁGINA E BOTÕES DE AÇÃO */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ padding: '8px', backgroundColor: '#e0f2fe', borderRadius: '8px' }}><FileText size={24} color="#0284c7" /></div>
@@ -252,10 +307,10 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
           </div>
         </div>
 
-        {/* BARRA DE FILTROS DINÂMICOS (Toggle) */}
         {mostrarFiltros && (
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '24px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
             <div className="form-group" style={{ flex: 1, minWidth: '150px' }}><label>Nº Documento</label><input type="text" className="form-input" placeholder="Buscar..." value={filtroNumeroDoc} onChange={e => setFiltroNumeroDoc(e.target.value)} /></div>
+            <div className="form-group" style={{ flex: 2, minWidth: '200px' }}><label>Chave de Acesso</label><input type="text" className="form-input" placeholder="Buscar por chave..." value={filtroChaveAcesso} onChange={e => setFiltroChaveAcesso(e.target.value)} /></div>
             <div className="form-group" style={{ flex: 2, minWidth: '200px' }}><label>Emitente</label><input type="text" className="form-input" placeholder="Buscar nome..." value={filtroEmitente} onChange={e => setFiltroEmitente(e.target.value)} /></div>
             <div className="form-group" style={{ flex: 1, minWidth: '120px' }}><label>CFOP</label><input type="text" className="form-input" placeholder="Ex: 5351" value={filtroCfop} onChange={e => setFiltroCfop(e.target.value)} /></div>
             <div className="form-group" style={{ flex: 1, minWidth: '120px' }}><label>Situação</label>
@@ -269,10 +324,9 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
           </div>
         )}
 
-        {/* FORMULÁRIO DE CADASTRO/EDIÇÃO */}
         <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-          <div className="form-group"><label>Nº Documento Fiscal</label><input type="text" className="form-input" required placeholder="Ex: 15488" value={formData.numero_documento} onChange={e => setFormData({...formData, numero_documento: e.target.value})} /></div>
-          <div className="form-group" style={{ gridColumn: 'span 2' }}><label>Nº Chave de Acesso</label><input type="text" className="form-input" placeholder="0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000" value={formData.chave_acesso} onChange={e => setFormData({...formData, chave_acesso: e.target.value})} /></div>
+          <div className="form-group"><label>Nº Documento Fiscal</label><input type="text" className="form-input" required placeholder="Ex: 9029" value={formData.numero_documento} onChange={e => setFormData({...formData, numero_documento: e.target.value})} /></div>
+          
           <div className="form-group" style={{ gridColumn: 'span 2' }}><label>Razão Social do Emitente</label><input type="text" className="form-input" list="transportadoras-sugestoes" required placeholder="Digite o nome da transportadora..." value={formData.razao_social_emitente} onChange={e => setFormData({...formData, razao_social_emitente: e.target.value})} />
             <datalist id="transportadoras-sugestoes">{transportadoras.map(t => <option key={t.id} value={t.nome} />)}</datalist>
           </div>
@@ -285,7 +339,36 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
               <option value="ABERTO">ABERTO</option><option value="FECHADO">FECHADO</option><option value="OUTROS">OUTROS</option>
             </select>
           </div>
-          <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Observação</label><input type="text" className="form-input" placeholder="Detalhes adicionais..." value={formData.observacao} onChange={e => setFormData({...formData, observacao: e.target.value})} /></div>
+
+          {/* ÁREA DINÂMICA DE MÚLTIPLAS CHAVES */}
+          <div className="form-group" style={{ gridColumn: '1 / -1', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: 'var(--munila-blue)' }}>
+              <FileText size={18} /> Chaves de Acesso (NFs Vinculadas)
+            </label>
+            
+            {formData.chave_acesso.map((chave, index) => (
+              <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000" 
+                  value={chave} 
+                  onChange={e => handleChaveChange(index, e.target.value)} 
+                />
+                {formData.chave_acesso.length > 1 && (
+                  <button type="button" onClick={() => removerChave(index)} style={{ padding: '0 12px', backgroundColor: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+            ))}
+            
+            <button type="button" onClick={adicionarChave} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', color: '#0284c7', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', marginTop: '8px' }}>
+              <PlusCircle size={16} /> Adicionar Nova Chave
+            </button>
+          </div>
+
+          <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Observações do Transporte</label><input type="text" className="form-input" placeholder="Apólice, Seguro, Agendamentos..." value={formData.observacao} onChange={e => setFormData({...formData, observacao: e.target.value})} /></div>
           
           <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', marginTop: '8px', gap: '12px' }}>
             {editingId && (
@@ -300,7 +383,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
         </form>
       </div>
 
-      {/* SEÇÃO INFERIOR: HISTÓRICO DE DADOS (USANDO ctesFiltrados) */}
       <div className="table-container" style={{ flex: 1, minHeight: 0, overflow: 'auto', backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '0', position: 'relative' }}>
         <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
@@ -310,14 +392,15 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
               <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>Emitente</th>
               <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>CNPJ</th>
               <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>CFOP</th>
+              <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>Chaves Vinculadas</th>
               <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>Valor Serv. (R$)</th>
               <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>Situação</th>
               <th style={{...thStyle, textAlign: 'center', position: 'sticky', top: 0, right: 0, zIndex: 11, borderLeft: '1px solid #e2e8f0'}}>Ações</th>
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={8} style={{ textAlign: 'center', padding: '24px' }}>A carregar histórico...</td></tr> : 
-             ctesFiltrados.length === 0 ? <tr><td colSpan={8} style={{ textAlign: 'center', padding: '24px' }}>Nenhum CTE encontrado com estes filtros.</td></tr> :
+            {loading ? <tr><td colSpan={9} style={{ textAlign: 'center', padding: '24px' }}>A carregar histórico...</td></tr> : 
+             ctesFiltrados.length === 0 ? <tr><td colSpan={9} style={{ textAlign: 'center', padding: '24px' }}>Nenhum CTE encontrado com estes filtros.</td></tr> :
              ctesFiltrados.map(cte => (
                <tr key={cte.id} className="trow-hover">
                  <td style={tdStyle}>{formatarData(cte.data_emissao)}</td>
@@ -325,6 +408,16 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
                  <td style={{...tdStyle, fontWeight: 'bold'}}>{cte.razao_social_emitente || '-'}</td>
                  <td style={tdStyle}>{cte.cnpj_emitente || '-'}</td>
                  <td style={{...tdStyle, fontWeight: 'bold'}}>{cte.cfop || '-'}</td>
+                 
+                 {/* COLUNA DE CHAVES DE ACESSO */}
+                 <td style={{...tdStyle, whiteSpace: 'normal', minWidth: '250px'}}>
+                   {cte.chave_acesso ? cte.chave_acesso.split(',').map((chave: string, idx: number) => (
+                     <div key={idx} style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: 'var(--munila-blue)', marginBottom: '4px' }}>
+                       {chave}
+                     </div>
+                   )) : '-'}
+                 </td>
+
                  <td style={{...tdStyle, fontWeight: 'bold'}}>R$ {Number(cte.valor_total_servico).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                  <td style={tdStyle}>
                    <span style={{ 

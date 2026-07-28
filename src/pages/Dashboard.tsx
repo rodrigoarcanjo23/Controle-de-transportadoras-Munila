@@ -15,16 +15,19 @@ interface DashboardProps {
   setFiltroTransportadora: (value: string) => void;
   filtroModal: string;
   setFiltroModal: (value: string) => void;
-  filtroStatus: string;
-  setFiltroStatus: (value: string) => void;
+  
+  // ATUALIZADO: agora recebe um Array de strings
+  filtroStatus: string[];
+  setFiltroStatus: (value: string[]) => void;
+  
   filtroFreteVazio: boolean;
   setFiltroFreteVazio: (value: boolean) => void;
   filtroFreteConfirmado: boolean;
   setFiltroFreteConfirmado: (value: boolean) => void;
-  filtroComAgendamento: boolean; // NOVO
-  setFiltroComAgendamento: (value: boolean) => void; // NOVO
-  filtroSemAgendamento: boolean; // NOVO
-  setFiltroSemAgendamento: (value: boolean) => void; // NOVO
+  filtroComAgendamento: boolean;
+  setFiltroComAgendamento: (value: boolean) => void;
+  filtroSemAgendamento: boolean;
+  setFiltroSemAgendamento: (value: boolean) => void;
   transportadoras: any[];
   limparFiltros: () => void;
   exportarParaExcel: () => void;
@@ -52,8 +55,8 @@ export function Dashboard({
   filtroTransportadora, setFiltroTransportadora, filtroModal, setFiltroModal,
   filtroStatus, setFiltroStatus, filtroFreteVazio, setFiltroFreteVazio, 
   filtroFreteConfirmado, setFiltroFreteConfirmado, 
-  filtroComAgendamento, setFiltroComAgendamento, // NOVO
-  filtroSemAgendamento, setFiltroSemAgendamento, // NOVO
+  filtroComAgendamento, setFiltroComAgendamento,
+  filtroSemAgendamento, setFiltroSemAgendamento,
   transportadoras, limparFiltros,
   exportarParaExcel, abrirModalNovaEntrega,
   faturamentoTotal, progressoMeta, freteTotal, freteMedio, atrasados,
@@ -81,8 +84,8 @@ export function Dashboard({
           filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus}
           filtroFreteVazio={filtroFreteVazio} setFiltroFreteVazio={setFiltroFreteVazio}
           filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado}
-          filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento} // NOVO
-          filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento} // NOVO
+          filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento}
+          filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento}
           transportadoras={transportadoras}
           limparFiltros={limparFiltros}
           exportarParaExcel={exportarParaExcel}
@@ -198,7 +201,6 @@ export function Dashboard({
 
               return (
                 <tr key={entrega.id} className="trow-hover">
-                  {/* ATENÇÃO: Aqui estão os data-labels que fazem a mágica no mobile! */}
                   <td style={tdStyle} data-label="Data Fat.">{formatarData(entrega.data_faturamento)}</td>
                   <td style={tdStyle} data-label="Coleta">{formatarData(entrega.data_coleta)}</td>
                   <td style={tdStyle} data-label="Cliente">{entrega.clientes?.nome || '-'}</td>

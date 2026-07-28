@@ -118,16 +118,33 @@ body {
 }
 
 /* ==========================================
-   ÁREA PRINCIPAL E TABELA (CORREÇÃO DE SCROLL)
+   ÁREA PRINCIPAL E TABELA (INTELIGÊNCIA DE SCROLL)
    ========================================== */
 .main-content {
   flex: 1;
-  padding: 24px 32px 16px 32px; /* Reduzi o padding inferior para dar espaço à scrollbar */
+  padding: 24px 32px 16px 32px; 
   display: flex;
   flex-direction: column;
   height: 100vh;
-  overflow: hidden; /* A MÁGICA: Corta tudo que passar da tela principal */
-  min-width: 0;     /* A MÁGICA 2: Impede que o flexbox tente "alargar" a tela */
+  
+  /* A MÁGICA 1: Permite que a página role verticalmente (Resolve o CTE) */
+  overflow-y: auto; 
+  overflow-x: hidden; 
+  min-width: 0;     
+}
+
+/* A MÁGICA 2: 
+   O Dashboard possui uma regra inline "overflow: hidden". 
+   Este CSS detecta isso e NÃO afeta o Dashboard (preservando o scroll horizontal perfeito).
+   Nas outras páginas (como CTE), ele liberta a altura para não esmagar a tabela! */
+.main-content > div:not([style*="overflow: hidden"]) {
+  height: auto !important;
+  min-height: 100%;
+}
+
+/* Garante que a tabela do CTE ou outras páginas nunca seja esmagada para zero e fique invisível */
+.main-content > div:not([style*="overflow: hidden"]) .table-container {
+  min-height: 400px;
 }
 
 .header {
@@ -175,17 +192,17 @@ body {
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   
   flex: 1; /* Pega o espaço restante */
-  min-height: 0; /* A MÁGICA 3: Permite a tabela encolher e acionar o scroll interno */
+  min-height: 0; /* Permite a tabela encolher e acionar o scroll interno */
   overflow: auto; /* Liga o scroll X e Y */
   position: relative;
 }
 
 table {
   width: 100%;
-  border-collapse: separate; /* Modificado para as bordas rolarem corretamente */
+  border-collapse: separate; 
   border-spacing: 0;
   text-align: left;
-  white-space: nowrap; /* Mantém o texto numa linha e força o scroll horizontal */
+  white-space: nowrap; 
 }
 
 thead th {
@@ -388,16 +405,16 @@ tbody td {
 .btn-logout:hover {
   background-color: #fee2e2;
 }
+
 /* ==========================================================================
    REGRAS DE RESPONSIVIDADE EXCLUSIVAS PARA MOBILE (NÃO ALTERA O DESKTOP)
    ========================================================================== */
 @media (max-width: 768px) {
   
-  /* 1. DESBLOQUEIO DE SCROLL NATIVO (A SOLUÇÃO DO CONGELAMENTO) */
   html, body, #root {
     overflow-y: auto !important;
     height: auto !important;
-    -webkit-overflow-scrolling: touch; /* Suaviza o toque no scroll */
+    -webkit-overflow-scrolling: touch; 
   }
 
   .app-container, .main-content {
@@ -407,14 +424,12 @@ tbody td {
     overflow-x: hidden !important;
   }
 
-  /* Força a caixa principal do Dashboard a libertar os cartões */
   .main-content > div, .table-container {
     height: auto !important;
     overflow-y: visible !important;
     overflow-x: hidden !important;
   }
 
-  /* 2. MENU LATERAL RESPONSIVO */
   .app-container {
     flex-direction: column !important;
     position: relative;
@@ -442,7 +457,6 @@ tbody td {
     background-color: rgba(15, 23, 42, 0.5); backdrop-filter: blur(2px); z-index: 998;
   }
 
-  /* 3. REORGANIZAÇÃO DOS CARDS DO TOPO */
   .main-content > div > div[style*="grid-template-columns"], .main-content > div > style + div {
     grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important;
   }
@@ -463,7 +477,6 @@ tbody td {
     width: 100% !important; max-width: none !important;
   }
 
-  /* 4. MÁGICA: TRANSFORMAR TABELAS EM CARDS NO CELULAR */
   .table-container {
     background: transparent !important; border: none !important; padding: 0 !important;
   }

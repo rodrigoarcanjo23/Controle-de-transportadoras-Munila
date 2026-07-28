@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { FileText, Save, Trash2, Edit, UploadCloud, Download, Printer, XCircle, Filter, PlusCircle } from 'lucide-react';
+import { FileText, Save, Trash2, Edit, UploadCloud, Download, Printer, XCircle, Filter, PlusCircle, DollarSign, Calendar } from 'lucide-react';
 
 interface CtesProps {
   transportadoras: any[];
@@ -16,16 +16,15 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Estados dos Filtros Dinâmicos
-  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const [filtroDataInicio, setFiltroDataInicio] = useState('');
+  const [filtroDataFim, setFiltroDataFim] = useState('');
   const [filtroNumeroDoc, setFiltroNumeroDoc] = useState('');
   const [filtroChaveAcesso, setFiltroChaveAcesso] = useState('');
   const [filtroEmitente, setFiltroEmitente] = useState('');
   const [filtroCfop, setFiltroCfop] = useState('');
   const [filtroSituacao, setFiltroSituacao] = useState('');
-  const [filtroDataInicio, setFiltroDataInicio] = useState('');
-  const [filtroDataFim, setFiltroDataFim] = useState('');
 
-  // Estado do Formulário (Chave de Acesso como Array dinâmico)
+  // Estado do Formulário
   const [formData, setFormData] = useState({
     numero_documento: '', 
     chave_acesso: [''], 
@@ -59,20 +58,31 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   // ==========================================
   const ctesFiltrados = ctes.filter(cte => {
     let passa = true;
+    if (filtroDataInicio && cte.data_emissao < filtroDataInicio) passa = false;
+    if (filtroDataFim && cte.data_emissao > filtroDataFim) passa = false;
     if (filtroNumeroDoc && !cte.numero_documento?.toLowerCase().includes(filtroNumeroDoc.toLowerCase())) passa = false;
     if (filtroChaveAcesso && !cte.chave_acesso?.toLowerCase().includes(filtroChaveAcesso.toLowerCase())) passa = false;
     if (filtroEmitente && !cte.razao_social_emitente?.toLowerCase().includes(filtroEmitente.toLowerCase())) passa = false;
     if (filtroCfop && !cte.cfop?.toLowerCase().includes(filtroCfop.toLowerCase())) passa = false;
     if (filtroSituacao && cte.situacao !== filtroSituacao) passa = false;
-    if (filtroDataInicio && cte.data_emissao < filtroDataInicio) passa = false;
-    if (filtroDataFim && cte.data_emissao > filtroDataFim) passa = false;
     return passa;
   });
 
   function limparFiltros() {
-    setFiltroNumeroDoc(''); setFiltroChaveAcesso(''); setFiltroEmitente(''); setFiltroCfop(''); 
-    setFiltroSituacao(''); setFiltroDataInicio(''); setFiltroDataFim('');
+    setFiltroDataInicio('');
+    setFiltroDataFim('');
+    setFiltroNumeroDoc('');
+    setFiltroChaveAcesso('');
+    setFiltroEmitente('');
+    setFiltroCfop(''); 
+    setFiltroSituacao('');
   }
+
+  // ==========================================
+  // CÁLCULO DOS TOTAIS PARA O PAINEL DE RESUMO
+  // ==========================================
+  const valorTotalServico = ctesFiltrados.reduce((acc, curr) => acc + (Number(curr.valor_total_servico) || 0), 0);
+  const totalCtesFiltrados = ctesFiltrados.length;
 
   // ==========================================
   // LÓGICA DE SALVAR (CRIAR E ATUALIZAR)
@@ -153,9 +163,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
     }
   }
 
-  // ==========================================
-  // LÓGICA DE GESTÃO DO ARRAY DE CHAVES (UI)
-  // ==========================================
   const handleChaveChange = (index: number, valor: string) => {
     const novasChaves = [...formData.chave_acesso];
     novasChaves[index] = valor;
@@ -171,9 +178,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
     setFormData({ ...formData, chave_acesso: novasChaves });
   };
 
-  // ==========================================
-  // LÓGICA DO LEITOR INTELIGENTE DE XML
-  // ==========================================
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -245,9 +249,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
     if(fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // ==========================================
-  // LÓGICA DE EXPORTAÇÃO EXCEL E IMPRESSÃO PDF
-  // ==========================================
   const exportarParaExcel = () => {
     if (ctesFiltrados.length === 0) { alert("Não há dados para exportar com estes filtros."); return; }
     const cabecalho = ["Data", "Nº Doc", "Emitente", "CNPJ", "CFOP", "Valor Serv. (R$)", "Chaves Vinculadas", "Situação", "Observação"].join(";");
@@ -274,10 +275,11 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   const tdStyle: React.CSSProperties = { padding: '12px 16px', borderBottom: '1px solid #f1f5f9', fontSize: '0.85rem', color: '#334155', whiteSpace: 'nowrap' };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100%', gap: '24px' }}>
+    // ATENÇÃO: Aqui removi o "height: 100%" para a página ficar livre!
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', minHeight: '100%', paddingBottom: '32px' }}>
       
-      {/* SEÇÃO SUPERIOR: FORMULÁRIO */}
-      <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', flexShrink: 0 }}>
+      {/* 1. SEÇÃO SUPERIOR: FORMULÁRIO DE REGISTRO / EDIÇÃO */}
+      <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -290,39 +292,13 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
             </div>
           </div>
           
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button type="button" className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: mostrarFiltros ? '#f1f5f9' : 'white' }} onClick={() => setMostrarFiltros(!mostrarFiltros)}>
-              <Filter size={16} /> Filtros
-            </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
             <input type="file" accept=".xml" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} />
             <button type="button" className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => fileInputRef.current?.click()}>
               <UploadCloud size={16} /> Importar XML
             </button>
-            <button type="button" className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={exportarParaPDF}>
-              <Printer size={16} /> PDF
-            </button>
-            <button type="button" className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#16a34a', borderColor: '#16a34a' }} onClick={exportarParaExcel}>
-              <Download size={16} /> Excel
-            </button>
           </div>
         </div>
-
-        {mostrarFiltros && (
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '24px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-            <div className="form-group" style={{ flex: 1, minWidth: '150px' }}><label>Nº Documento</label><input type="text" className="form-input" placeholder="Buscar..." value={filtroNumeroDoc} onChange={e => setFiltroNumeroDoc(e.target.value)} /></div>
-            <div className="form-group" style={{ flex: 2, minWidth: '200px' }}><label>Chave de Acesso</label><input type="text" className="form-input" placeholder="Buscar por chave..." value={filtroChaveAcesso} onChange={e => setFiltroChaveAcesso(e.target.value)} /></div>
-            <div className="form-group" style={{ flex: 2, minWidth: '200px' }}><label>Emitente</label><input type="text" className="form-input" placeholder="Buscar nome..." value={filtroEmitente} onChange={e => setFiltroEmitente(e.target.value)} /></div>
-            <div className="form-group" style={{ flex: 1, minWidth: '120px' }}><label>CFOP</label><input type="text" className="form-input" placeholder="Ex: 5351" value={filtroCfop} onChange={e => setFiltroCfop(e.target.value)} /></div>
-            <div className="form-group" style={{ flex: 1, minWidth: '120px' }}><label>Situação</label>
-              <select className="form-select" value={filtroSituacao} onChange={e => setFiltroSituacao(e.target.value)}>
-                <option value="">Todas</option><option value="ABERTO">ABERTO</option><option value="FECHADO">FECHADO</option><option value="OUTROS">OUTROS</option>
-              </select>
-            </div>
-            <div className="form-group" style={{ flex: 1, minWidth: '130px' }}><label>Data Início</label><input type="date" className="form-input" value={filtroDataInicio} onChange={e => setFiltroDataInicio(e.target.value)} /></div>
-            <div className="form-group" style={{ flex: 1, minWidth: '130px' }}><label>Data Fim</label><input type="date" className="form-input" value={filtroDataFim} onChange={e => setFiltroDataFim(e.target.value)} /></div>
-            <div style={{ display: 'flex', alignItems: 'flex-end' }}><button type="button" className="btn-secondary" onClick={limparFiltros}>Limpar</button></div>
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
           <div className="form-group"><label>Nº Documento Fiscal</label><input type="text" className="form-input" required placeholder="Ex: 9029" value={formData.numero_documento} onChange={e => setFormData({...formData, numero_documento: e.target.value})} /></div>
@@ -333,14 +309,13 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
           <div className="form-group"><label>CNPJ</label><input type="text" className="form-input" placeholder="00.000.000/0000-00" value={formData.cnpj_emitente} onChange={e => setFormData({...formData, cnpj_emitente: e.target.value})} /></div>
           <div className="form-group"><label>CFOP</label><input type="text" className="form-input" placeholder="Ex: 5351" value={formData.cfop} onChange={e => setFormData({...formData, cfop: e.target.value})} /></div>
           <div className="form-group"><label>Valor Total do Serviço (R$)</label><input type="number" step="0.01" className="form-input" required placeholder="0.00" value={formData.valor_total_servico} onChange={e => setFormData({...formData, valor_total_servico: e.target.value})} /></div>
-          <div className="form-group"><label>Data</label><input type="date" className="form-input" required value={formData.data_emissao} onChange={e => setFormData({...formData, data_emissao: e.target.value})} /></div>
+          <div className="form-group"><label>Data Emissão</label><input type="date" className="form-input" required value={formData.data_emissao} onChange={e => setFormData({...formData, data_emissao: e.target.value})} /></div>
           <div className="form-group"><label>Situação</label>
             <select className="form-select" value={formData.situacao} onChange={e => setFormData({...formData, situacao: e.target.value})}>
               <option value="ABERTO">ABERTO</option><option value="FECHADO">FECHADO</option><option value="OUTROS">OUTROS</option>
             </select>
           </div>
 
-          {/* ÁREA DINÂMICA DE MÚLTIPLAS CHAVES */}
           <div className="form-group" style={{ gridColumn: '1 / -1', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: 'var(--munila-blue)' }}>
               <FileText size={18} /> Chaves de Acesso (NFs Vinculadas)
@@ -383,7 +358,108 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
         </form>
       </div>
 
-      <div className="table-container" style={{ flex: 1, minHeight: 0, overflow: 'auto', backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '0', position: 'relative' }}>
+      {/* 2. SEÇÃO DE FILTROS E RELATÓRIO DO HISTÓRICO */}
+      <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Filter size={18} color="var(--munila-blue)" />
+            <h3 style={{ fontSize: '1rem', color: 'var(--text-main)', margin: 0 }}>Filtros de Pesquisa & Período</h3>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button type="button" className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={exportarParaPDF}>
+              <Printer size={16} /> PDF
+            </button>
+            <button type="button" className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#16a34a', borderColor: '#16a34a' }} onClick={exportarParaExcel}>
+              <Download size={16} /> Excel
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+          
+          <div className="form-group" style={{ flex: '1 1 140px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0284c7', fontWeight: 'bold' }}>
+              <Calendar size={14} /> Data Início
+            </label>
+            <input type="date" className="form-input" value={filtroDataInicio} onChange={e => setFiltroDataInicio(e.target.value)} />
+          </div>
+
+          <div className="form-group" style={{ flex: '1 1 140px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0284c7', fontWeight: 'bold' }}>
+              <Calendar size={14} /> Data Fim
+            </label>
+            <input type="date" className="form-input" value={filtroDataFim} onChange={e => setFiltroDataFim(e.target.value)} />
+          </div>
+
+          <div className="form-group" style={{ flex: '1 1 130px' }}>
+            <label>Nº Documento</label>
+            <input type="text" className="form-input" placeholder="Buscar..." value={filtroNumeroDoc} onChange={e => setFiltroNumeroDoc(e.target.value)} />
+          </div>
+
+          <div className="form-group" style={{ flex: '2 1 180px' }}>
+            <label>Chave de Acesso</label>
+            <input type="text" className="form-input" placeholder="Buscar por chave..." value={filtroChaveAcesso} onChange={e => setFiltroChaveAcesso(e.target.value)} />
+          </div>
+
+          <div className="form-group" style={{ flex: '2 1 180px' }}>
+            <label>Emitente</label>
+            <input type="text" className="form-input" placeholder="Buscar nome..." value={filtroEmitente} onChange={e => setFiltroEmitente(e.target.value)} />
+          </div>
+
+          <div className="form-group" style={{ flex: '1 1 100px' }}>
+            <label>CFOP</label>
+            <input type="text" className="form-input" placeholder="Ex: 5351" value={filtroCfop} onChange={e => setFiltroCfop(e.target.value)} />
+          </div>
+
+          <div className="form-group" style={{ flex: '1 1 110px' }}>
+            <label>Situação</label>
+            <select className="form-select" value={filtroSituacao} onChange={e => setFiltroSituacao(e.target.value)}>
+              <option value="">Todas</option>
+              <option value="ABERTO">ABERTO</option>
+              <option value="FECHADO">FECHADO</option>
+              <option value="OUTROS">OUTROS</option>
+            </select>
+          </div>
+
+          <div>
+            <button type="button" className="btn-secondary" style={{ height: '38px', color: '#ef4444', borderColor: '#ef4444' }} onClick={limparFiltros}>
+              Limpar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. PAINEL DE RESUMO (CARDS TOTAIS DO PERÍODO SELECIONADO) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
+        
+        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Valor Total do Serviço</p>
+            <div style={{ padding: '6px', backgroundColor: '#dcfce7', borderRadius: '6px' }}><DollarSign size={18} color="#16a34a" /></div>
+          </div>
+          <h3 style={{ fontSize: '1.5rem', color: 'var(--text-main)', fontWeight: 700 }}>
+            R$ {valorTotalServico.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </h3>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Soma total do período selecionado</p>
+        </div>
+
+        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Quantidade de CTEs</p>
+            <div style={{ padding: '6px', backgroundColor: '#e0f2fe', borderRadius: '6px' }}><FileText size={18} color="#0284c7" /></div>
+          </div>
+          <h3 style={{ fontSize: '1.5rem', color: 'var(--text-main)', fontWeight: 700 }}>
+            {totalCtesFiltrados} <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>documentos</span>
+          </h3>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Registros encontrados no período</p>
+        </div>
+
+      </div>
+
+      {/* 4. TABELA DE HISTÓRICO - Sem amarras! */}
+      <div className="table-container" style={{ width: '100%', overflowX: 'auto', backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '0', position: 'relative' }}>
         <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
             <tr>
@@ -409,7 +485,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
                  <td style={tdStyle}>{cte.cnpj_emitente || '-'}</td>
                  <td style={{...tdStyle, fontWeight: 'bold'}}>{cte.cfop || '-'}</td>
                  
-                 {/* COLUNA DE CHAVES DE ACESSO */}
                  <td style={{...tdStyle, whiteSpace: 'normal', minWidth: '250px'}}>
                    {cte.chave_acesso ? cte.chave_acesso.split(',').map((chave: string, idx: number) => (
                      <div key={idx} style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: 'var(--munila-blue)', marginBottom: '4px' }}>

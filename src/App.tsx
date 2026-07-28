@@ -39,7 +39,10 @@ export default function App() {
   const [filtroDataFim, setFiltroDataFim] = useState('');
   const [filtroTransportadora, setFiltroTransportadora] = useState('');
   const [filtroModal, setFiltroModal] = useState('');
-  const [filtroStatus, setFiltroStatus] = useState('');
+  
+  // ATUALIZADO: filtroStatus agora é um Array [] para suportar múltiplas escolhas
+  const [filtroStatus, setFiltroStatus] = useState<string[]>([]);
+  
   const [filtroFreteVazio, setFiltroFreteVazio] = useState(false);
   const [filtroFreteConfirmado, setFiltroFreteConfirmado] = useState(false);
   const [filtroComAgendamento, setFiltroComAgendamento] = useState(false);
@@ -204,7 +207,6 @@ export default function App() {
     return ((frete / nf) * 100).toFixed(2) + '%'; 
   };
   
-  // ADICIONADAS NOVAS CORES DE STATUS AQUI
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Entregue': return { backgroundColor: '#dcfce7', color: '#166534' }; 
@@ -213,8 +215,8 @@ export default function App() {
       case 'Agendado': return { backgroundColor: '#f3e8ff', color: '#6b21a8' }; 
       case 'Devolução': return { backgroundColor: '#fecdd3', color: '#881337' }; 
       case 'Solicitado Agendamento': return { backgroundColor: '#fef08a', color: '#713f12' }; 
-      case 'Pendente agendamento': return { backgroundColor: '#fce7f3', color: '#be185d' }; // Rosa
-      case 'Aguardando coleta': return { backgroundColor: '#fef3c7', color: '#d97706' }; // Âmbar
+      case 'Pendente agendamento': return { backgroundColor: '#fce7f3', color: '#be185d' }; 
+      case 'Aguardando coleta': return { backgroundColor: '#fef3c7', color: '#d97706' }; 
       case 'Pendente': return { backgroundColor: '#ffedd5', color: '#9a3412' }; 
       case 'Frete Conferido': return { backgroundColor: '#e0e7ff', color: '#4338ca' };
       case 'Aguardando Chegada': return { backgroundColor: '#fef3c7', color: '#92400e' }; 
@@ -229,7 +231,8 @@ export default function App() {
     }
   };
 
-  function limparFiltros() { setSearchTerm(''); setFiltroDataInicio(''); setFiltroDataFim(''); setFiltroTransportadora(''); setFiltroModal(''); setFiltroStatus(''); setFiltroFreteVazio(false); setFiltroFreteConfirmado(false); setFiltroComAgendamento(false); setFiltroSemAgendamento(false); }
+  // ATUALIZADO: Limpar array de status
+  function limparFiltros() { setSearchTerm(''); setFiltroDataInicio(''); setFiltroDataFim(''); setFiltroTransportadora(''); setFiltroModal(''); setFiltroStatus([]); setFiltroFreteVazio(false); setFiltroFreteConfirmado(false); setFiltroComAgendamento(false); setFiltroSemAgendamento(false); }
 
   const entregasFiltradas = entregas.filter(entrega => {
     const termo = searchTerm.toLowerCase();
@@ -244,7 +247,10 @@ export default function App() {
     if (filtroDataFim && entrega.data_faturamento > filtroDataFim) passaData = false;
     const passaTransp = filtroTransportadora ? entrega.transportadora_id === filtroTransportadora : true;
     const passaModal = filtroModal ? (entrega.modal_frete === filtroModal || entrega.transportadoras?.modal_padrao === filtroModal) : true;
-    const passaStatus = filtroStatus ? entrega.status === filtroStatus : true;
+    
+    // ATUALIZADO: Verifica se o status da entrega está dentro do array de status selecionados (se houver algum selecionado)
+    const passaStatus = filtroStatus.length === 0 ? true : filtroStatus.includes(entrega.status);
+    
     const passaFreteVazio = filtroFreteVazio ? (!entrega.valor_frete || Number(entrega.valor_frete) === 0) : true;
     const passaFreteConfirmado = filtroFreteConfirmado ? entrega.frete_confirmado === true : true;
     const passaComAgendamento = filtroComAgendamento ? entrega.tem_agendamento === true : true;

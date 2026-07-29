@@ -85,13 +85,36 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   const totalCtesFiltrados = ctesFiltrados.length;
 
   // ==========================================
-  // LÓGICA DE SALVAR (CRIAR E ATUALIZAR)
+  // LÓGICA DE SALVAR E VALIDAÇÃO DE DUPLICIDADE
   // ==========================================
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
 
-    const chavesLimpas = formData.chave_acesso.filter(chave => chave.trim() !== '').join(',');
+    const chavesParaValidar = formData.chave_acesso.filter(chave => chave.trim() !== '');
+
+    // 🛑 BARREIRA DE SEGURANÇA: Bloqueia Chaves Repetidas
+    const cteDuplicado = ctes.find(cte => {
+      // Se estamos a editar, ignoramos o próprio documento para não dar falso positivo
+      if (editingId && cte.id === editingId) return false;
+      
+      if (!cte.chave_acesso) return false;
+      
+      // Transforma a string salva num Array para comparar as chaves uma a uma
+      const chavesSalvas = cte.chave_acesso.split(',').map((c: string) => c.trim());
+      
+      // Verifica se ALGUMA das chaves do formulário atual já existe neste CTE salvo
+      return chavesParaValidar.some(chaveNova => chavesSalvas.includes(chaveNova.trim()));
+    });
+
+    if (cteDuplicado) {
+      alert(`⚠️ ATENÇÃO: DUPLICIDADE DETECTADA!\n\nUma ou mais Chaves de Acesso informadas já estão registradas no sistema.\n\n📌 Pertencem ao CTE Nº ${cteDuplicado.numero_documento} da transportadora ${cteDuplicado.razao_social_emitente || 'Desconhecida'}.\n\nO registro foi bloqueado para evitar erros financeiros.`);
+      setSubmitting(false);
+      return; // Interrompe o processo e não guarda no banco de dados!
+    }
+    // 🛑 FIM DA BARREIRA DE SEGURANÇA
+
+    const chavesLimpas = chavesParaValidar.join(',');
 
     const payload = {
       numero_documento: formData.numero_documento,
@@ -275,7 +298,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   const tdStyle: React.CSSProperties = { padding: '12px 16px', borderBottom: '1px solid #f1f5f9', fontSize: '0.85rem', color: '#334155', whiteSpace: 'nowrap' };
 
   return (
-    // ATENÇÃO: Aqui removi o "height: 100%" para a página ficar livre!
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', minHeight: '100%', paddingBottom: '32px' }}>
       
       {/* 1. SEÇÃO SUPERIOR: FORMULÁRIO DE REGISTRO / EDIÇÃO */}

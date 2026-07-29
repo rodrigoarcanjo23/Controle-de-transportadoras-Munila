@@ -1,74 +1,43 @@
-# React + TypeScript + Vite
+# 🚚 MunilaLog - Sistema de Acompanhamento Logístico
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+O **MunilaLog** é uma plataforma web moderna desenvolvida para revolucionar e automatizar a gestão logística, substituindo o antigo controle manual em planilhas por um sistema centralizado, inteligente e em tempo real.
 
-Currently, two official plugins are available:
+## ✨ Principais Funcionalidades
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **📊 Dashboard Inteligente e Dinâmico:** Painel de controle com métricas em tempo real (Faturamento, Custo Logístico, % Frete Médio, Volume Total, etc.) e filtros avançados de múltipla escolha (cruze dados por status, transportadora, datas, modais e regras de agendamento).
+- **📦 Gestão Completa de Entregas:** Controle de ponta a ponta das notas fiscais, incluindo valores de frete, cubagem e mudança automatizada de status (com inteligência de preenchimento de datas e gatilhos visuais para "frete conferido" e "com agendamento").
+- **🧾 Módulo Avançado de CTEs:**
+  - **Leitura Automática de XML:** Importação de arquivos `.xml` com extração instantânea e preenchimento de todos os dados cruciais (Emissor, CNPJ, CFOP, Datas, Valor, etc.).
+  - **Captura Inteligente de Chaves:** Identificação e extração de múltiplas Chaves de NFe (infNFe) vinculadas a um único Conhecimento de Transporte, bem como captura de observações (apólices e agendamentos).
+  - **Barreira de Segurança (Anti-Duplicidade):** Bloqueio automático de registro caso qualquer chave de acesso informada já conste na base de dados, prevenindo pagamentos ou lançamentos duplicados.
+  - **Resumos em Tempo Real:** Cartões interativos que somam o valor total financeiro e a volumetria de documentos baseados nos filtros de tela.
+- **🧮 Calculadora Volumétrica:** Auditoria de peso e caixaria automática com base no cadastro de produtos para preenchimento exato em faturamentos de grandes redes varejistas.
+- **🏢 Cadastros Inteligentes:** Gestão de Clientes e Transportadoras. O sistema "lembra" regras de negócio, como clientes que exigem agendamento padrão, automatizando a criação de novas entregas.
+- **🔄 Controle de Devoluções:** Acompanhamento de recusas e retornos de mercadorias.
+- **🔐 Controle de Acesso e Perfis:** Autenticação segura com níveis de acesso estruturados (Operador e Administrador).
+- **📥 Exportações Práticas:** Geração de arquivos PDF e planilhas Excel (CSV) perfeitamente formatados a partir do histórico visível na tela.
 
-## React Compiler
+## 🛠 Tecnologias e Bibliotecas Utilizadas
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+O sistema foi construído utilizando as melhores práticas modernas de desenvolvimento Front-end e Back-end (Serverless).
 
-## Expanding the ESLint configuration
+### Frontend (Interface e Lógica)
+- **[React 18+](https://react.dev/)**: Biblioteca central para a construção reativa e modular da interface de usuário (UI).
+- **[TypeScript](https://www.typescriptlang.org/)**: Superconjunto de JavaScript que adiciona tipagem estática rigorosa, garantindo um código mais seguro, inteligente e livre de erros.
+- **[Vite](https://vitejs.dev/)**: Ferramenta de build de última geração, garantindo um ambiente de desenvolvimento ultra-rápido.
+- **[React Router Dom](https://reactrouter.com/)**: Gerenciamento de rotas para criação da Single Page Application (SPA), permitindo navegação fluida sem recarregamentos.
+- **[Lucide React](https://lucide.dev/)**: Biblioteca leve de ícones SVG limpos e padronizados.
+- **Leitor DOMParser (Nativo)**: API nativa do navegador utilizada para varrer e extrair os dados lógicos dos arquivos XML da SEFAZ (NFe e CTe).
+- **CSS3 (Customizado)**: Estilização construída do zero, focada em performance. Utiliza variáveis CSS nativas, Flexbox, Grid e Media Queries exclusivas, resultando em um sistema *100% responsivo* (com soluções avançadas de UX para tabelas scrolláveis no Desktop e Mobile).
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Backend e Infraestrutura
+- **[Supabase](https://supabase.com/)**: Plataforma Backend-as-a-Service (BaaS) de código aberto.
+  - **PostgreSQL**: Banco de dados relacional altamente escalável utilizado para armazenar e relacionar as entidades (entregas, ctes, devoluções, clientes e transportadoras).
+  - **Supabase Auth**: Sistema de autenticação blindada para gestão de sessões dos usuários logados.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 🚀 Como Executar o Projeto Localmente
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-# Controle-de-transportadoras-Munila
+1. Clone o repositório na sua máquina.
+2. Acesse a pasta do projeto e instale as dependências:
+   ```bash
+   npm install

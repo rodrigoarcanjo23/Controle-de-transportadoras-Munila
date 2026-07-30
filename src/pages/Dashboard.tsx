@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit, Trash2, DollarSign, TrendingUp, AlertCircle, Target, Package, Scale } from 'lucide-react';
+import { Edit, Trash2, DollarSign, TrendingUp, AlertCircle, Target, Package, Scale, FileText } from 'lucide-react';
 import { Header } from '../components/Header';
 
 interface DashboardProps {
@@ -15,11 +15,8 @@ interface DashboardProps {
   setFiltroTransportadora: (value: string) => void;
   filtroModal: string;
   setFiltroModal: (value: string) => void;
-  
-  // ATUALIZADO: agora recebe um Array de strings
   filtroStatus: string[];
   setFiltroStatus: (value: string[]) => void;
-  
   filtroFreteVazio: boolean;
   setFiltroFreteVazio: (value: boolean) => void;
   filtroFreteConfirmado: boolean;
@@ -65,6 +62,9 @@ export function Dashboard({
   calcularDiasEntrega, getStatusColor, abrirModalEdicao, handleDeleteEntrega
 }: DashboardProps) {
 
+  // CÁLCULO DINÂMICO DO VALOR TOTAL DAS NFs FILTRADAS
+  const valorTotalNf = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
+
   const thStyle: React.CSSProperties = { position: 'sticky', top: 0, backgroundColor: '#f8fafc', zIndex: 10, borderBottom: '2px solid #e2e8f0', padding: '12px 16px', color: '#475569', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', whiteSpace: 'nowrap' };
   const thAcoesStyle: React.CSSProperties = { ...thStyle, right: 0, zIndex: 11, textAlign: 'center', borderLeft: '1px solid #e2e8f0' };
   const tdStyle: React.CSSProperties = { padding: '10px 16px', borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap', fontSize: '0.85rem', color: '#334155' };
@@ -93,8 +93,21 @@ export function Dashboard({
         />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '16px', marginBottom: '24px', flexShrink: 0 }}>
+      {/* PAINÉIS DE MÉTRICAS (GRID ADAPTÁVEL COM O NOVO CARTÃO DE VALOR TOTAL DAS NFs) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px', flexShrink: 0 }}>
         
+        {/* NOVO PAINEL: VALOR TOTAL NFs */}
+        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Valor Total NFs</p>
+            <FileText size={16} color="#0284c7" />
+          </div>
+          <h3 style={{ fontSize: '1.25rem', color: 'var(--text-main)', marginBottom: '6px', fontWeight: 700 }}>
+            R$ {valorTotalNf.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </h3>
+          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Soma do período selecionado</p>
+        </div>
+
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Faturamento</p>

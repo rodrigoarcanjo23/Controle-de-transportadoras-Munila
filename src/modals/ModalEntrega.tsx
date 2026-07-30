@@ -135,7 +135,22 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
             <div className="form-group"><label>Custo do Frete (R$)</label><input type="number" step="0.01" className="form-input" value={formData.valor_frete} onChange={(e) => setFormData({...formData, valor_frete: e.target.value})} /></div>
 
             <div className="form-group"><label>Volume (Caixas)</label><input type="number" className="form-input" value={formData.volume} onChange={(e) => setFormData({...formData, volume: e.target.value})} /></div>
-            <div className="form-group"><label>Peso (Kg)</label><input type="number" step="0.01" className="form-input" value={formData.peso_kg} onChange={(e) => setFormData({...formData, peso_kg: e.target.value})} /></div>
+            
+            {/* ATUALIZADO: Regra de bloqueio aplicada ao campo Peso */}
+            <div className="form-group">
+              <label>Peso (Kg) <span style={{ color: '#ef4444' }}>*</span></label>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="Ex: 1500 (apenas números)"
+                required 
+                value={formData.peso_kg} 
+                onChange={(e) => {
+                  const valorLimpo = e.target.value.replace(/[\s,.]/g, '');
+                  setFormData({...formData, peso_kg: valorLimpo});
+                }} 
+              />
+            </div>
 
             <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <input type="checkbox" id="tem_agendamento" checked={formData.tem_agendamento} onChange={(e) => setFormData({...formData, tem_agendamento: e.target.checked})} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
@@ -177,7 +192,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               </select>
             </div>
 
-            {/* NOVAS OPÇÕES DE STATUS ADICIONADAS AQUI */}
             <div className="form-group"><label>Status da Entrega</label>
               <select className="form-select" value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})}>
                 <option value="Pendente">Pendente</option>

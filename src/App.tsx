@@ -12,6 +12,7 @@ import { Devolucoes } from './pages/Devolucoes';
 import { ModalEntrega } from './modals/ModalEntrega';
 import { ModalCliente } from './modals/ModalCliente';
 import { Ctes } from './pages/Ctes';
+import { Auditoria } from './pages/Auditoria';
 
 import './index.css';
 
@@ -39,10 +40,7 @@ export default function App() {
   const [filtroDataFim, setFiltroDataFim] = useState('');
   const [filtroTransportadora, setFiltroTransportadora] = useState('');
   const [filtroModal, setFiltroModal] = useState('');
-  
-  // ATUALIZADO: filtroStatus agora é um Array [] para suportar múltiplas escolhas
   const [filtroStatus, setFiltroStatus] = useState<string[]>([]);
-  
   const [filtroFreteVazio, setFiltroFreteVazio] = useState(false);
   const [filtroFreteConfirmado, setFiltroFreteConfirmado] = useState(false);
   const [filtroComAgendamento, setFiltroComAgendamento] = useState(false);
@@ -59,7 +57,6 @@ export default function App() {
 
   const [isClienteModalOpen, setIsClienteModalOpen] = useState(false);
   const [editingClienteId, setEditingClienteId] = useState<string | null>(null);
-  
   const [clienteFormData, setClienteFormData] = useState({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', cidade: '', uf: '', telefone: '', email: '', exige_agendamento: false });
   
   const [isMetaModalOpen, setIsMetaModalOpen] = useState(false);
@@ -89,6 +86,15 @@ export default function App() {
     buscarEntregas(); buscarDevolucoes(); buscarDominios(); buscarPerfis();
   }
 
+  const registrarLog = async (acao: string, modulo: string, detalhes: string) => {
+    if (!session?.user?.email) return;
+    try {
+      await supabase.from('logs_auditoria').insert([{
+        usuario_email: session.user.email, acao: acao, modulo: modulo, detalhes: detalhes
+      }]);
+    } catch (error) { console.error("Erro ao registrar log de auditoria:", error); }
+  };
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoginLoading(true);
@@ -108,9 +114,9 @@ export default function App() {
         <div className="login-box">
           <div className="login-header"><h1>MunilaLog</h1><p>Sistema de Acompanhamento Logístico</p></div>
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div className="form-group"><label>Email</label><input type="email" className="form-input" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="exemplo@munila.com.br"/></div>
-            <div className="form-group"><label>Palavra-passe</label><input type="password" className="form-input" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} /></div>
-            <button type="submit" className="btn-primary" style={{ justifyContent: 'center', marginTop: '8px' }} disabled={loginLoading}>{loginLoading ? 'A Entrar...' : 'Iniciar Sessão'}</button>
+            <div className="form-group"><label>E-mail</label><input type="email" className="form-input" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="exemplo@munila.com.br"/></div>
+            <div className="form-group"><label>Senha</label><input type="password" className="form-input" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} /></div>
+            <button type="submit" className="btn-primary" style={{ justifyContent: 'center', marginTop: '8px' }} disabled={loginLoading}>{loginLoading ? 'Entrando...' : 'Entrar'}</button>
           </form>
         </div>
       </div>
@@ -122,8 +128,22 @@ export default function App() {
   async function buscarDominios() { const { data: c } = await supabase.from('clientes').select('*').order('nome'); const { data: t } = await supabase.from('transportadoras').select('*').order('nome'); const { data: m } = await supabase.from('metas_frete').select('*, clientes (nome), transportadoras (nome)'); const { data: p } = await supabase.from('produtos').select('*').order('nome'); if (c) setClientes(c); if (t) setTransportadoras(t); if (m) setMetas(m); if (p) setProdutos(p); }
   async function buscarPerfis() { try { const { data } = await supabase.from('perfis').select('*').order('nome'); if (data) setPerfis(data); } catch (error) { console.error(error); } }
 
-  function abrirModalNovaEntrega() { setEditingId(null); setFormData({ nota_fiscal: '', cliente_id: '', transportadora_id: '', cidade_destino: '', uf_destino: '', modal_frete: '', data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', data_entrega_agendamento: '', observacoes: '', status: 'Pendente', frete_confirmado: false }); setIsModalOpen(true); }
-  function abrirModalEdicao(entrega: any) { setEditingId(entrega.id); setFormData({ nota_fiscal: entrega.nota_fiscal, cliente_id: entrega.cliente_id, transportadora_id: entrega.transportadora_id, cidade_destino: entrega.cidade_destino || '', uf_destino: entrega.uf_destino || '', modal_frete: entrega.modal_frete || '', data_faturamento: entrega.data_faturamento || '', data_coleta: entrega.data_coleta || '', valor_nf: entrega.valor_nf?.toString() || '', valor_frete: entrega.valor_frete?.toString() || '', volume: entrega.volume?.toString() || '', peso_kg: entrega.peso_kg?.toString() || '', tem_agendamento: entrega.tem_agendamento || false, data_previsao: entrega.data_previsao || '', data_entrega_agendamento: entrega.data_entrega_agendamento || '', observacoes: entrega.observacoes || '', status: entrega.status, frete_confirmado: entrega.frete_confirmado || false }); setIsModalOpen(true); }
+  function abrirModalNovaEntrega() { 
+    setEditingId(null); 
+    setFormData({ nota_fiscal: '', cliente_id: '', transportadora_id: '', cidade_destino: '', uf_destino: '', modal_frete: '', data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', data_entrega_agendamento: '', observacoes: '', status: 'Pendente', frete_confirmado: false }); 
+    setIsModalOpen(true); 
+  }
+  
+  function abrirModalEdicao(entrega: any) { 
+    setEditingId(entrega.id); 
+    setFormData({ 
+      nota_fiscal: entrega.nota_fiscal, cliente_id: entrega.cliente_id, transportadora_id: entrega.transportadora_id, cidade_destino: entrega.cidade_destino || '', uf_destino: entrega.uf_destino || '', modal_frete: entrega.modal_frete || '', data_faturamento: entrega.data_faturamento || '', data_coleta: entrega.data_coleta || '', valor_nf: entrega.valor_nf?.toString() || '', valor_frete: entrega.valor_frete?.toString() || '', volume: entrega.volume?.toString() || '', 
+      // Converte o ponto do banco de dados para vírgula no formulário
+      peso_kg: entrega.peso_kg?.toString().replace('.', ',') || '', 
+      tem_agendamento: entrega.tem_agendamento || false, data_previsao: entrega.data_previsao || '', data_entrega_agendamento: entrega.data_entrega_agendamento || '', observacoes: entrega.observacoes || '', status: entrega.status, frete_confirmado: entrega.frete_confirmado || false 
+    }); 
+    setIsModalOpen(true); 
+  }
   
   function abrirModalNovoCliente() { setEditingClienteId(null); setClienteFormData({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', cidade: '', uf: '', telefone: '', email: '', exige_agendamento: false }); setIsClienteModalOpen(true); }
   function abrirModalEdicaoCliente(cliente: any) { setEditingClienteId(cliente.id); setClienteFormData({ nome: cliente.nome, cnpj_cpf: cliente.cnpj_cpf || '', razao_social: cliente.razao_social || '', nome_fantasia: cliente.nome_fantasia || '', cidade: cliente.cidade || '', uf: cliente.uf || '', telefone: cliente.telefone || '', email: cliente.email || '', exige_agendamento: cliente.exige_agendamento || false }); setIsClienteModalOpen(true); }
@@ -131,63 +151,117 @@ export default function App() {
   function abrirModalNovaMeta() { setMetaFormData({ cliente_id: '', transportadora_id: '', meta_percentual: '' }); setIsMetaModalOpen(true); }
   function abrirModalNovoPerfil() { setPerfilFormData({ nome: '', email: '', cargo: '', nivel_acesso: 'Operador' }); setIsPerfilModalOpen(true); }
 
-  async function handleDeleteEntrega(id: string) { if (!window.confirm("⚠️ ATENÇÃO: Tem certeza que deseja excluir esta entrega?")) return; try { await supabase.from('entregas').delete().eq('id', id); setEntregas(entregas.filter(e => e.id !== id)); } catch (error) { console.error(error); } }
-  async function handleDeleteCliente(id: string) { if (!window.confirm("Tem certeza que deseja excluir este cliente?")) return; try { await supabase.from('clientes').delete().eq('id', id); setClientes(clientes.filter(c => c.id !== id)); } catch (error) { console.error(error); } }
+  async function handleDeleteEntrega(id: string) { 
+    if (!window.confirm("⚠️ ATENÇÃO: Tem certeza que deseja excluir esta entrega?")) return; 
+    try { 
+      const entrega = entregas.find(e => e.id === id);
+      const nfApagada = entrega ? entrega.nota_fiscal : id;
+      await supabase.from('entregas').delete().eq('id', id); 
+      setEntregas(entregas.filter(e => e.id !== id)); 
+      await registrarLog('APAGOU', 'ENTREGAS', `Apagou a Entrega com Nota Fiscal: ${nfApagada}`);
+    } catch (error) { console.error(error); } 
+  }
+
+  async function handleDeleteCliente(id: string) { 
+    if (!window.confirm("Tem certeza que deseja excluir este cliente?")) return; 
+    try { 
+      const cliente = clientes.find(c => c.id === id);
+      const nomeApagado = cliente ? cliente.nome : id;
+      await supabase.from('clientes').delete().eq('id', id); 
+      setClientes(clientes.filter(c => c.id !== id)); 
+      await registrarLog('APAGOU', 'CLIENTES', `Apagou o Cliente: ${nomeApagado}`);
+    } catch (error) { console.error(error); } 
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const nfDuplicada = entregas.find(ent => {
-      const nfBanco = String(ent.nota_fiscal || '').trim().toLowerCase();
-      const nfFormulario = String(formData.nota_fiscal || '').trim().toLowerCase();
-      return nfBanco === nfFormulario && ent.id !== editingId;
-    });
 
-    if (nfDuplicada) { 
-      alert(`⚠️ Nota Fiscal já cadastrada para o cliente: ${nfDuplicada.clientes?.nome || '-'}`); 
-      return; 
-    }
+    const nfLimpa = String(formData.nota_fiscal || '').trim();
 
-    const nf = parseFloat(formData.valor_nf) || 0; const frete = parseFloat(formData.valor_frete) || 0;
-    const payload = { nota_fiscal: formData.nota_fiscal, cliente_id: formData.cliente_id, transportadora_id: formData.transportadora_id || null, cidade_destino: formData.cidade_destino || null, uf_destino: formData.uf_destino || null, modal_frete: formData.modal_frete || null, data_faturamento: formData.data_faturamento || null, data_coleta: formData.data_coleta || null, valor_nf: nf, valor_frete: frete, volume: parseInt(formData.volume) || null, peso_kg: parseFloat(formData.peso_kg) || null, tem_agendamento: formData.tem_agendamento, data_previsao: formData.data_previsao || null, data_entrega_agendamento: formData.data_entrega_agendamento || null, observacoes: formData.observacoes, status: formData.status, frete_confirmado: formData.frete_confirmado };
+    if (!nfLimpa) { alert("⚠️ O número da Nota Fiscal é obrigatório."); return; }
+
+    try {
+      let query = supabase.from('entregas').select('id, nota_fiscal, clientes (nome)').ilike('nota_fiscal', nfLimpa);
+      if (editingId) { query = query.neq('id', editingId); }
+      const { data: nfsExistentes, error: errorChecagem } = await query;
+
+      if (errorChecagem) { console.error("Erro", errorChecagem); } 
+      else if (nfsExistentes && nfsExistentes.length > 0) {
+        // CORREÇÃO DO TYPESCRIPT AQUI: '(nfsExistentes[0].clientes as any)?.nome'
+        const clienteAssociado = (nfsExistentes[0].clientes as any)?.nome || 'Desconhecido';
+        alert(`⚠️ DUPLICIDADE BLOQUEADA!\nA Nota Fiscal "${nfLimpa}" já está cadastrada para o cliente: ${clienteAssociado}.`);
+        return; 
+      }
+    } catch (err) { console.error(err); }
+
+    const nf = parseFloat(formData.valor_nf) || 0; 
+    const frete = parseFloat(formData.valor_frete) || 0;
+    
+    // Converte a vírgula para ponto na hora de salvar no banco
+    const pesoFormatado = parseFloat(String(formData.peso_kg).replace(',', '.')) || null;
+    
+    const payload = { 
+      nota_fiscal: nfLimpa, cliente_id: formData.cliente_id, transportadora_id: formData.transportadora_id || null, cidade_destino: formData.cidade_destino || null, uf_destino: formData.uf_destino || null, modal_frete: formData.modal_frete || null, data_faturamento: formData.data_faturamento || null, data_coleta: formData.data_coleta || null, valor_nf: nf, valor_frete: frete, volume: parseInt(formData.volume) || null, peso_kg: pesoFormatado, tem_agendamento: formData.tem_agendamento, data_previsao: formData.data_previsao || null, data_entrega_agendamento: formData.data_entrega_agendamento || null, observacoes: formData.observacoes, status: formData.status, frete_confirmado: formData.frete_confirmado 
+    };
+    
     try {
       if (editingId) {
         const { data } = await supabase.from('entregas').update([payload]).eq('id', editingId).select('*, clientes (nome, cidade, uf, telefone, email, exige_agendamento), transportadoras (nome, modal_padrao, telefone, email)');
-        if (data) setEntregas(entregas.map(e => e.id === editingId ? data[0] : e));
+        if (data) {
+          setEntregas(entregas.map(e => e.id === editingId ? data[0] : e));
+          await registrarLog('EDITOU', 'ENTREGAS', `Editou os dados da Entrega (NF: ${nfLimpa})`);
+        }
       } else {
         const { data } = await supabase.from('entregas').insert([payload]).select('*, clientes (nome, cidade, uf, telefone, email, exige_agendamento), transportadoras (nome, modal_padrao, telefone, email)');
-        if (data) setEntregas([data[0], ...entregas]);
+        if (data) {
+          setEntregas([data[0], ...entregas]);
+          await registrarLog('CRIOU', 'ENTREGAS', `Registrou nova Entrega (NF: ${nfLimpa})`);
+        }
       }
       setIsModalOpen(false);
-    } catch (error) { console.error(error); }
+    } catch (error) { console.error(error); alert("Erro ao salvar a entrega."); }
   }
 
   async function handleClienteSubmit(e: React.FormEvent) { 
     e.preventDefault(); 
-    const payload = { 
-      nome: clienteFormData.nome.toUpperCase(), 
-      cnpj_cpf: clienteFormData.cnpj_cpf, 
-      razao_social: clienteFormData.razao_social.toUpperCase(), 
-      nome_fantasia: clienteFormData.nome_fantasia.toUpperCase(), 
-      cidade: clienteFormData.cidade.toUpperCase(), 
-      uf: clienteFormData.uf.toUpperCase(), 
-      telefone: clienteFormData.telefone, 
-      email: clienteFormData.email.toLowerCase(),
-      exige_agendamento: clienteFormData.exige_agendamento 
-    }; 
+    const payload = { nome: clienteFormData.nome.toUpperCase(), cnpj_cpf: clienteFormData.cnpj_cpf, razao_social: clienteFormData.razao_social.toUpperCase(), nome_fantasia: clienteFormData.nome_fantasia.toUpperCase(), cidade: clienteFormData.cidade.toUpperCase(), uf: clienteFormData.uf.toUpperCase(), telefone: clienteFormData.telefone, email: clienteFormData.email.toLowerCase(), exige_agendamento: clienteFormData.exige_agendamento }; 
     try { 
       if (editingClienteId) { 
         const { data } = await supabase.from('clientes').update([payload]).eq('id', editingClienteId).select('*'); 
-        if (data) setClientes(clientes.map(c => c.id === editingClienteId ? data[0] : c)); 
+        if (data) {
+          setClientes(clientes.map(c => c.id === editingClienteId ? data[0] : c)); 
+          await registrarLog('EDITOU', 'CLIENTES', `Editou os dados do Cliente: ${payload.nome}`);
+        }
       } else { 
         const { data } = await supabase.from('clientes').insert([payload]).select('*'); 
-        if (data) setClientes([...clientes, data[0]]); 
+        if (data) {
+          setClientes([...clientes, data[0]]); 
+          await registrarLog('CRIOU', 'CLIENTES', `Registrou um novo Cliente: ${payload.nome}`);
+        }
       } 
       setIsClienteModalOpen(false); 
     } catch (error) { console.error(error); } 
   }
 
-  async function handleMetaSubmit(e: React.FormEvent) { e.preventDefault(); try { const { data } = await supabase.from('metas_frete').insert([{ cliente_id: metaFormData.cliente_id, transportadora_id: metaFormData.transportadora_id, meta_percentual: parseFloat(metaFormData.meta_percentual) }]).select('*, clientes (nome), transportadoras (nome)'); if (data) setMetas([...metas, data[0]]); setIsMetaModalOpen(false); } catch (error) { alert("Erro ao cadastrar meta."); } }
-  async function handlePerfilSubmit(e: React.FormEvent) { e.preventDefault(); try { const { data } = await supabase.from('perfis').insert([{ nome: perfilFormData.nome, email: perfilFormData.email.toLowerCase(), cargo: perfilFormData.cargo, nivel_acesso: perfilFormData.nivel_acesso }]).select('*'); if (data) setPerfis([...perfis, data[0]]); setIsPerfilModalOpen(false); } catch (error) { console.error(error); } }
+  async function handleMetaSubmit(e: React.FormEvent) { 
+    e.preventDefault(); 
+    try { 
+      const { data } = await supabase.from('metas_frete').insert([{ cliente_id: metaFormData.cliente_id, transportadora_id: metaFormData.transportadora_id, meta_percentual: parseFloat(metaFormData.meta_percentual) }]).select('*, clientes (nome), transportadoras (nome)'); 
+      if (data) setMetas([...metas, data[0]]); 
+      setIsMetaModalOpen(false); 
+      await registrarLog('CRIOU', 'CLIENTES', `Criou nova meta de frete de ${metaFormData.meta_percentual}%`);
+    } catch (error) { alert("Erro ao cadastrar meta."); } 
+  }
+  
+  async function handlePerfilSubmit(e: React.FormEvent) { 
+    e.preventDefault(); 
+    try { 
+      const { data } = await supabase.from('perfis').insert([{ nome: perfilFormData.nome, email: perfilFormData.email.toLowerCase(), cargo: perfilFormData.cargo, nivel_acesso: perfilFormData.nivel_acesso }]).select('*'); 
+      if (data) setPerfis([...perfis, data[0]]); 
+      setIsPerfilModalOpen(false); 
+      await registrarLog('CRIOU', 'EQUIPE', `Registrou novo membro da equipe: ${perfilFormData.nome} (${perfilFormData.email})`);
+    } catch (error) { console.error(error); } 
+  }
 
   const formatarData = (d: string) => {
     if (!d) return '-';
@@ -231,7 +305,6 @@ export default function App() {
     }
   };
 
-  // ATUALIZADO: Limpar array de status
   function limparFiltros() { setSearchTerm(''); setFiltroDataInicio(''); setFiltroDataFim(''); setFiltroTransportadora(''); setFiltroModal(''); setFiltroStatus([]); setFiltroFreteVazio(false); setFiltroFreteConfirmado(false); setFiltroComAgendamento(false); setFiltroSemAgendamento(false); }
 
   const entregasFiltradas = entregas.filter(entrega => {
@@ -248,9 +321,7 @@ export default function App() {
     const passaTransp = filtroTransportadora ? entrega.transportadora_id === filtroTransportadora : true;
     const passaModal = filtroModal ? (entrega.modal_frete === filtroModal || entrega.transportadoras?.modal_padrao === filtroModal) : true;
     
-    // ATUALIZADO: Verifica se o status da entrega está dentro do array de status selecionados (se houver algum selecionado)
     const passaStatus = filtroStatus.length === 0 ? true : filtroStatus.includes(entrega.status);
-    
     const passaFreteVazio = filtroFreteVazio ? (!entrega.valor_frete || Number(entrega.valor_frete) === 0) : true;
     const passaFreteConfirmado = filtroFreteConfirmado ? entrega.frete_confirmado === true : true;
     const passaComAgendamento = filtroComAgendamento ? entrega.tem_agendamento === true : true;
@@ -319,6 +390,7 @@ export default function App() {
           <Route path="transportadoras" element={<Transportadoras transportadoras={transportadoras} entregas={entregas} onUpdate={buscarDominios} />} />
           <Route path="devolucoes" element={<Devolucoes devolucoes={devolucoes} clientes={clientes} onUpdate={buscarDevolucoes} formatarData={formatarData} getStatusColor={getStatusColor} />} />
           <Route path="ctes" element={<Ctes transportadoras={transportadoras} formatarData={formatarData} />} />
+          <Route path="auditoria" element={<Auditoria />} />
 
           <Route path="calculadora" element={
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100%' }}>

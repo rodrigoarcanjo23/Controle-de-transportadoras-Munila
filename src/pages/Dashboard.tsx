@@ -62,7 +62,6 @@ export function Dashboard({
   calcularDiasEntrega, getStatusColor, abrirModalEdicao, handleDeleteEntrega
 }: DashboardProps) {
 
-  // CÁLCULO DINÂMICO DO VALOR TOTAL DAS NFs FILTRADAS
   const valorTotalNf = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
 
   const thStyle: React.CSSProperties = { position: 'sticky', top: 0, backgroundColor: '#f8fafc', zIndex: 10, borderBottom: '2px solid #e2e8f0', padding: '12px 16px', color: '#475569', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', whiteSpace: 'nowrap' };
@@ -93,10 +92,8 @@ export function Dashboard({
         />
       </div>
 
-      {/* PAINÉIS DE MÉTRICAS (GRID ADAPTÁVEL COM O NOVO CARTÃO DE VALOR TOTAL DAS NFs) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px', flexShrink: 0 }}>
         
-        {/* NOVO PAINEL: VALOR TOTAL NFs */}
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Valor Total NFs</p>
@@ -222,7 +219,9 @@ export function Dashboard({
                   <td style={{ ...tdStyle, fontWeight: 'bold' }} data-label="UF">{ufDisplay}</td>
 
                   <td style={{ ...tdStyle, fontWeight: 'bold' }} data-label="Volume">{entrega.volume ? `${entrega.volume} Cx` : (entrega.volume_peso || '-')}</td>
-                  <td style={{ ...tdStyle, fontWeight: 'bold' }} data-label="Peso (Kg)">{entrega.peso_kg ? `${entrega.peso_kg} Kg` : '-'}</td>
+                  
+                  {/* Peso exibe visualmente com padrão BR (vírgula) na tabela */}
+                  <td style={{ ...tdStyle, fontWeight: 'bold' }} data-label="Peso (Kg)">{entrega.peso_kg ? `${entrega.peso_kg.toString().replace('.', ',')} Kg` : '-'}</td>
                   
                   <td style={{ ...tdStyle, fontWeight: 'bold' }} data-label="Nº NF">{entrega.nota_fiscal}</td>
                   <td style={tdStyle} data-label="Valor NF">R$ {Number(entrega.valor_nf).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>

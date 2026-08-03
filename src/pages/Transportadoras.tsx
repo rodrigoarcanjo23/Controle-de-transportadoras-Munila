@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Edit, Trash2, Phone, Mail, X } from 'lucide-react';
 
@@ -14,6 +14,30 @@ export function Transportadoras({ transportadoras, entregas, onUpdate }: Transpo
   const [formData, setFormData] = useState({
     nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', modal_padrao: '', telefone: '', email: ''
   });
+
+  const [userEmail, setUserEmail] = useState<string>('');
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email) {
+        setUserEmail(session.user.email);
+      }
+    });
+  }, []);
+
+  const registrarLogTransportadora = async (acao: string, detalhes: string) => {
+    if (!userEmail) return;
+    try {
+      await supabase.from('logs_auditoria').insert([{
+        usuario_email: userEmail,
+        acao: acao,
+        modulo: 'TRANSPORTADORAS',
+        detalhes: detalhes
+      }]);
+    } catch (error) {
+      console.error("Erro ao registrar log de Transportadora:", error);
+    }
+  };
 
   function abrirModalNova() {
     setEditingId(null);
@@ -34,12 +58,16 @@ export function Transportadoras({ transportadoras, entregas, onUpdate }: Transpo
   async function handleDelete(id: string) {
     if (!window.confirm("Tem certeza que deseja excluir esta transportadora?")) return;
     try {
+      const transpParaApagar = transportadoras.find(t => t.id === id);
       const { error } = await supabase.from('transportadoras').delete().eq('id', id);
       if (error) {
         if (error.code === '23503') alert("Não é possível excluir! Esta transportadora já possui notas fiscais ou metas vinculadas a ela.");
         else throw error;
       } else {
-        onUpdate(); // Atualiza a lista global puxando do banco novamente
+        if (transpParaApagar) {
+          await registrarLogTransportadora('APAGOU', `Excluiu a Transportadora: ${transpParaApagar.nome}`);
+        }
+        onUpdate();
       }
     } catch (error) { console.error(error); alert("Erro ao excluir transportadora."); }
   }
@@ -55,12 +83,14 @@ export function Transportadoras({ transportadoras, entregas, onUpdate }: Transpo
       if (editingId) {
         const { error } = await supabase.from('transportadoras').update([payload]).eq('id', editingId);
         if (error) throw error;
+        await registrarLogTransportadora('EDITOU', `Editou os dados da Transportadora: ${payload.nome}`);
       } else {
         const { error } = await supabase.from('transportadoras').insert([payload]);
         if (error) throw error;
+        await registrarLogTransportadora('CRIOU', `Cadastrou uma nova Transportadora: ${payload.nome}`);
       }
       setIsModalOpen(false);
-      onUpdate(); // Atualiza a lista global puxando do banco novamente
+      onUpdate();
     } catch (error) { console.error(error); alert("Erro ao salvar transportadora."); }
   }
 

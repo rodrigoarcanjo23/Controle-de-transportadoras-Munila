@@ -12,6 +12,9 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  
+  // Guardar o email do utilizador logado para a Auditoria
+  const [userEmail, setUserEmail] = useState<string>('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -38,8 +41,29 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   });
 
   useEffect(() => {
+    // Buscar o email da sessão atual
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email) {
+        setUserEmail(session.user.email);
+      }
+    });
     buscarCtes();
   }, []);
+
+  // FUNÇÃO DE REGISTRO DE AUDITORIA
+  const registrarLogCte = async (acao: string, detalhes: string) => {
+    if (!userEmail) return;
+    try {
+      await supabase.from('logs_auditoria').insert([{
+        usuario_email: userEmail,
+        acao: acao,
+        modulo: 'CTES',
+        detalhes: detalhes
+      }]);
+    } catch (error) {
+      console.error("Erro ao registrar log de CTE:", error);
+    }
+  };
 
   async function buscarCtes() {
     try {
@@ -53,9 +77,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
     }
   }
 
-  // ==========================================
-  // LÓGICA DE FILTRAGEM DINÂMICA
-  // ==========================================
   const ctesFiltrados = ctes.filter(cte => {
     let passa = true;
     if (filtroDataInicio && cte.data_emissao < filtroDataInicio) passa = false;
@@ -69,50 +90,30 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   });
 
   function limparFiltros() {
-    setFiltroDataInicio('');
-    setFiltroDataFim('');
-    setFiltroNumeroDoc('');
-    setFiltroChaveAcesso('');
-    setFiltroEmitente('');
-    setFiltroCfop(''); 
-    setFiltroSituacao('');
+    setFiltroDataInicio(''); setFiltroDataFim(''); setFiltroNumeroDoc(''); setFiltroChaveAcesso(''); setFiltroEmitente(''); setFiltroCfop(''); setFiltroSituacao('');
   }
 
-  // ==========================================
-  // CÁLCULO DOS TOTAIS PARA O PAINEL DE RESUMO
-  // ==========================================
   const valorTotalServico = ctesFiltrados.reduce((acc, curr) => acc + (Number(curr.valor_total_servico) || 0), 0);
   const totalCtesFiltrados = ctesFiltrados.length;
 
-  // ==========================================
-  // LÓGICA DE SALVAR E VALIDAÇÃO DE DUPLICIDADE
-  // ==========================================
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
 
     const chavesParaValidar = formData.chave_acesso.filter(chave => chave.trim() !== '');
 
-    // 🛑 BARREIRA DE SEGURANÇA: Bloqueia Chaves Repetidas
     const cteDuplicado = ctes.find(cte => {
-      // Se estamos a editar, ignoramos o próprio documento para não dar falso positivo
       if (editingId && cte.id === editingId) return false;
-      
       if (!cte.chave_acesso) return false;
-      
-      // Transforma a string salva num Array para comparar as chaves uma a uma
       const chavesSalvas = cte.chave_acesso.split(',').map((c: string) => c.trim());
-      
-      // Verifica se ALGUMA das chaves do formulário atual já existe neste CTE salvo
       return chavesParaValidar.some(chaveNova => chavesSalvas.includes(chaveNova.trim()));
     });
 
     if (cteDuplicado) {
       alert(`⚠️ ATENÇÃO: DUPLICIDADE DETECTADA!\n\nUma ou mais Chaves de Acesso informadas já estão registradas no sistema.\n\n📌 Pertencem ao CTE Nº ${cteDuplicado.numero_documento} da transportadora ${cteDuplicado.razao_social_emitente || 'Desconhecida'}.\n\nO registro foi bloqueado para evitar erros financeiros.`);
       setSubmitting(false);
-      return; // Interrompe o processo e não guarda no banco de dados!
+      return; 
     }
-    // 🛑 FIM DA BARREIRA DE SEGURANÇA
 
     const chavesLimpas = chavesParaValidar.join(',');
 
@@ -135,6 +136,7 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
         if (data) {
           setCtes(ctes.map(c => c.id === editingId ? data[0] : c));
           alert("✅ CTE atualizado com sucesso!");
+          await registrarLogCte('EDITOU', `Editou o CTE Nº ${payload.numero_documento} (${payload.razao_social_emitente})`);
         }
       } else {
         const { data, error } = await supabase.from('ctes').insert([payload]).select('*');
@@ -142,6 +144,7 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
         if (data) {
           setCtes([data[0], ...ctes]);
           alert("✅ CTE registrado com sucesso!");
+          await registrarLogCte('CRIOU', `Registrou um novo CTE Nº ${payload.numero_documento} (${payload.razao_social_emitente})`);
         }
       }
       cancelarEdicao();
@@ -179,8 +182,13 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   async function handleDelete(id: string) {
     if (!window.confirm("⚠️ Tem certeza que deseja excluir o registro deste CTE?")) return;
     try {
+      const cteParaApagar = ctes.find(c => c.id === id);
       await supabase.from('ctes').delete().eq('id', id);
       setCtes(ctes.filter(c => c.id !== id));
+      
+      if (cteParaApagar) {
+        await registrarLogCte('APAGOU', `Excluiu o CTE Nº ${cteParaApagar.numero_documento} (${cteParaApagar.razao_social_emitente})`);
+      }
     } catch (error) {
       console.error(error);
     }
@@ -192,10 +200,7 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
     setFormData({ ...formData, chave_acesso: novasChaves });
   };
 
-  const adicionarChave = () => {
-    setFormData({ ...formData, chave_acesso: [...formData.chave_acesso, ''] });
-  };
-
+  const adicionarChave = () => { setFormData({ ...formData, chave_acesso: [...formData.chave_acesso, ''] }); };
   const removerChave = (index: number) => {
     const novasChaves = formData.chave_acesso.filter((_, i) => i !== index);
     setFormData({ ...formData, chave_acesso: novasChaves });
@@ -222,9 +227,7 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
         const razaoSocial = emitenteNode ? emitenteNode.getElementsByTagName("xNome")[0]?.textContent || '' : '';
 
         let cnpjFormatado = cnpjRaw;
-        if (cnpjRaw.length === 14) {
-          cnpjFormatado = cnpjRaw.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
-        }
+        if (cnpjRaw.length === 14) { cnpjFormatado = cnpjRaw.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5"); }
 
         const nDoc = getTagValue("nCT") || getTagValue("nNF");
         const cfop = getTagValue("CFOP");
@@ -264,6 +267,7 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
         });
         
         alert(`✅ XML lido com sucesso! Encontrada(s) ${chavesExtraidas.length} chave(s) vinculada(s).`);
+        registrarLogCte('CRIOU', `Importou XML para preenchimento de CTE (Emissor: ${razaoSocial})`);
       } catch (err) {
         alert("Erro ao ler o ficheiro XML. Certifique-se que é um formato válido.");
       }
@@ -277,7 +281,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
     const cabecalho = ["Data", "Nº Doc", "Emitente", "CNPJ", "CFOP", "Valor Serv. (R$)", "Chaves Vinculadas", "Situação", "Observação"].join(";");
     const linhas = ctesFiltrados.map(c => {
       const chavesFormatadas = c.chave_acesso ? c.chave_acesso.replace(/,/g, ' | ') : '-';
-      
       return [
         formatarData(c.data_emissao), c.numero_documento, c.razao_social_emitente || '-', c.cnpj_emitente || '-', c.cfop || '-',
         c.valor_total_servico?.toString().replace('.', ',') || '0,00', chavesFormatadas, c.situacao, c.observacao || '-'
@@ -290,9 +293,7 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
-  const exportarParaPDF = () => {
-    window.print();
-  };
+  const exportarParaPDF = () => { window.print(); };
 
   const thStyle: React.CSSProperties = { padding: '12px 16px', backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', textAlign: 'left', whiteSpace: 'nowrap' };
   const tdStyle: React.CSSProperties = { padding: '12px 16px', borderBottom: '1px solid #f1f5f9', fontSize: '0.85rem', color: '#334155', whiteSpace: 'nowrap' };
@@ -382,7 +383,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
 
       {/* 2. SEÇÃO DE FILTROS E RELATÓRIO DO HISTÓRICO */}
       <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-        
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Filter size={18} color="var(--munila-blue)" />
@@ -400,70 +400,30 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
         </div>
 
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          
-          <div className="form-group" style={{ flex: '1 1 140px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0284c7', fontWeight: 'bold' }}>
-              <Calendar size={14} /> Data Início
-            </label>
-            <input type="date" className="form-input" value={filtroDataInicio} onChange={e => setFiltroDataInicio(e.target.value)} />
-          </div>
-
-          <div className="form-group" style={{ flex: '1 1 140px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0284c7', fontWeight: 'bold' }}>
-              <Calendar size={14} /> Data Fim
-            </label>
-            <input type="date" className="form-input" value={filtroDataFim} onChange={e => setFiltroDataFim(e.target.value)} />
-          </div>
-
-          <div className="form-group" style={{ flex: '1 1 130px' }}>
-            <label>Nº Documento</label>
-            <input type="text" className="form-input" placeholder="Buscar..." value={filtroNumeroDoc} onChange={e => setFiltroNumeroDoc(e.target.value)} />
-          </div>
-
-          <div className="form-group" style={{ flex: '2 1 180px' }}>
-            <label>Chave de Acesso</label>
-            <input type="text" className="form-input" placeholder="Buscar por chave..." value={filtroChaveAcesso} onChange={e => setFiltroChaveAcesso(e.target.value)} />
-          </div>
-
-          <div className="form-group" style={{ flex: '2 1 180px' }}>
-            <label>Emitente</label>
-            <input type="text" className="form-input" placeholder="Buscar nome..." value={filtroEmitente} onChange={e => setFiltroEmitente(e.target.value)} />
-          </div>
-
-          <div className="form-group" style={{ flex: '1 1 100px' }}>
-            <label>CFOP</label>
-            <input type="text" className="form-input" placeholder="Ex: 5351" value={filtroCfop} onChange={e => setFiltroCfop(e.target.value)} />
-          </div>
-
+          <div className="form-group" style={{ flex: '1 1 140px' }}><label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0284c7', fontWeight: 'bold' }}><Calendar size={14} /> Data Início</label><input type="date" className="form-input" value={filtroDataInicio} onChange={e => setFiltroDataInicio(e.target.value)} /></div>
+          <div className="form-group" style={{ flex: '1 1 140px' }}><label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0284c7', fontWeight: 'bold' }}><Calendar size={14} /> Data Fim</label><input type="date" className="form-input" value={filtroDataFim} onChange={e => setFiltroDataFim(e.target.value)} /></div>
+          <div className="form-group" style={{ flex: '1 1 130px' }}><label>Nº Documento</label><input type="text" className="form-input" placeholder="Buscar..." value={filtroNumeroDoc} onChange={e => setFiltroNumeroDoc(e.target.value)} /></div>
+          <div className="form-group" style={{ flex: '2 1 180px' }}><label>Chave de Acesso</label><input type="text" className="form-input" placeholder="Buscar por chave..." value={filtroChaveAcesso} onChange={e => setFiltroChaveAcesso(e.target.value)} /></div>
+          <div className="form-group" style={{ flex: '2 1 180px' }}><label>Emitente</label><input type="text" className="form-input" placeholder="Buscar nome..." value={filtroEmitente} onChange={e => setFiltroEmitente(e.target.value)} /></div>
+          <div className="form-group" style={{ flex: '1 1 100px' }}><label>CFOP</label><input type="text" className="form-input" placeholder="Ex: 5351" value={filtroCfop} onChange={e => setFiltroCfop(e.target.value)} /></div>
           <div className="form-group" style={{ flex: '1 1 110px' }}>
             <label>Situação</label>
             <select className="form-select" value={filtroSituacao} onChange={e => setFiltroSituacao(e.target.value)}>
-              <option value="">Todas</option>
-              <option value="ABERTO">ABERTO</option>
-              <option value="FECHADO">FECHADO</option>
-              <option value="OUTROS">OUTROS</option>
+              <option value="">Todas</option><option value="ABERTO">ABERTO</option><option value="FECHADO">FECHADO</option><option value="OUTROS">OUTROS</option>
             </select>
           </div>
-
-          <div>
-            <button type="button" className="btn-secondary" style={{ height: '38px', color: '#ef4444', borderColor: '#ef4444' }} onClick={limparFiltros}>
-              Limpar
-            </button>
-          </div>
+          <div><button type="button" className="btn-secondary" style={{ height: '38px', color: '#ef4444', borderColor: '#ef4444' }} onClick={limparFiltros}>Limpar</button></div>
         </div>
       </div>
 
       {/* 3. PAINEL DE RESUMO (CARDS TOTAIS DO PERÍODO SELECIONADO) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
-        
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Valor Total do Serviço</p>
             <div style={{ padding: '6px', backgroundColor: '#dcfce7', borderRadius: '6px' }}><DollarSign size={18} color="#16a34a" /></div>
           </div>
-          <h3 style={{ fontSize: '1.5rem', color: 'var(--text-main)', fontWeight: 700 }}>
-            R$ {valorTotalServico.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </h3>
+          <h3 style={{ fontSize: '1.5rem', color: 'var(--text-main)', fontWeight: 700 }}>R$ {valorTotalServico.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Soma total do período selecionado</p>
         </div>
 
@@ -472,15 +432,12 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Quantidade de CTEs</p>
             <div style={{ padding: '6px', backgroundColor: '#e0f2fe', borderRadius: '6px' }}><FileText size={18} color="#0284c7" /></div>
           </div>
-          <h3 style={{ fontSize: '1.5rem', color: 'var(--text-main)', fontWeight: 700 }}>
-            {totalCtesFiltrados} <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>documentos</span>
-          </h3>
+          <h3 style={{ fontSize: '1.5rem', color: 'var(--text-main)', fontWeight: 700 }}>{totalCtesFiltrados} <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>documentos</span></h3>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Registros encontrados no período</p>
         </div>
-
       </div>
 
-      {/* 4. TABELA DE HISTÓRICO - Sem amarras! */}
+      {/* 4. TABELA DE HISTÓRICO */}
       <div className="table-container" style={{ width: '100%', overflowX: 'auto', backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '0', position: 'relative' }}>
         <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
@@ -506,15 +463,11 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
                  <td style={{...tdStyle, fontWeight: 'bold'}}>{cte.razao_social_emitente || '-'}</td>
                  <td style={tdStyle}>{cte.cnpj_emitente || '-'}</td>
                  <td style={{...tdStyle, fontWeight: 'bold'}}>{cte.cfop || '-'}</td>
-                 
                  <td style={{...tdStyle, whiteSpace: 'normal', minWidth: '250px'}}>
                    {cte.chave_acesso ? cte.chave_acesso.split(',').map((chave: string, idx: number) => (
-                     <div key={idx} style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: 'var(--munila-blue)', marginBottom: '4px' }}>
-                       {chave}
-                     </div>
+                     <div key={idx} style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: 'var(--munila-blue)', marginBottom: '4px' }}>{chave}</div>
                    )) : '-'}
                  </td>
-
                  <td style={{...tdStyle, fontWeight: 'bold'}}>R$ {Number(cte.valor_total_servico).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                  <td style={tdStyle}>
                    <span style={{ 

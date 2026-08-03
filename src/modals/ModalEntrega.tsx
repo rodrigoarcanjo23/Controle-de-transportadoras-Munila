@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { supabase } from '../lib/supabase'; // Importamos o Supabase para consultar em tempo real
 
 interface ModalEntregaProps {
   isOpen: boolean;
@@ -16,6 +17,14 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
   const [buscaCliente, setBuscaCliente] = useState('');
   const [mostrarDropdownCliente, setMostrarDropdownCliente] = useState(false);
 
+  // ==========================================
+  // ESTADOS PARA VALIDAÇÃO EM TEMPO REAL DA NF
+  // ==========================================
+  const [initialNf, setInitialNf] = useState('');
+  const [nfStatus, setNfStatus] = useState<'idle' | 'checking' | 'available' | 'duplicate'>('idle');
+  const [clienteDuplicado, setClienteDuplicado] = useState<string>('');
+
+  // 1. Carrega o Cliente e a NF inicial quando o modal abre
   useEffect(() => {
     if (isOpen) {
       if (formData.cliente_id) {
@@ -24,8 +33,56 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
       } else {
         setBuscaCliente('');
       }
+      
+      // Guarda a NF que estava aqui (se for edição) para não dar falso-positivo nela mesma
+      setInitialNf(formData.nota_fiscal || '');
+      setNfStatus('idle');
     }
   }, [isOpen, formData.cliente_id, clientes]);
+
+  // 2. O "Olheiro" da NF (Dispara meio segundo após o utilizador parar de digitar)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const nfLimpa = String(formData.nota_fiscal || '').trim();
+    
+    if (!nfLimpa) {
+      setNfStatus('idle');
+      return;
+    }
+
+    // Se estiver a editar e a NF for igual à que já estava, está liberada
+    if (isEditing && nfLimpa.toLowerCase() === String(initialNf).trim().toLowerCase()) {
+      setNfStatus('available');
+      return;
+    }
+
+    setNfStatus('checking');
+
+    // Cria um temporizador para não consultar o banco a cada tecla (Debounce de 600ms)
+    const timeoutId = setTimeout(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('entregas')
+          .select('clientes (nome)')
+          .ilike('nota_fiscal', nfLimpa)
+          .limit(1);
+
+        if (!error && data && data.length > 0) {
+          setNfStatus('duplicate');
+          // CORREÇÃO DO TYPESCRIPT APLICADA AQUI '( ... as any)'
+          setClienteDuplicado((data[0].clientes as any)?.nome || 'Cliente Desconhecido');
+        } else {
+          setNfStatus('available');
+        }
+      } catch (error) {
+        console.error(error);
+        setNfStatus('idle');
+      }
+    }, 600);
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.nota_fiscal, isOpen, isEditing, initialNf]);
 
   if (!isOpen) return null;
 
@@ -97,7 +154,46 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               )}
             </div>
 
-            <div className="form-group"><label>Nota Fiscal</label><input type="text" className="form-input" required value={formData.nota_fiscal} onChange={(e) => setFormData({...formData, nota_fiscal: e.target.value})} /></div>
+            {/* CAMPO DE NOTA FISCAL COM VALIDAÇÃO VISUAL */}
+            <div className="form-group" style={{ display: 'flex', flexDirection: 'column' }}>
+              <label>Nota Fiscal <span style={{ color: '#ef4444' }}>*</span></label>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  required 
+                  value={formData.nota_fiscal} 
+                  onChange={(e) => setFormData({...formData, nota_fiscal: e.target.value})} 
+                  style={{ 
+                    width: '100%',
+                    paddingRight: '36px',
+                    borderColor: nfStatus === 'duplicate' ? '#ef4444' : nfStatus === 'available' ? '#22c55e' : 'var(--border-color)',
+                    backgroundColor: nfStatus === 'duplicate' ? '#fef2f2' : nfStatus === 'available' ? '#f0fdf4' : 'white',
+                    transition: 'all 0.3s ease'
+                  }}
+                />
+                <div style={{ position: 'absolute', right: '10px', display: 'flex', alignItems: 'center' }}>
+                  {nfStatus === 'duplicate' && <AlertTriangle size={18} color="#ef4444" />}
+                  {nfStatus === 'available' && <CheckCircle2 size={18} color="#22c55e" />}
+                </div>
+              </div>
+              
+              {nfStatus === 'checking' && (
+                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 'bold', marginTop: '4px' }}>
+                  ⏳ Verificando disponibilidade...
+                </span>
+              )}
+              {nfStatus === 'duplicate' && (
+                <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 'bold', marginTop: '4px' }}>
+                  ⚠️ NF já cadastrada (Cliente: {clienteDuplicado})
+                </span>
+              )}
+              {nfStatus === 'available' && (
+                <span style={{ fontSize: '0.75rem', color: '#22c55e', fontWeight: 'bold', marginTop: '4px' }}>
+                  ✅ Nota Fiscal livre
+                </span>
+              )}
+            </div>
             
             <div className="form-group">
               <label>Transportadora</label>
@@ -136,18 +232,22 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
 
             <div className="form-group"><label>Volume (Caixas)</label><input type="number" className="form-input" value={formData.volume} onChange={(e) => setFormData({...formData, volume: e.target.value})} /></div>
             
-            {/* ATUALIZADO: Regra de bloqueio aplicada ao campo Peso */}
+            {/* CAMPO DE PESO COM A MÁSCARA PARA ACEITAR VÍRGULA */}
             <div className="form-group">
               <label>Peso (Kg) <span style={{ color: '#ef4444' }}>*</span></label>
               <input 
                 type="text" 
                 className="form-input" 
-                placeholder="Ex: 1500 (apenas números)"
+                placeholder="Ex: 15,50"
                 required 
                 value={formData.peso_kg} 
                 onChange={(e) => {
-                  const valorLimpo = e.target.value.replace(/[\s,.]/g, '');
-                  setFormData({...formData, peso_kg: valorLimpo});
+                  let valor = e.target.value.replace(/[^\d,]/g, '');
+                  const partes = valor.split(',');
+                  if (partes.length > 2) {
+                    valor = partes[0] + ',' + partes.slice(1).join('');
+                  }
+                  setFormData({...formData, peso_kg: valor});
                 }} 
               />
             </div>
@@ -215,7 +315,17 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
 
           <div className="modal-footer">
             <button type="button" className="btn-secondary" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="btn-primary">{isEditing ? 'Atualizar Entrega' : 'Salvar Entrega'}</button>
+            <button 
+              type="submit" 
+              className="btn-primary" 
+              disabled={nfStatus === 'duplicate' || nfStatus === 'checking'}
+              style={{ 
+                opacity: (nfStatus === 'duplicate' || nfStatus === 'checking') ? 0.6 : 1, 
+                cursor: (nfStatus === 'duplicate' || nfStatus === 'checking') ? 'not-allowed' : 'pointer' 
+              }}
+            >
+              {isEditing ? 'Atualizar Entrega' : 'Salvar Entrega'}
+            </button>
           </div>
         </form>
       </div>

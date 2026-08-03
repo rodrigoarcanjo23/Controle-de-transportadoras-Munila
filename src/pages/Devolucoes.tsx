@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Search, Filter, Edit, Trash2, X, Upload } from 'lucide-react';
 
@@ -19,15 +19,37 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
   const [importLoading, setImportLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // NOVOS ESTADOS PARA O DROPDOWN INTELIGENTE DE CLIENTES
   const [buscaCliente, setBuscaCliente] = useState('');
   const [mostrarDropdownCliente, setMostrarDropdownCliente] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>('');
 
   const [devolucaoFormData, setDevolucaoFormData] = useState({
     data_emissao: '', data_coleta: '', data_previsao: '', data_chegada: '', 
     cliente_id: '', transportadora_cliente: '', nf_venda: '', notas_fiscais: '',
     valor_total_nf: '', volume: '', peso_kg: '', valor_frete_reverso: '', motivo: '', status: 'Pendente'
   });
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user?.email) {
+        setUserEmail(session.user.email);
+      }
+    });
+  }, []);
+
+  const registrarLogDevolucao = async (acao: string, detalhes: string) => {
+    if (!userEmail) return;
+    try {
+      await supabase.from('logs_auditoria').insert([{
+        usuario_email: userEmail,
+        acao: acao,
+        modulo: 'DEVOLUCOES',
+        detalhes: detalhes
+      }]);
+    } catch (error) {
+      console.error("Erro ao registrar log de Devolução:", error);
+    }
+  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -88,6 +110,7 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
           const { error } = await supabase.from('devolucoes').insert(payloads);
           if (error) throw error;
           
+          await registrarLogDevolucao('CRIOU', `Importou via CSV ${payloads.length} devoluções`);
           alert(`✅ Importação Concluída!\n\n${payloads.length} devoluções cadastradas com sucesso.\n⚠️ ${clientesNaoEncontrados} ignoradas pois o CNPJ não estava cadastrado na aba Clientes.`);
           onUpdate(); 
         } else {
@@ -111,7 +134,7 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
       cliente_id: '', transportadora_cliente: '', nf_venda: '', notas_fiscais: '', 
       valor_total_nf: '', volume: '', peso_kg: '', valor_frete_reverso: '', motivo: '', status: 'Pendente' 
     });
-    setBuscaCliente(''); // Limpa a busca ao abrir um novo cadastro
+    setBuscaCliente('');
     setIsDevolucaoModalOpen(true);
   }
 
@@ -124,7 +147,6 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
       valor_frete_reverso: dev.valor_frete_reverso?.toString() || '', motivo: dev.motivo || '', status: dev.status || 'Pendente'
     });
     
-    // Preenche o campo de busca com o nome do cliente que já estava salvo
     const nomeEncontrado = clientes.find(c => c.id === dev.cliente_id)?.nome || '';
     setBuscaCliente(nomeEncontrado);
     
@@ -134,8 +156,13 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
   async function handleDeleteDevolucao(id: string) {
     if (!window.confirm("⚠️ ATENÇÃO: Tem certeza que deseja excluir este registro de devolução?")) return;
     try {
+      const devParaApagar = devolucoes.find(d => d.id === id);
       const { error } = await supabase.from('devolucoes').delete().eq('id', id);
       if (error) throw error;
+      
+      if (devParaApagar) {
+        await registrarLogDevolucao('APAGOU', `Excluiu o registo de Devolução (NFs Referência: ${devParaApagar.notas_fiscais})`);
+      }
       onUpdate();
     } catch (error) { console.error(error); alert("Erro ao excluir a devolução."); }
   }
@@ -143,7 +170,6 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
   async function handleDevolucaoSubmit(e: React.FormEvent) {
     e.preventDefault();
     
-    // Validação extra de segurança: obrigar a selecionar um cliente válido da lista
     if (!devolucaoFormData.cliente_id) {
       alert("Por favor, selecione um cliente válido na lista de opções.");
       return;
@@ -163,8 +189,10 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
 
       if (editingDevolucaoId) {
         await supabase.from('devolucoes').update([payload]).eq('id', editingDevolucaoId);
+        await registrarLogDevolucao('EDITOU', `Editou a Logística Reversa (NFs Referência: ${payload.notas_fiscais})`);
       } else {
         await supabase.from('devolucoes').insert([payload]);
+        await registrarLogDevolucao('CRIOU', `Registrou nova Logística Reversa (NFs Referência: ${payload.notas_fiscais})`);
       }
       setIsDevolucaoModalOpen(false);
       onUpdate();
@@ -185,7 +213,6 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
     return passaTexto && passaStatus;
   });
   
-  // Função para filtrar clientes no dropdown
   const clientesFiltradosDropdown = clientes.filter(c => 
     c.nome.toLowerCase().includes(buscaCliente.toLowerCase()) || 
     (c.cnpj_cpf && c.cnpj_cpf.includes(buscaCliente))
@@ -270,7 +297,6 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
                 <div className="form-group"><label>NF de Venda (Origem)</label><input type="text" className="form-input" placeholder="Ex: 12500" value={devolucaoFormData.nf_venda} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, nf_venda: e.target.value})} /></div>
                 <div className="form-group"><label>NFs de Referência (Devolução)</label><input type="text" className="form-input" placeholder="Ex: 12661, 13196" required value={devolucaoFormData.notas_fiscais} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, notas_fiscais: e.target.value})} /></div>
                 
-                {/* CAMPO DE CLIENTE SUBSTITUÍDO PELO DROPDOWN INTELIGENTE */}
                 <div className="form-group" style={{ position: 'relative' }}>
                   <label>Cliente</label>
                   <input
@@ -282,7 +308,7 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
                     onChange={(e) => {
                       setBuscaCliente(e.target.value);
                       setMostrarDropdownCliente(true);
-                      setDevolucaoFormData({...devolucaoFormData, cliente_id: ''}); // Limpa o ID se o texto for alterado
+                      setDevolucaoFormData({...devolucaoFormData, cliente_id: ''}); 
                     }}
                     onFocus={() => setMostrarDropdownCliente(true)}
                     onBlur={() => setTimeout(() => setMostrarDropdownCliente(false), 200)}

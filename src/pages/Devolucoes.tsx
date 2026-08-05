@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Search, Filter, Edit, Trash2, X, UploadCloud, DollarSign, Package, Scale, AlertCircle, RefreshCcw, TrendingDown, Printer, Download } from 'lucide-react';
+import { Search, Filter, Edit, Trash2, X, UploadCloud, DollarSign, Package, Scale, AlertCircle, RefreshCcw, TrendingDown, Printer, Download, Calendar } from 'lucide-react';
 
 interface DevolucoesProps {
   devolucoes: any[];
@@ -13,6 +13,11 @@ interface DevolucoesProps {
 export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getStatusColor }: DevolucoesProps) {
   const [searchTermDev, setSearchTermDev] = useState('');
   const [filtroStatusDev, setFiltroStatusDev] = useState('');
+  
+  // NOVOS ESTADOS PARA O FILTRO DE DATA
+  const [filtroDataInicio, setFiltroDataInicio] = useState('');
+  const [filtroDataFim, setFiltroDataFim] = useState('');
+
   const [isDevolucaoModalOpen, setIsDevolucaoModalOpen] = useState(false);
   const [editingDevolucaoId, setEditingDevolucaoId] = useState<string | null>(null);
   
@@ -173,7 +178,6 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
     }
     
     try {
-      // Converte a vírgula do peso (se houver) para ponto antes de salvar
       const pesoFormatado = parseFloat(String(devolucaoFormData.peso_kg).replace(',', '.')) || null;
 
       const payload = {
@@ -199,6 +203,7 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
     } catch (error) { console.error(error); alert("Erro ao salvar a logística reversa."); }
   }
 
+  // APLICANDO A LÓGICA DE FILTRO DE DATA AQUI
   const devolucoesFiltradas = devolucoes.filter(dev => {
     const termo = searchTermDev.toLowerCase();
     const nfVenda = dev.nf_venda?.toLowerCase() || '';
@@ -210,12 +215,14 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
     const passaTexto = nfVenda.includes(termo) || nfRef.includes(termo) || clienteNome.includes(termo) || clienteCnpj.includes(termo) || transp.includes(termo);
     const passaStatus = filtroStatusDev ? dev.status === filtroStatusDev : true;
 
-    return passaTexto && passaStatus;
+    let passaData = true;
+    // O filtro baseia-se na Data de Emissão da NF de Devolução
+    if (filtroDataInicio && dev.data_emissao < filtroDataInicio) passaData = false;
+    if (filtroDataFim && dev.data_emissao > filtroDataFim) passaData = false;
+
+    return passaTexto && passaStatus && passaData;
   });
 
-  // ==========================================
-  // EXPORTAÇÃO PARA EXCEL E PDF
-  // ==========================================
   const exportarParaExcel = () => {
     if (devolucoesFiltradas.length === 0) { alert("Não há dados para exportar com estes filtros."); return; }
     
@@ -251,9 +258,6 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
     window.print();
   };
 
-  // ==========================================
-  // CÁLCULOS DOS DASHBOARDS (KPIS)
-  // ==========================================
   const totalDevolucoes = devolucoesFiltradas.length;
   const valorTotalNfs = devolucoesFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_total_nf) || 0), 0);
   const custoFreteReverso = devolucoesFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_frete_reverso) || 0), 0);
@@ -291,15 +295,30 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
           </div>
         </div>
         
-        <div style={{ display: 'flex', gap: '12px', width: '100%', alignItems: 'center', backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-          <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
-            <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '11px' }} />
-            <input type="text" className="form-input" placeholder="Buscar por NF, Cliente, CNPJ/CPF..." value={searchTermDev} onChange={e => setSearchTermDev(e.target.value)} style={{ paddingLeft: '36px', width: '100%' }} />
+        {/* BARRA DE FILTROS ATUALIZADA COM DATAS */}
+        <div style={{ display: 'flex', gap: '12px', width: '100%', alignItems: 'flex-end', flexWrap: 'wrap', backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+          
+          <div className="form-group" style={{ flex: '1 1 140px', margin: 0 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0284c7', fontWeight: 'bold' }}><Calendar size={14} /> Data Início</label>
+            <input type="date" className="form-input" value={filtroDataInicio} onChange={e => setFiltroDataInicio(e.target.value)} />
+          </div>
+
+          <div className="form-group" style={{ flex: '1 1 140px', margin: 0 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0284c7', fontWeight: 'bold' }}><Calendar size={14} /> Data Fim</label>
+            <input type="date" className="form-input" value={filtroDataFim} onChange={e => setFiltroDataFim(e.target.value)} />
+          </div>
+
+          <div className="form-group" style={{ flex: '2 1 300px', margin: 0 }}>
+            <label style={{ color: 'var(--text-muted)', fontWeight: 'bold' }}>Buscar Registos</label>
+            <div style={{ position: 'relative' }}>
+              <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '11px' }} />
+              <input type="text" className="form-input" placeholder="Por NF, Cliente, CNPJ/CPF..." value={searchTermDev} onChange={e => setSearchTermDev(e.target.value)} style={{ paddingLeft: '36px', width: '100%' }} />
+            </div>
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Filter size={18} color="var(--text-muted)"/>
-            <select className="form-select" value={filtroStatusDev} onChange={e => setFiltroStatusDev(e.target.value)} style={{ width: '220px' }}>
+          <div className="form-group" style={{ flex: '1 1 200px', margin: 0 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', fontWeight: 'bold' }}><Filter size={14}/> Status</label>
+            <select className="form-select" value={filtroStatusDev} onChange={e => setFiltroStatusDev(e.target.value)} style={{ width: '100%' }}>
               <option value="">Todos os Status</option>
               <option value="Pendente">Pendente</option>
               <option value="Lançada">Lançada</option>
@@ -312,6 +331,10 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
               <option value="Entregue">Entregue</option>
               <option value="Recusa">Recusa</option>
             </select>
+          </div>
+
+          <div>
+            <button type="button" className="btn-secondary" style={{ height: '38px', color: '#ef4444', borderColor: '#ef4444' }} onClick={() => { setSearchTermDev(''); setFiltroStatusDev(''); setFiltroDataInicio(''); setFiltroDataFim(''); }}>Limpar</button>
           </div>
         </div>
       </header>
@@ -477,24 +500,9 @@ export function Devolucoes({ devolucoes, clientes, onUpdate, formatarData, getSt
                 <div className="form-group"><label>Data de Previsão</label><input type="date" className="form-input" value={devolucaoFormData.data_previsao} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, data_previsao: e.target.value})} /></div>
                 <div className="form-group"><label>Data de Chegada (Galpão)</label><input type="date" className="form-input" value={devolucaoFormData.data_chegada} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, data_chegada: e.target.value})} /></div>
                 <div className="form-group"><label>Valor Total das NFs (R$)</label><input type="number" step="0.01" className="form-input" value={devolucaoFormData.valor_total_nf} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, valor_total_nf: e.target.value})} /></div>
-                
-                {/* CAMPO DE PESO COM MÁSCARA INTELIGENTE (Aceitar vírgula) */}
-                <div className="form-group">
-                  <label>Custo do Frete Reverso (R$)</label>
-                  <input 
-                    type="number" 
-                    step="0.01" 
-                    className="form-input" 
-                    style={{ borderColor: '#ef4444' }} 
-                    placeholder="Valor que a Munila vai pagar" 
-                    value={devolucaoFormData.valor_frete_reverso} 
-                    onChange={(e) => setDevolucaoFormData({...devolucaoFormData, valor_frete_reverso: e.target.value})} 
-                  />
-                </div>
-
+                <div className="form-group"><label>Custo do Frete Reverso (R$)</label><input type="number" step="0.01" className="form-input" style={{ borderColor: '#ef4444' }} placeholder="Valor que a Munila vai pagar" value={devolucaoFormData.valor_frete_reverso} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, valor_frete_reverso: e.target.value})} /></div>
                 <div className="form-group"><label>Volume Retornando (Cx)</label><input type="number" className="form-input" placeholder="Ex: 2" value={devolucaoFormData.volume} onChange={(e) => setDevolucaoFormData({...devolucaoFormData, volume: e.target.value})} /></div>
                 
-                {/* CAMPO DE PESO COM MÁSCARA INTELIGENTE (Aceitar vírgula) */}
                 <div className="form-group">
                   <label>Peso Retornando (Kg)</label>
                   <input 

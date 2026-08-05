@@ -13,12 +13,9 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
-  // Guardar o email do utilizador logado para a Auditoria
   const [userEmail, setUserEmail] = useState<string>('');
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Estados dos Filtros Dinâmicos
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
   const [filtroDataFim, setFiltroDataFim] = useState('');
   const [filtroNumeroDoc, setFiltroNumeroDoc] = useState('');
@@ -27,7 +24,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   const [filtroCfop, setFiltroCfop] = useState('');
   const [filtroSituacao, setFiltroSituacao] = useState('');
 
-  // Estado do Formulário
   const [formData, setFormData] = useState({
     numero_documento: '', 
     chave_acesso: [''], 
@@ -41,28 +37,17 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   });
 
   useEffect(() => {
-    // Buscar o email da sessão atual
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.email) {
-        setUserEmail(session.user.email);
-      }
+      if (session?.user?.email) setUserEmail(session.user.email);
     });
     buscarCtes();
   }, []);
 
-  // FUNÇÃO DE REGISTRO DE AUDITORIA
   const registrarLogCte = async (acao: string, detalhes: string) => {
     if (!userEmail) return;
     try {
-      await supabase.from('logs_auditoria').insert([{
-        usuario_email: userEmail,
-        acao: acao,
-        modulo: 'CTES',
-        detalhes: detalhes
-      }]);
-    } catch (error) {
-      console.error("Erro ao registrar log de CTE:", error);
-    }
+      await supabase.from('logs_auditoria').insert([{ usuario_email: userEmail, acao: acao, modulo: 'CTES', detalhes: detalhes }]);
+    } catch (error) { console.error("Erro ao registrar log de CTE:", error); }
   };
 
   async function buscarCtes() {
@@ -70,28 +55,51 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
       const { data, error } = await supabase.from('ctes').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       if (data) setCtes(data);
-    } catch (error) {
-      console.error("Erro ao buscar CTEs:", error);
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { console.error("Erro ao buscar CTEs:", error); } 
+    finally { setLoading(false); }
   }
+
+  // ==========================================
+  // FUNÇÃO MÁGICA: EXTRAÇÃO AUTOMÁTICA DE NFs
+  // ==========================================
+  const extrairNFsDasChaves = (chavesStr: string) => {
+    if (!chavesStr) return '-';
+    const chavesArray = chavesStr.split(',');
+    
+    const nfs = chavesArray.map(chaveRaw => {
+      const chave = chaveRaw.replace(/\D/g, ''); // Remove espaços ou pontuações
+      if (chave.length === 44) {
+        return Number(chave.substring(25, 34)).toString(); // Extrai os 9 dígitos e remove zeros à esquerda
+      }
+      return ''; 
+    }).filter(nf => nf !== ''); 
+    
+    if (nfs.length === 0) return '-';
+    return nfs.join(' / ');
+  };
 
   const ctesFiltrados = ctes.filter(cte => {
     let passa = true;
     if (filtroDataInicio && cte.data_emissao < filtroDataInicio) passa = false;
     if (filtroDataFim && cte.data_emissao > filtroDataFim) passa = false;
     if (filtroNumeroDoc && !cte.numero_documento?.toLowerCase().includes(filtroNumeroDoc.toLowerCase())) passa = false;
-    if (filtroChaveAcesso && !cte.chave_acesso?.toLowerCase().includes(filtroChaveAcesso.toLowerCase())) passa = false;
+    
+    // O filtro agora pesquisa tanto a Chave quanto o Nº da NF automaticamente!
+    if (filtroChaveAcesso) {
+      const termo = filtroChaveAcesso.toLowerCase();
+      const nfsExtraidas = extrairNFsDasChaves(cte.chave_acesso);
+      if (!cte.chave_acesso?.toLowerCase().includes(termo) && !nfsExtraidas.toLowerCase().includes(termo)) {
+        passa = false;
+      }
+    }
+
     if (filtroEmitente && !cte.razao_social_emitente?.toLowerCase().includes(filtroEmitente.toLowerCase())) passa = false;
     if (filtroCfop && !cte.cfop?.toLowerCase().includes(filtroCfop.toLowerCase())) passa = false;
     if (filtroSituacao && cte.situacao !== filtroSituacao) passa = false;
     return passa;
   });
 
-  function limparFiltros() {
-    setFiltroDataInicio(''); setFiltroDataFim(''); setFiltroNumeroDoc(''); setFiltroChaveAcesso(''); setFiltroEmitente(''); setFiltroCfop(''); setFiltroSituacao('');
-  }
+  function limparFiltros() { setFiltroDataInicio(''); setFiltroDataFim(''); setFiltroNumeroDoc(''); setFiltroChaveAcesso(''); setFiltroEmitente(''); setFiltroCfop(''); setFiltroSituacao(''); }
 
   const valorTotalServico = ctesFiltrados.reduce((acc, curr) => acc + (Number(curr.valor_total_servico) || 0), 0);
   const totalCtesFiltrados = ctesFiltrados.length;
@@ -148,12 +156,8 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
         }
       }
       cancelarEdicao();
-    } catch (error) {
-      console.error(error);
-      alert("Erro ao processar o CTE.");
-    } finally {
-      setSubmitting(false);
-    }
+    } catch (error) { console.error(error); alert("Erro ao processar o CTE."); } 
+    finally { setSubmitting(false); }
   }
 
   function handleEdit(cte: any) {
@@ -186,12 +190,8 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
       await supabase.from('ctes').delete().eq('id', id);
       setCtes(ctes.filter(c => c.id !== id));
       
-      if (cteParaApagar) {
-        await registrarLogCte('APAGOU', `Excluiu o CTE Nº ${cteParaApagar.numero_documento} (${cteParaApagar.razao_social_emitente})`);
-      }
-    } catch (error) {
-      console.error(error);
-    }
+      if (cteParaApagar) await registrarLogCte('APAGOU', `Excluiu o CTE Nº ${cteParaApagar.numero_documento} (${cteParaApagar.razao_social_emitente})`);
+    } catch (error) { console.error(error); }
   }
 
   const handleChaveChange = (index: number, valor: string) => {
@@ -255,22 +255,12 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
         if (chavesExtraidas.length === 0) chavesExtraidas = [''];
 
         setFormData({
-          ...formData,
-          numero_documento: nDoc,
-          chave_acesso: chavesExtraidas,
-          razao_social_emitente: razaoSocial,
-          cnpj_emitente: cnpjFormatado,
-          cfop: cfop,
-          valor_total_servico: valor,
-          data_emissao: dataEmissao,
-          observacao: observacao
+          ...formData, numero_documento: nDoc, chave_acesso: chavesExtraidas, razao_social_emitente: razaoSocial, cnpj_emitente: cnpjFormatado, cfop: cfop, valor_total_servico: valor, data_emissao: dataEmissao, observacao: observacao
         });
         
         alert(`✅ XML lido com sucesso! Encontrada(s) ${chavesExtraidas.length} chave(s) vinculada(s).`);
         registrarLogCte('CRIOU', `Importou XML para preenchimento de CTE (Emissor: ${razaoSocial})`);
-      } catch (err) {
-        alert("Erro ao ler o ficheiro XML. Certifique-se que é um formato válido.");
-      }
+      } catch (err) { alert("Erro ao ler o ficheiro XML. Certifique-se que é um formato válido."); }
     };
     reader.readAsText(file);
     if(fileInputRef.current) fileInputRef.current.value = '';
@@ -278,14 +268,20 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
 
   const exportarParaExcel = () => {
     if (ctesFiltrados.length === 0) { alert("Não há dados para exportar com estes filtros."); return; }
-    const cabecalho = ["Data", "Nº Doc", "Emitente", "CNPJ", "CFOP", "Valor Serv. (R$)", "Chaves Vinculadas", "Situação", "Observação"].join(";");
+    
+    // Atualizado para incluir a NFs Vinculadas na exportação
+    const cabecalho = ["Data", "Nº Doc", "Emitente", "CNPJ", "CFOP", "NFs Vinculadas", "Chaves Vinculadas", "Valor Serv. (R$)", "Situação", "Observação"].join(";");
+    
     const linhas = ctesFiltrados.map(c => {
       const chavesFormatadas = c.chave_acesso ? c.chave_acesso.replace(/,/g, ' | ') : '-';
+      const nfsVinculadas = extrairNFsDasChaves(c.chave_acesso);
+      
       return [
         formatarData(c.data_emissao), c.numero_documento, c.razao_social_emitente || '-', c.cnpj_emitente || '-', c.cfop || '-',
-        c.valor_total_servico?.toString().replace('.', ',') || '0,00', chavesFormatadas, c.situacao, c.observacao || '-'
+        nfsVinculadas, chavesFormatadas, c.valor_total_servico?.toString().replace('.', ',') || '0,00', c.situacao, c.observacao || '-'
       ].join(";");
     });
+    
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + cabecalho + "\n" + linhas.join("\n");
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csvContent));
@@ -295,22 +291,24 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
 
   const exportarParaPDF = () => { window.print(); };
 
+  // Identifica NFs em tempo real enquanto o utilizador digita no formulário
+  const chavesParaValidar = formData.chave_acesso.filter(chave => chave.replace(/\D/g, '').length === 44);
+  const nfsIdentificadas = chavesParaValidar.map(chave => Number(chave.replace(/\D/g, '').substring(25, 34)).toString());
+
   const thStyle: React.CSSProperties = { padding: '12px 16px', backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', textAlign: 'left', whiteSpace: 'nowrap' };
   const tdStyle: React.CSSProperties = { padding: '12px 16px', borderBottom: '1px solid #f1f5f9', fontSize: '0.85rem', color: '#334155', whiteSpace: 'nowrap' };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', minHeight: '100%', paddingBottom: '32px' }}>
       
-      {/* 1. SEÇÃO SUPERIOR: FORMULÁRIO DE REGISTRO / EDIÇÃO */}
+      {/* 1. FORMULÁRIO DE REGISTRO / EDIÇÃO */}
       <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ padding: '8px', backgroundColor: '#e0f2fe', borderRadius: '8px' }}><FileText size={24} color="#0284c7" /></div>
             <div>
-              <h2 style={{ fontSize: '1.25rem', color: 'var(--text-main)' }}>
-                {editingId ? 'Editando CTE Selecionado' : 'Registro de CTE'}
-              </h2>
+              <h2 style={{ fontSize: '1.25rem', color: 'var(--text-main)' }}>{editingId ? 'Editando CTE Selecionado' : 'Registro de CTE'}</h2>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Lançamento de Conhecimentos de Transporte Eletrônico</p>
             </div>
           </div>
@@ -364,6 +362,13 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
             <button type="button" onClick={adicionarChave} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', color: '#0284c7', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', marginTop: '8px' }}>
               <PlusCircle size={16} /> Adicionar Nova Chave
             </button>
+
+            {/* FEEDBACK VISUAL EM TEMPO REAL DAS NFs IDENTIFICADAS */}
+            {nfsIdentificadas.length > 0 && (
+              <div style={{ marginTop: '16px', padding: '12px 16px', backgroundColor: '#dcfce7', borderRadius: '6px', border: '1px solid #bbf7d0', color: '#166534', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileText size={18} /> NFs extraídas com sucesso: {nfsIdentificadas.join(' / ')}
+              </div>
+            )}
           </div>
 
           <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Observações do Transporte</label><input type="text" className="form-input" placeholder="Apólice, Seguro, Agendamentos..." value={formData.observacao} onChange={e => setFormData({...formData, observacao: e.target.value})} /></div>
@@ -381,7 +386,7 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
         </form>
       </div>
 
-      {/* 2. SEÇÃO DE FILTROS E RELATÓRIO DO HISTÓRICO */}
+      {/* 2. FILTROS E RELATÓRIO DO HISTÓRICO */}
       <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -403,7 +408,7 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
           <div className="form-group" style={{ flex: '1 1 140px' }}><label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0284c7', fontWeight: 'bold' }}><Calendar size={14} /> Data Início</label><input type="date" className="form-input" value={filtroDataInicio} onChange={e => setFiltroDataInicio(e.target.value)} /></div>
           <div className="form-group" style={{ flex: '1 1 140px' }}><label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0284c7', fontWeight: 'bold' }}><Calendar size={14} /> Data Fim</label><input type="date" className="form-input" value={filtroDataFim} onChange={e => setFiltroDataFim(e.target.value)} /></div>
           <div className="form-group" style={{ flex: '1 1 130px' }}><label>Nº Documento</label><input type="text" className="form-input" placeholder="Buscar..." value={filtroNumeroDoc} onChange={e => setFiltroNumeroDoc(e.target.value)} /></div>
-          <div className="form-group" style={{ flex: '2 1 180px' }}><label>Chave de Acesso</label><input type="text" className="form-input" placeholder="Buscar por chave..." value={filtroChaveAcesso} onChange={e => setFiltroChaveAcesso(e.target.value)} /></div>
+          <div className="form-group" style={{ flex: '2 1 180px' }}><label>Chave ou Nº da NF</label><input type="text" className="form-input" placeholder="Buscar por chave ou NF..." value={filtroChaveAcesso} onChange={e => setFiltroChaveAcesso(e.target.value)} /></div>
           <div className="form-group" style={{ flex: '2 1 180px' }}><label>Emitente</label><input type="text" className="form-input" placeholder="Buscar nome..." value={filtroEmitente} onChange={e => setFiltroEmitente(e.target.value)} /></div>
           <div className="form-group" style={{ flex: '1 1 100px' }}><label>CFOP</label><input type="text" className="form-input" placeholder="Ex: 5351" value={filtroCfop} onChange={e => setFiltroCfop(e.target.value)} /></div>
           <div className="form-group" style={{ flex: '1 1 110px' }}>
@@ -416,7 +421,7 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
         </div>
       </div>
 
-      {/* 3. PAINEL DE RESUMO (CARDS TOTAIS DO PERÍODO SELECIONADO) */}
+      {/* 3. PAINEL DE RESUMO */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -447,6 +452,8 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
               <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>Emitente</th>
               <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>CNPJ</th>
               <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>CFOP</th>
+              {/* NOVA COLUNA */}
+              <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>NFs (Origem)</th>
               <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>Chaves Vinculadas</th>
               <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>Valor Serv. (R$)</th>
               <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>Situação</th>
@@ -454,8 +461,8 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={9} style={{ textAlign: 'center', padding: '24px' }}>A carregar histórico...</td></tr> : 
-             ctesFiltrados.length === 0 ? <tr><td colSpan={9} style={{ textAlign: 'center', padding: '24px' }}>Nenhum CTE encontrado com estes filtros.</td></tr> :
+            {loading ? <tr><td colSpan={10} style={{ textAlign: 'center', padding: '24px' }}>A carregar histórico...</td></tr> : 
+             ctesFiltrados.length === 0 ? <tr><td colSpan={10} style={{ textAlign: 'center', padding: '24px' }}>Nenhum CTE encontrado com estes filtros.</td></tr> :
              ctesFiltrados.map(cte => (
                <tr key={cte.id} className="trow-hover">
                  <td style={tdStyle}>{formatarData(cte.data_emissao)}</td>
@@ -463,6 +470,10 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
                  <td style={{...tdStyle, fontWeight: 'bold'}}>{cte.razao_social_emitente || '-'}</td>
                  <td style={tdStyle}>{cte.cnpj_emitente || '-'}</td>
                  <td style={{...tdStyle, fontWeight: 'bold'}}>{cte.cfop || '-'}</td>
+                 
+                 {/* COLUNA EXTRAÍDA AUTOMATICAMENTE */}
+                 <td style={{...tdStyle, fontWeight: 'bold', color: '#16a34a'}}>{extrairNFsDasChaves(cte.chave_acesso)}</td>
+
                  <td style={{...tdStyle, whiteSpace: 'normal', minWidth: '250px'}}>
                    {cte.chave_acesso ? cte.chave_acesso.split(',').map((chave: string, idx: number) => (
                      <div key={idx} style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: 'var(--munila-blue)', marginBottom: '4px' }}>{chave}</div>

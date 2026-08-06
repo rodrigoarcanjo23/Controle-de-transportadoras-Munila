@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit, Trash2, DollarSign, TrendingUp, AlertCircle, Target, Package, Scale, FileText } from 'lucide-react';
+import { Edit, Trash2, DollarSign, TrendingUp, Target, Package, Scale, FileText } from 'lucide-react';
 import { Header } from '../components/Header';
 
 interface DashboardProps {
@@ -27,13 +27,12 @@ interface DashboardProps {
   setFiltroSemAgendamento: (value: boolean) => void;
   transportadoras: any[];
   limparFiltros: () => void;
-  exportarParaExcel: () => void;
   abrirModalNovaEntrega: () => void;
   faturamentoTotal: number;
   progressoMeta: string;
   freteTotal: number;
   freteMedio: string;
-  atrasados: number;
+  atrasados: number; 
   volumeTotal: number;
   pesoTotal: number;
   loading: boolean;
@@ -54,15 +53,44 @@ export function Dashboard({
   filtroFreteConfirmado, setFiltroFreteConfirmado, 
   filtroComAgendamento, setFiltroComAgendamento,
   filtroSemAgendamento, setFiltroSemAgendamento,
-  transportadoras, limparFiltros,
-  exportarParaExcel, abrirModalNovaEntrega,
-  faturamentoTotal, progressoMeta, freteTotal, freteMedio, atrasados,
-  volumeTotal, pesoTotal,
-  loading, entregasFiltradas, formatarData, calcularPorcentagemFrete,
+  transportadoras, limparFiltros, abrirModalNovaEntrega,
+  faturamentoTotal, progressoMeta, freteTotal, freteMedio,
+  volumeTotal, pesoTotal, loading, entregasFiltradas, formatarData, calcularPorcentagemFrete,
   calcularDiasEntrega, getStatusColor, abrirModalEdicao, handleDeleteEntrega
 }: DashboardProps) {
 
   const valorTotalNf = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
+
+  const exportarParaExcel = () => {
+    if (entregasFiltradas.length === 0) { alert("Não há dados para exportar."); return; }
+    
+    const cabecalho = ["Data Fat.", "Coleta", "Cliente", "Cidade", "UF", "Volume (Cx)", "Peso (Kg)", "Nº NF", "Valor NF", "Transportadora", "Modal", "Frete Cotado (R$)", "Frete Real (R$)", "% Frete Real", "Agendamento", "Previsão", "Dt Entrega", "Dias", "Status", "Frete Confirmado", "Observações"].join(";");
+    
+    const linhas = entregasFiltradas.map(e => {
+      const cidadeFormatada = e.cidade_destino || e.clientes?.cidade || '-';
+      const ufFormatada = e.uf_destino || e.clientes?.uf || '-';
+      const modalFormatado = e.modal_frete || e.transportadoras?.modal_padrao || '-';
+      
+      const temReal = e.valor_frete_real !== null && e.valor_frete_real !== undefined && e.valor_frete_real !== '';
+      const calcFrete = temReal ? e.valor_frete_real : e.valor_frete;
+
+      return [
+        formatarData(e.data_faturamento), formatarData(e.data_coleta), e.clientes?.nome || '-', cidadeFormatada, ufFormatada,
+        e.volume || e.volume_peso || '-', e.peso_kg?.toString().replace('.', ',') || '-', e.nota_fiscal, 
+        e.valor_nf?.toString().replace('.', ',') || '0,00', e.transportadoras?.nome || '-', modalFormatado,
+        e.valor_frete?.toString().replace('.', ',') || '0,00', 
+        e.valor_frete_real?.toString().replace('.', ',') || '0,00', 
+        calcularPorcentagemFrete(calcFrete, e.valor_nf), 
+        e.tem_agendamento ? 'SIM' : 'NÃO',
+        formatarData(e.data_previsao), formatarData(e.data_entrega_agendamento), calcularDiasEntrega(e.data_coleta, e.data_entrega_agendamento).replace(' dias', ''), e.status, e.frete_confirmado ? 'SIM' : 'NÃO', e.observacoes || '-'
+      ].join(";");
+    });
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + cabecalho + "\n" + linhas.join("\n");
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("download", `MunilaLog_Exportacao_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.csv`);
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  };
 
   const thStyle: React.CSSProperties = { position: 'sticky', top: 0, backgroundColor: '#f8fafc', zIndex: 10, borderBottom: '2px solid #e2e8f0', padding: '12px 16px', color: '#475569', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', whiteSpace: 'nowrap' };
   const thAcoesStyle: React.CSSProperties = { ...thStyle, right: 0, zIndex: 11, textAlign: 'center', borderLeft: '1px solid #e2e8f0' };
@@ -85,15 +113,11 @@ export function Dashboard({
           filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado}
           filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento}
           filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento}
-          transportadoras={transportadoras}
-          limparFiltros={limparFiltros}
-          exportarParaExcel={exportarParaExcel}
-          abrirModalNovaEntrega={abrirModalNovaEntrega}
+          transportadoras={transportadoras} limparFiltros={limparFiltros} exportarParaExcel={exportarParaExcel} abrirModalNovaEntrega={abrirModalNovaEntrega}
         />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px', flexShrink: 0 }}>
-        
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Valor Total NFs</p>
@@ -120,7 +144,7 @@ export function Dashboard({
 
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Custo Logístico</p>
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Custo Logístico Real</p>
             <TrendingUp size={16} color="#ea580c" />
           </div>
           <h3 style={{ fontSize: '1.25rem', color: 'var(--text-main)', fontWeight: 700 }}>
@@ -155,17 +179,6 @@ export function Dashboard({
             {pesoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>Kg</span>
           </h3>
         </div>
-
-        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Entregas em Atraso</p>
-            <AlertCircle size={16} color="#dc2626" />
-          </div>
-          <h3 style={{ fontSize: '1.25rem', color: '#dc2626', fontWeight: 700 }}>
-            {atrasados} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>NFs</span>
-          </h3>
-        </div>
-
       </div>
 
       <div className="table-container" style={{ flex: 1, minHeight: 0, overflow: 'auto', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'white', position: 'relative' }}>
@@ -183,81 +196,64 @@ export function Dashboard({
               <th style={thStyle}>Valor NF</th>
               <th style={thStyle}>Transportadora</th>
               <th style={thStyle}>Modal</th>
-              <th style={thStyle}>Valor Frete</th>
+              <th style={thStyle}>Frete Cotado</th>
+              <th style={{...thStyle, backgroundColor: '#f0fdf4', color: '#166534'}}>Frete Real</th>
               <th style={thStyle}>% Frete</th>
               <th style={thStyle}>Agendamento?</th>
               <th style={thStyle}>Previsão</th>
               <th style={thStyle}>Dt Entrega</th>
-              <th style={thStyle}>Dias</th>
               <th style={thStyle}>Status</th>
-              <th style={thStyle}>Obs</th>
               <th style={thAcoesStyle}>Ações</th>
             </tr>
           </thead>
           <tbody>
-            {loading ? ( 
-              <tr><td colSpan={20} style={{ textAlign: 'center', padding: '32px' }}>A carregar...</td></tr> 
-            ) : entregasFiltradas.length === 0 ? (
-              <tr><td colSpan={20} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma entrega encontrada na busca.</td></tr>
-            ) : entregasFiltradas.map((entrega) => {
-              
-              const cidadeDisplay = entrega.cidade_destino || entrega.clientes?.cidade || '-';
-              const ufDisplay = entrega.uf_destino || entrega.clientes?.uf || '-';
-              const modalDisplay = entrega.modal_frete || entrega.transportadoras?.modal_padrao || '-';
+            {loading ? ( <tr><td colSpan={19} style={{ textAlign: 'center', padding: '32px' }}>A carregar...</td></tr> ) : entregasFiltradas.length === 0 ? ( <tr><td colSpan={19} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma entrega encontrada.</td></tr> ) : entregasFiltradas.map((entrega) => {
               
               const isFreteConfirmado = entrega.frete_confirmado;
               const freteColor = isFreteConfirmado ? '#166534' : 'inherit';
               const freteBg = isFreteConfirmado ? '#dcfce7' : 'transparent';
 
+              const hasFreteReal = entrega.valor_frete_real !== null && entrega.valor_frete_real !== undefined && entrega.valor_frete_real !== '';
+              const valorFreteCalculo = hasFreteReal ? entrega.valor_frete_real : entrega.valor_frete;
+
               return (
                 <tr key={entrega.id} className="trow-hover">
-                  <td style={tdStyle} data-label="Data Fat.">{formatarData(entrega.data_faturamento)}</td>
-                  <td style={tdStyle} data-label="Coleta">{formatarData(entrega.data_coleta)}</td>
-                  <td style={tdStyle} data-label="Cliente">{entrega.clientes?.nome || '-'}</td>
-                  
-                  <td style={{ ...tdStyle, fontWeight: 'bold' }} data-label="Cidade">{cidadeDisplay}</td>
-                  <td style={{ ...tdStyle, fontWeight: 'bold' }} data-label="UF">{ufDisplay}</td>
+                  <td style={tdStyle}>{formatarData(entrega.data_faturamento)}</td>
+                  <td style={tdStyle}>{formatarData(entrega.data_coleta)}</td>
+                  <td style={tdStyle}>{entrega.clientes?.nome || '-'}</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold' }}>{entrega.cidade_destino || entrega.clientes?.cidade || '-'}</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold' }}>{entrega.uf_destino || entrega.clientes?.uf || '-'}</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold' }}>{entrega.volume ? `${entrega.volume} Cx` : '-'}</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold' }}>{entrega.peso_kg ? `${entrega.peso_kg.toString().replace('.', ',')} Kg` : '-'}</td>
+                  <td style={{ ...tdStyle, fontWeight: 'bold' }}>{entrega.nota_fiscal}</td>
+                  <td style={tdStyle}>R$ {Number(entrega.valor_nf).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td style={tdStyle}>{entrega.transportadoras?.nome || '-'}</td>
+                  <td style={tdStyle}>{entrega.modal_frete || entrega.transportadoras?.modal_padrao || '-'}</td>
 
-                  <td style={{ ...tdStyle, fontWeight: 'bold' }} data-label="Volume">{entrega.volume ? `${entrega.volume} Cx` : (entrega.volume_peso || '-')}</td>
-                  
-                  {/* Peso exibe visualmente com padrão BR (vírgula) na tabela */}
-                  <td style={{ ...tdStyle, fontWeight: 'bold' }} data-label="Peso (Kg)">{entrega.peso_kg ? `${entrega.peso_kg.toString().replace('.', ',')} Kg` : '-'}</td>
-                  
-                  <td style={{ ...tdStyle, fontWeight: 'bold' }} data-label="Nº NF">{entrega.nota_fiscal}</td>
-                  <td style={tdStyle} data-label="Valor NF">R$ {Number(entrega.valor_nf).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                  <td style={tdStyle} data-label="Transportadora">{entrega.transportadoras?.nome || '-'}</td>
-                  
-                  <td style={tdStyle} data-label="Modal">{modalDisplay}</td>
-
-                  <td style={{ ...tdStyle, backgroundColor: freteBg, color: freteColor, fontWeight: isFreteConfirmado ? 'bold' : 'normal' }} data-label="Valor Frete">
-                    R$ {Number(entrega.valor_frete).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} {isFreteConfirmado && '✅'}
-                  </td>
-                  <td style={{ ...tdStyle, backgroundColor: freteBg, fontWeight: 'bold', color: isFreteConfirmado ? freteColor : '#0095DA' }} data-label="% Frete">
-                    {calcularPorcentagemFrete(entrega.valor_frete, entrega.valor_nf)}
+                  <td style={{ ...tdStyle, color: 'var(--text-muted)' }}>
+                    R$ {Number(entrega.valor_frete).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </td>
                   
-                  <td style={{ ...tdStyle, textAlign: 'center' }} data-label="Agendamento?">
-                    {entrega.tem_agendamento ? (
-                      <span style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.70rem' }}>SIM</span>
-                    ) : (
-                      <span style={{ backgroundColor: '#f1f5f9', color: '#64748b', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.70rem' }}>NÃO</span>
-                    )}
+                  <td style={{ ...tdStyle, backgroundColor: freteBg, color: freteColor, fontWeight: isFreteConfirmado ? 'bold' : 'normal' }}>
+                    {hasFreteReal ? `R$ ${Number(entrega.valor_frete_real).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'} {isFreteConfirmado && '✅'}
+                  </td>
+                  
+                  <td style={{ ...tdStyle, backgroundColor: freteBg, fontWeight: 'bold', color: isFreteConfirmado ? freteColor : '#0095DA' }}>
+                    {calcularPorcentagemFrete(valorFreteCalculo, entrega.valor_nf)}
+                  </td>
+                  
+                  <td style={{ ...tdStyle, textAlign: 'center' }}>
+                    {entrega.tem_agendamento ? <span style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.70rem' }}>SIM</span> : <span style={{ backgroundColor: '#f1f5f9', color: '#64748b', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.70rem' }}>NÃO</span>}
                   </td>
 
-                  <td style={tdStyle} data-label="Previsão">{formatarData(entrega.data_previsao)}</td>
-                  <td style={tdStyle} data-label="Dt Entrega">{formatarData(entrega.data_entrega_agendamento)}</td>
-                  <td style={tdStyle} data-label="Dias">{calcularDiasEntrega(entrega.data_coleta, entrega.data_entrega_agendamento)}</td>
-                  <td style={tdStyle} data-label="Status"><span className="status-badge" style={getStatusColor(entrega.status)}>{entrega.status}</span></td>
-                  <td style={{ ...tdStyle, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={entrega.observacoes} data-label="Obs">{entrega.observacoes || '-'}</td>
+                  <td style={tdStyle}>{formatarData(entrega.data_previsao)}</td>
+                  <td style={tdStyle}>{formatarData(entrega.data_entrega_agendamento)}</td>
+                  <td style={tdStyle}><span className="status-badge" style={getStatusColor(entrega.status)}>{entrega.status}</span></td>
                   
-                  <td style={tdAcoesStyle} data-label="Ações">
+                  <td style={tdAcoesStyle}>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                      <button onClick={() => abrirModalEdicao(entrega)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }} title="Editar Entrega">
-                        <Edit size={18} />
-                      </button>
-                      <button onClick={() => handleDeleteEntrega(entrega.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '4px' }} title="Excluir Entrega">
-                        <Trash2 size={18} />
-                      </button>
+                      <button onClick={() => abrirModalEdicao(entrega)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }} title="Editar Entrega"><Edit size={18} /></button>
+                      <button onClick={() => handleDeleteEntrega(entrega.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '4px' }} title="Excluir Entrega"><Trash2 size={18} /></button>
                     </div>
                   </td>
                 </tr>

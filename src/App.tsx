@@ -33,7 +33,6 @@ export default function App() {
   const [metas, setMetas] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
 
-  // Filtros Dashboard
   const [searchTerm, setSearchTerm] = useState('');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
@@ -49,9 +48,10 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
+  // ADICIONADO: valor_frete_real
   const [formData, setFormData] = useState({
     nota_fiscal: '', cliente_id: '', transportadora_id: '', cidade_destino: '', uf_destino: '', modal_frete: '', 
-    data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', 
+    data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', valor_frete_real: '', volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', 
     data_entrega_agendamento: '', observacoes: '', status: 'Pendente', frete_confirmado: false
   });
 
@@ -130,15 +130,17 @@ export default function App() {
 
   function abrirModalNovaEntrega() { 
     setEditingId(null); 
-    setFormData({ nota_fiscal: '', cliente_id: '', transportadora_id: '', cidade_destino: '', uf_destino: '', modal_frete: '', data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', data_entrega_agendamento: '', observacoes: '', status: 'Pendente', frete_confirmado: false }); 
+    setFormData({ nota_fiscal: '', cliente_id: '', transportadora_id: '', cidade_destino: '', uf_destino: '', modal_frete: '', data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', valor_frete_real: '', volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', data_entrega_agendamento: '', observacoes: '', status: 'Pendente', frete_confirmado: false }); 
     setIsModalOpen(true); 
   }
   
   function abrirModalEdicao(entrega: any) { 
     setEditingId(entrega.id); 
     setFormData({ 
-      nota_fiscal: entrega.nota_fiscal, cliente_id: entrega.cliente_id, transportadora_id: entrega.transportadora_id, cidade_destino: entrega.cidade_destino || '', uf_destino: entrega.uf_destino || '', modal_frete: entrega.modal_frete || '', data_faturamento: entrega.data_faturamento || '', data_coleta: entrega.data_coleta || '', valor_nf: entrega.valor_nf?.toString() || '', valor_frete: entrega.valor_frete?.toString() || '', volume: entrega.volume?.toString() || '', 
-      // Converte o ponto do banco de dados para vírgula no formulário
+      nota_fiscal: entrega.nota_fiscal, cliente_id: entrega.cliente_id, transportadora_id: entrega.transportadora_id, cidade_destino: entrega.cidade_destino || '', uf_destino: entrega.uf_destino || '', modal_frete: entrega.modal_frete || '', data_faturamento: entrega.data_faturamento || '', data_coleta: entrega.data_coleta || '', valor_nf: entrega.valor_nf?.toString() || '', 
+      valor_frete: entrega.valor_frete?.toString().replace('.', ',') || '', 
+      valor_frete_real: entrega.valor_frete_real?.toString().replace('.', ',') || '', // Traz o Frete Real
+      volume: entrega.volume?.toString() || '', 
       peso_kg: entrega.peso_kg?.toString().replace('.', ',') || '', 
       tem_agendamento: entrega.tem_agendamento || false, data_previsao: entrega.data_previsao || '', data_entrega_agendamento: entrega.data_entrega_agendamento || '', observacoes: entrega.observacoes || '', status: entrega.status, frete_confirmado: entrega.frete_confirmado || false 
     }); 
@@ -187,7 +189,6 @@ export default function App() {
 
       if (errorChecagem) { console.error("Erro", errorChecagem); } 
       else if (nfsExistentes && nfsExistentes.length > 0) {
-        // CORREÇÃO DO TYPESCRIPT AQUI: '(nfsExistentes[0].clientes as any)?.nome'
         const clienteAssociado = (nfsExistentes[0].clientes as any)?.nome || 'Desconhecido';
         alert(`⚠️ DUPLICIDADE BLOQUEADA!\nA Nota Fiscal "${nfLimpa}" já está cadastrada para o cliente: ${clienteAssociado}.`);
         return; 
@@ -195,13 +196,14 @@ export default function App() {
     } catch (err) { console.error(err); }
 
     const nf = parseFloat(formData.valor_nf) || 0; 
-    const frete = parseFloat(formData.valor_frete) || 0;
     
-    // Converte a vírgula para ponto na hora de salvar no banco
+    // Tratamento das vírgulas para Frete Cotado, Frete Real e Peso
+    const freteCotado = parseFloat(String(formData.valor_frete).replace(',', '.')) || null;
+    const freteReal = parseFloat(String(formData.valor_frete_real).replace(',', '.')) || null;
     const pesoFormatado = parseFloat(String(formData.peso_kg).replace(',', '.')) || null;
     
     const payload = { 
-      nota_fiscal: nfLimpa, cliente_id: formData.cliente_id, transportadora_id: formData.transportadora_id || null, cidade_destino: formData.cidade_destino || null, uf_destino: formData.uf_destino || null, modal_frete: formData.modal_frete || null, data_faturamento: formData.data_faturamento || null, data_coleta: formData.data_coleta || null, valor_nf: nf, valor_frete: frete, volume: parseInt(formData.volume) || null, peso_kg: pesoFormatado, tem_agendamento: formData.tem_agendamento, data_previsao: formData.data_previsao || null, data_entrega_agendamento: formData.data_entrega_agendamento || null, observacoes: formData.observacoes, status: formData.status, frete_confirmado: formData.frete_confirmado 
+      nota_fiscal: nfLimpa, cliente_id: formData.cliente_id, transportadora_id: formData.transportadora_id || null, cidade_destino: formData.cidade_destino || null, uf_destino: formData.uf_destino || null, modal_frete: formData.modal_frete || null, data_faturamento: formData.data_faturamento || null, data_coleta: formData.data_coleta || null, valor_nf: nf, valor_frete: freteCotado, valor_frete_real: freteReal, volume: parseInt(formData.volume) || null, peso_kg: pesoFormatado, tem_agendamento: formData.tem_agendamento, data_previsao: formData.data_previsao || null, data_entrega_agendamento: formData.data_entrega_agendamento || null, observacoes: formData.observacoes, status: formData.status, frete_confirmado: formData.frete_confirmado 
     };
     
     try {
@@ -322,7 +324,10 @@ export default function App() {
     const passaModal = filtroModal ? (entrega.modal_frete === filtroModal || entrega.transportadoras?.modal_padrao === filtroModal) : true;
     
     const passaStatus = filtroStatus.length === 0 ? true : filtroStatus.includes(entrega.status);
-    const passaFreteVazio = filtroFreteVazio ? (!entrega.valor_frete || Number(entrega.valor_frete) === 0) : true;
+    
+    // Filtro vazio verifica o Frete Real primeiro, senão olha para o Cotado
+    const passaFreteVazio = filtroFreteVazio ? (!entrega.valor_frete_real && !entrega.valor_frete) : true;
+    
     const passaFreteConfirmado = filtroFreteConfirmado ? entrega.frete_confirmado === true : true;
     const passaComAgendamento = filtroComAgendamento ? entrega.tem_agendamento === true : true;
     const passaSemAgendamento = filtroSemAgendamento ? (!entrega.tem_agendamento) : true;
@@ -331,7 +336,10 @@ export default function App() {
   }).sort((a, b) => new Date(b.data_faturamento || b.created_at || 0).getTime() - new Date(a.data_faturamento || a.created_at || 0).getTime());
 
   const faturamentoTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
-  const freteTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_frete) || 0), 0);
+  
+  // O KPI de Frete Total agora dá preferência ao Frete Real. Se não existir, soma o Cotado.
+  const freteTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_frete_real) || Number(curr.valor_frete) || 0), 0);
+  
   const freteMedio = faturamentoTotal > 0 ? ((freteTotal / faturamentoTotal) * 100).toFixed(2) : '0.00';
   const volumeTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.volume) || 0), 0);
   const pesoTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.peso_kg) || 0), 0);
@@ -340,27 +348,6 @@ export default function App() {
   const quantidadeDesejada = parseInt(calcQuantidade) || 0;
   let totalCaixas = 0; let pesoTotalCalc = "0.00";
   if (produtoSelecionado && quantidadeDesejada > 0) { totalCaixas = Math.ceil(quantidadeDesejada / produtoSelecionado.unidades_por_caixa); pesoTotalCalc = (totalCaixas * produtoSelecionado.peso_caixa_kg).toFixed(2); }
-
-  const exportarParaExcel = () => {
-    if (entregasFiltradas.length === 0) { alert("Não há dados para exportar."); return; }
-    const cabecalho = ["Data Fat.", "Coleta", "Cliente", "Cidade", "UF", "Volume (Cx)", "Peso (Kg)", "Nº NF", "Valor NF", "Transportadora", "Modal", "Valor Frete", "% Frete", "Agendamento", "Previsão", "Dt Entrega", "Dias", "Status", "Frete Confirmado", "Observações"].join(";");
-    const linhas = entregasFiltradas.map(e => {
-      const cidadeFormatada = e.cidade_destino || e.clientes?.cidade || '-';
-      const ufFormatada = e.uf_destino || e.clientes?.uf || '-';
-      const modalFormatado = e.modal_frete || e.transportadoras?.modal_padrao || '-';
-      return [
-        formatarData(e.data_faturamento), formatarData(e.data_coleta), e.clientes?.nome || '-', cidadeFormatada, ufFormatada,
-        e.volume || e.volume_peso || '-', e.peso_kg || '-', e.nota_fiscal, e.valor_nf?.toString().replace('.', ',') || '0,00', e.transportadoras?.nome || '-', modalFormatado,
-        e.valor_frete?.toString().replace('.', ',') || '0,00', calcularPorcentagemFrete(e.valor_frete, e.valor_nf), e.tem_agendamento ? 'SIM' : 'NÃO',
-        formatarData(e.data_previsao), formatarData(e.data_entrega_agendamento), calcularDiasEntrega(e.data_coleta, e.data_entrega_agendamento).replace(' dias', ''), e.status, e.frete_confirmado ? 'SIM' : 'NÃO', e.observacoes || '-'
-      ].join(";");
-    });
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + cabecalho + "\n" + linhas.join("\n");
-    const link = document.createElement("a");
-    link.setAttribute("href", encodeURI(csvContent));
-    link.setAttribute("download", `MunilaLog_Exportacao_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.csv`);
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
-  };
 
   return (
     <BrowserRouter>
@@ -378,7 +365,8 @@ export default function App() {
               filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado}
               filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento}
               filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento}
-              transportadoras={transportadoras} limparFiltros={limparFiltros} exportarParaExcel={exportarParaExcel} abrirModalNovaEntrega={abrirModalNovaEntrega}
+              transportadoras={transportadoras} limparFiltros={limparFiltros} 
+              abrirModalNovaEntrega={abrirModalNovaEntrega}
               faturamentoTotal={faturamentoTotal} progressoMeta={'0'} freteTotal={freteTotal} freteMedio={freteMedio} atrasados={0} volumeTotal={volumeTotal} pesoTotal={pesoTotal} loading={loading}
               entregasFiltradas={entregasFiltradas} formatarData={formatarData} calcularPorcentagemFrete={calcularPorcentagemFrete} calcularDiasEntrega={calcularDiasEntrega} getStatusColor={getStatusColor}
               abrirModalEdicao={abrirModalEdicao} handleDeleteEntrega={handleDeleteEntrega}
@@ -389,7 +377,10 @@ export default function App() {
           <Route path="clientes" element={<Clientes clientes={clientes} metas={metas} abrirModalNovoCliente={abrirModalNovoCliente} abrirModalNovaMeta={abrirModalNovaMeta} abrirModalEdicaoCliente={abrirModalEdicaoCliente} handleDeleteCliente={handleDeleteCliente} onUpdate={carregarDadosDoBanco} />} />
           <Route path="transportadoras" element={<Transportadoras transportadoras={transportadoras} entregas={entregas} onUpdate={buscarDominios} />} />
           <Route path="devolucoes" element={<Devolucoes devolucoes={devolucoes} clientes={clientes} onUpdate={buscarDevolucoes} formatarData={formatarData} getStatusColor={getStatusColor} />} />
-          <Route path="ctes" element={<Ctes transportadoras={transportadoras} formatarData={formatarData} />} />
+          
+          {/* CTEs RECEBE ONUPDATE PARA ATUALIZAR ENTREGAS QUANDO SALVAR UM CTE */}
+          <Route path="ctes" element={<Ctes transportadoras={transportadoras} formatarData={formatarData} onUpdateEntregas={carregarDadosDoBanco} />} />
+          
           <Route path="auditoria" element={<Auditoria />} />
 
           <Route path="calculadora" element={

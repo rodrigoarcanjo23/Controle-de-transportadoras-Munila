@@ -5,9 +5,10 @@ import { FileText, Save, Trash2, Edit, UploadCloud, Download, Printer, XCircle, 
 interface CtesProps {
   transportadoras: any[];
   formatarData: (d: string) => string;
+  onUpdateEntregas?: () => void; 
 }
 
-export function Ctes({ transportadoras, formatarData }: CtesProps) {
+export function Ctes({ transportadoras, formatarData, onUpdateEntregas }: CtesProps) {
   const [ctes, setCtes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -59,17 +60,14 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
     finally { setLoading(false); }
   }
 
-  // ==========================================
-  // FUNÇÃO MÁGICA: EXTRAÇÃO AUTOMÁTICA DE NFs
-  // ==========================================
   const extrairNFsDasChaves = (chavesStr: string) => {
     if (!chavesStr) return '-';
     const chavesArray = chavesStr.split(',');
     
     const nfs = chavesArray.map(chaveRaw => {
-      const chave = chaveRaw.replace(/\D/g, ''); // Remove espaços ou pontuações
+      const chave = chaveRaw.replace(/\D/g, ''); 
       if (chave.length === 44) {
-        return Number(chave.substring(25, 34)).toString(); // Extrai os 9 dígitos e remove zeros à esquerda
+        return Number(chave.substring(25, 34)).toString(); 
       }
       return ''; 
     }).filter(nf => nf !== ''); 
@@ -78,13 +76,62 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
     return nfs.join(' / ');
   };
 
+  // =========================================================
+  // MOTOR DE INTEGRAÇÃO AVANÇADO COM FEEDBACK
+  // =========================================================
+  async function processarIntegracaoFrete(cteData: any) {
+    if (!cteData.chave_acesso) return;
+
+    const chavesArray = cteData.chave_acesso.split(',');
+    const nfsExtraidas = chavesArray.map((chaveRaw: string) => {
+      const chave = chaveRaw.replace(/\D/g, '');
+      if (chave.length === 44) return Number(chave.substring(25, 34)).toString();
+      return '';
+    }).filter((nf: string) => nf !== '');
+
+    if (nfsExtraidas.length === 0) return;
+
+    const valorTotalCTE = Number(cteData.valor_total_servico) || 0;
+    const valorRateado = parseFloat((valorTotalCTE / nfsExtraidas.length).toFixed(2));
+
+    // CORREÇÃO TYPESCRIPT: (nf: string)
+    const nfVariations = nfsExtraidas.flatMap((nf: string) => {
+        const numStr = Number(nf).toString(); 
+        return [numStr, numStr.padStart(9, '0')];
+    });
+
+    try {
+      const { data: entregasAtualizadas, error } = await supabase
+        .from('entregas')
+        .update({
+          valor_frete_real: valorRateado,
+          frete_confirmado: true 
+        })
+        .in('nota_fiscal', nfVariations)
+        .select('nota_fiscal');
+
+      if (error) {
+        console.error("Erro na integração CTE -> Entrega", error);
+      } else {
+        if (entregasAtualizadas && entregasAtualizadas.length > 0) {
+           const atualizadasStr = entregasAtualizadas.map(e => e.nota_fiscal).join(', ');
+           alert(`🔗 INTEGRAÇÃO CONCLUÍDA COM SUCESSO!\n\nAs seguintes Notas Fiscais foram atualizadas no Painel Principal:\n✅ NF(s): ${atualizadasStr}\n\nO Frete Real de R$ ${valorRateado.toLocaleString('pt-BR')} foi aplicado e o status de Frete Confirmado foi ativado!`);
+        } else {
+           alert(`⚠️ AVISO DE INTEGRAÇÃO:\n\nO CTE foi salvo no sistema, mas as NFs (${nfsExtraidas.join(', ')}) NÃO FORAM ENCONTRADAS no seu Painel Principal.\n\nCertifique-se de que a Nota Fiscal já está lançada no Painel Principal com este exato número para que a integração funcione.`);
+        }
+        if (onUpdateEntregas) onUpdateEntregas();
+      }
+    } catch (err) {
+      console.error("Exceção na integração", err);
+    }
+  }
+
   const ctesFiltrados = ctes.filter(cte => {
     let passa = true;
     if (filtroDataInicio && cte.data_emissao < filtroDataInicio) passa = false;
     if (filtroDataFim && cte.data_emissao > filtroDataFim) passa = false;
     if (filtroNumeroDoc && !cte.numero_documento?.toLowerCase().includes(filtroNumeroDoc.toLowerCase())) passa = false;
     
-    // O filtro agora pesquisa tanto a Chave quanto o Nº da NF automaticamente!
     if (filtroChaveAcesso) {
       const termo = filtroChaveAcesso.toLowerCase();
       const nfsExtraidas = extrairNFsDasChaves(cte.chave_acesso);
@@ -143,16 +190,16 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
         if (error) throw error;
         if (data) {
           setCtes(ctes.map(c => c.id === editingId ? data[0] : c));
-          alert("✅ CTE atualizado com sucesso!");
           await registrarLogCte('EDITOU', `Editou o CTE Nº ${payload.numero_documento} (${payload.razao_social_emitente})`);
+          await processarIntegracaoFrete(data[0]);
         }
       } else {
         const { data, error } = await supabase.from('ctes').insert([payload]).select('*');
         if (error) throw error;
         if (data) {
           setCtes([data[0], ...ctes]);
-          alert("✅ CTE registrado com sucesso!");
           await registrarLogCte('CRIOU', `Registrou um novo CTE Nº ${payload.numero_documento} (${payload.razao_social_emitente})`);
+          await processarIntegracaoFrete(data[0]);
         }
       }
       cancelarEdicao();
@@ -269,7 +316,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   const exportarParaExcel = () => {
     if (ctesFiltrados.length === 0) { alert("Não há dados para exportar com estes filtros."); return; }
     
-    // Atualizado para incluir a NFs Vinculadas na exportação
     const cabecalho = ["Data", "Nº Doc", "Emitente", "CNPJ", "CFOP", "NFs Vinculadas", "Chaves Vinculadas", "Valor Serv. (R$)", "Situação", "Observação"].join(";");
     
     const linhas = ctesFiltrados.map(c => {
@@ -291,7 +337,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
 
   const exportarParaPDF = () => { window.print(); };
 
-  // Identifica NFs em tempo real enquanto o utilizador digita no formulário
   const chavesParaValidar = formData.chave_acesso.filter(chave => chave.replace(/\D/g, '').length === 44);
   const nfsIdentificadas = chavesParaValidar.map(chave => Number(chave.replace(/\D/g, '').substring(25, 34)).toString());
 
@@ -301,7 +346,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', minHeight: '100%', paddingBottom: '32px' }}>
       
-      {/* 1. FORMULÁRIO DE REGISTRO / EDIÇÃO */}
       <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
@@ -363,10 +407,9 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
               <PlusCircle size={16} /> Adicionar Nova Chave
             </button>
 
-            {/* FEEDBACK VISUAL EM TEMPO REAL DAS NFs IDENTIFICADAS */}
             {nfsIdentificadas.length > 0 && (
               <div style={{ marginTop: '16px', padding: '12px 16px', backgroundColor: '#dcfce7', borderRadius: '6px', border: '1px solid #bbf7d0', color: '#166534', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FileText size={18} /> NFs extraídas com sucesso: {nfsIdentificadas.join(' / ')}
+                <FileText size={18} /> NFs extraídas prontas para integração: {nfsIdentificadas.join(' / ')}
               </div>
             )}
           </div>
@@ -380,13 +423,12 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
               </button>
             )}
             <button type="submit" className="btn-primary" disabled={submitting} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Save size={18} /> {submitting ? 'A Salvar...' : editingId ? 'Atualizar CTE' : 'Registrar CTE'}
+              <Save size={18} /> {submitting ? 'A Integrar...' : editingId ? 'Atualizar e Integrar CTE' : 'Registrar e Integrar CTE'}
             </button>
           </div>
         </form>
       </div>
 
-      {/* 2. FILTROS E RELATÓRIO DO HISTÓRICO */}
       <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -421,7 +463,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
         </div>
       </div>
 
-      {/* 3. PAINEL DE RESUMO */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -442,7 +483,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
         </div>
       </div>
 
-      {/* 4. TABELA DE HISTÓRICO */}
       <div className="table-container" style={{ width: '100%', overflowX: 'auto', backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '0', position: 'relative' }}>
         <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
@@ -452,7 +492,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
               <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>Emitente</th>
               <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>CNPJ</th>
               <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>CFOP</th>
-              {/* NOVA COLUNA */}
               <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>NFs (Origem)</th>
               <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>Chaves Vinculadas</th>
               <th style={{...thStyle, position: 'sticky', top: 0, zIndex: 10}}>Valor Serv. (R$)</th>
@@ -471,7 +510,6 @@ export function Ctes({ transportadoras, formatarData }: CtesProps) {
                  <td style={tdStyle}>{cte.cnpj_emitente || '-'}</td>
                  <td style={{...tdStyle, fontWeight: 'bold'}}>{cte.cfop || '-'}</td>
                  
-                 {/* COLUNA EXTRAÍDA AUTOMATICAMENTE */}
                  <td style={{...tdStyle, fontWeight: 'bold', color: '#16a34a'}}>{extrairNFsDasChaves(cte.chave_acesso)}</td>
 
                  <td style={{...tdStyle, whiteSpace: 'normal', minWidth: '250px'}}>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { supabase } from '../lib/supabase'; // Importamos o Supabase para consultar em tempo real
+import { supabase } from '../lib/supabase'; 
 
 interface ModalEntregaProps {
   isOpen: boolean;
@@ -17,14 +17,10 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
   const [buscaCliente, setBuscaCliente] = useState('');
   const [mostrarDropdownCliente, setMostrarDropdownCliente] = useState(false);
 
-  // ==========================================
-  // ESTADOS PARA VALIDAÇÃO EM TEMPO REAL DA NF
-  // ==========================================
   const [initialNf, setInitialNf] = useState('');
   const [nfStatus, setNfStatus] = useState<'idle' | 'checking' | 'available' | 'duplicate'>('idle');
   const [clienteDuplicado, setClienteDuplicado] = useState<string>('');
 
-  // 1. Carrega o Cliente e a NF inicial quando o modal abre
   useEffect(() => {
     if (isOpen) {
       if (formData.cliente_id) {
@@ -33,25 +29,17 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
       } else {
         setBuscaCliente('');
       }
-      
-      // Guarda a NF que estava aqui (se for edição) para não dar falso-positivo nela mesma
       setInitialNf(formData.nota_fiscal || '');
       setNfStatus('idle');
     }
   }, [isOpen, formData.cliente_id, clientes]);
 
-  // 2. O "Olheiro" da NF (Dispara meio segundo após o utilizador parar de digitar)
   useEffect(() => {
     if (!isOpen) return;
 
     const nfLimpa = String(formData.nota_fiscal || '').trim();
-    
-    if (!nfLimpa) {
-      setNfStatus('idle');
-      return;
-    }
+    if (!nfLimpa) { setNfStatus('idle'); return; }
 
-    // Se estiver a editar e a NF for igual à que já estava, está liberada
     if (isEditing && nfLimpa.toLowerCase() === String(initialNf).trim().toLowerCase()) {
       setNfStatus('available');
       return;
@@ -59,26 +47,17 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
 
     setNfStatus('checking');
 
-    // Cria um temporizador para não consultar o banco a cada tecla (Debounce de 600ms)
     const timeoutId = setTimeout(async () => {
       try {
-        const { data, error } = await supabase
-          .from('entregas')
-          .select('clientes (nome)')
-          .ilike('nota_fiscal', nfLimpa)
-          .limit(1);
+        const { data, error } = await supabase.from('entregas').select('clientes (nome)').ilike('nota_fiscal', nfLimpa).limit(1);
 
         if (!error && data && data.length > 0) {
           setNfStatus('duplicate');
-          // CORREÇÃO DO TYPESCRIPT APLICADA AQUI '( ... as any)'
           setClienteDuplicado((data[0].clientes as any)?.nome || 'Cliente Desconhecido');
         } else {
           setNfStatus('available');
         }
-      } catch (error) {
-        console.error(error);
-        setNfStatus('idle');
-      }
+      } catch (error) { console.error(error); setNfStatus('idle'); }
     }, 600);
 
     return () => clearTimeout(timeoutId);
@@ -105,112 +84,37 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
             
             <div className="form-group" style={{ position: 'relative', gridColumn: '1 / -1' }}>
               <label>Cliente</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Digite o nome ou CNPJ..."
-                required={!formData.cliente_id}
-                value={buscaCliente}
-                onChange={(e) => {
-                  setBuscaCliente(e.target.value);
-                  setMostrarDropdownCliente(true);
-                  setFormData({...formData, cliente_id: ''}); 
-                }}
-                onFocus={() => setMostrarDropdownCliente(true)}
-                onBlur={() => setTimeout(() => setMostrarDropdownCliente(false), 200)}
-              />
+              <input type="text" className="form-input" placeholder="Digite o nome ou CNPJ..." required={!formData.cliente_id} value={buscaCliente} onChange={(e) => { setBuscaCliente(e.target.value); setMostrarDropdownCliente(true); setFormData({...formData, cliente_id: ''}); }} onFocus={() => setMostrarDropdownCliente(true)} onBlur={() => setTimeout(() => setMostrarDropdownCliente(false), 200)} />
               {mostrarDropdownCliente && (
-                <ul style={{
-                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-                  backgroundColor: 'white', border: '1px solid var(--border-color)', borderRadius: '6px',
-                  maxHeight: '200px', overflowY: 'auto', margin: '4px 0 0 0', padding: 0, listStyle: 'none',
-                  boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
-                }}>
+                <ul style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, backgroundColor: 'white', border: '1px solid var(--border-color)', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', margin: '4px 0 0 0', padding: 0, listStyle: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
                   {clientesFiltradosDropdown.map(c => (
-                    <li
-                      key={c.id}
-                      style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: '0.85rem', color: 'var(--text-main)' }}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        setBuscaCliente(c.nome);
-                        setFormData({
-                          ...formData, 
-                          cliente_id: c.id,
-                          tem_agendamento: c.exige_agendamento || false
-                        });
-                        setMostrarDropdownCliente(false);
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8fafc')}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                    >
+                    <li key={c.id} style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: '0.85rem', color: 'var(--text-main)' }} onMouseDown={(e) => { e.preventDefault(); setBuscaCliente(c.nome); setFormData({ ...formData, cliente_id: c.id, tem_agendamento: c.exige_agendamento || false }); setMostrarDropdownCliente(false); }} onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8fafc')} onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}>
                       <div style={{ fontWeight: 'bold' }}>{c.nome}</div>
                       {c.cnpj_cpf && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.cnpj_cpf}</div>}
                     </li>
                   ))}
-                  {clientesFiltradosDropdown.length === 0 && (
-                    <li style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nenhum cliente encontrado</li>
-                  )}
+                  {clientesFiltradosDropdown.length === 0 && ( <li style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nenhum cliente encontrado</li> )}
                 </ul>
               )}
             </div>
 
-            {/* CAMPO DE NOTA FISCAL COM VALIDAÇÃO VISUAL */}
             <div className="form-group" style={{ display: 'flex', flexDirection: 'column' }}>
               <label>Nota Fiscal <span style={{ color: '#ef4444' }}>*</span></label>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  required 
-                  value={formData.nota_fiscal} 
-                  onChange={(e) => setFormData({...formData, nota_fiscal: e.target.value})} 
-                  style={{ 
-                    width: '100%',
-                    paddingRight: '36px',
-                    borderColor: nfStatus === 'duplicate' ? '#ef4444' : nfStatus === 'available' ? '#22c55e' : 'var(--border-color)',
-                    backgroundColor: nfStatus === 'duplicate' ? '#fef2f2' : nfStatus === 'available' ? '#f0fdf4' : 'white',
-                    transition: 'all 0.3s ease'
-                  }}
-                />
+                <input type="text" className="form-input" required value={formData.nota_fiscal} onChange={(e) => setFormData({...formData, nota_fiscal: e.target.value})} style={{ width: '100%', paddingRight: '36px', borderColor: nfStatus === 'duplicate' ? '#ef4444' : nfStatus === 'available' ? '#22c55e' : 'var(--border-color)', backgroundColor: nfStatus === 'duplicate' ? '#fef2f2' : nfStatus === 'available' ? '#f0fdf4' : 'white', transition: 'all 0.3s ease' }} />
                 <div style={{ position: 'absolute', right: '10px', display: 'flex', alignItems: 'center' }}>
                   {nfStatus === 'duplicate' && <AlertTriangle size={18} color="#ef4444" />}
                   {nfStatus === 'available' && <CheckCircle2 size={18} color="#22c55e" />}
                 </div>
               </div>
-              
-              {nfStatus === 'checking' && (
-                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 'bold', marginTop: '4px' }}>
-                  ⏳ Verificando disponibilidade...
-                </span>
-              )}
-              {nfStatus === 'duplicate' && (
-                <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 'bold', marginTop: '4px' }}>
-                  ⚠️ NF já cadastrada (Cliente: {clienteDuplicado})
-                </span>
-              )}
-              {nfStatus === 'available' && (
-                <span style={{ fontSize: '0.75rem', color: '#22c55e', fontWeight: 'bold', marginTop: '4px' }}>
-                  ✅ Nota Fiscal livre
-                </span>
-              )}
+              {nfStatus === 'checking' && ( <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 'bold', marginTop: '4px' }}> ⏳ Verificando disponibilidade... </span> )}
+              {nfStatus === 'duplicate' && ( <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 'bold', marginTop: '4px' }}> ⚠️ NF já cadastrada (Cliente: {clienteDuplicado}) </span> )}
+              {nfStatus === 'available' && ( <span style={{ fontSize: '0.75rem', color: '#22c55e', fontWeight: 'bold', marginTop: '4px' }}> ✅ Nota Fiscal livre </span> )}
             </div>
             
             <div className="form-group">
               <label>Transportadora</label>
-              <select 
-                className="form-select" 
-                value={formData.transportadora_id} 
-                onChange={(e) => {
-                  const selectedId = e.target.value;
-                  const transportadoraSelecionada = transportadoras.find(t => t.id === selectedId);
-                  
-                  setFormData({
-                    ...formData, 
-                    transportadora_id: selectedId,
-                    modal_frete: transportadoraSelecionada?.modal_padrao || ''
-                  });
-                }}
-              >
+              <select className="form-select" value={formData.transportadora_id} onChange={(e) => { const selectedId = e.target.value; const transportadoraSelecionada = transportadoras.find(t => t.id === selectedId); setFormData({ ...formData, transportadora_id: selectedId, modal_frete: transportadoraSelecionada?.modal_padrao || '' }); }}>
                 <option value="">Selecione...</option>
                 {transportadoras.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
               </select>
@@ -228,25 +132,34 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
             <div className="form-group"><label>Data Coleta</label><input type="date" className="form-input" value={formData.data_coleta} onChange={(e) => setFormData({...formData, data_coleta: e.target.value})} /></div>
 
             <div className="form-group"><label>Valor da NF (R$)</label><input type="number" step="0.01" className="form-input" value={formData.valor_nf} onChange={(e) => setFormData({...formData, valor_nf: e.target.value})} /></div>
-            <div className="form-group"><label>Custo do Frete (R$)</label><input type="number" step="0.01" className="form-input" value={formData.valor_frete} onChange={(e) => setFormData({...formData, valor_frete: e.target.value})} /></div>
+            
+            {/* Frete Cotado */}
+            <div className="form-group">
+              <label>Frete Cotado (R$)</label>
+              <input type="text" className="form-input" placeholder="0,00" value={formData.valor_frete} onChange={(e) => {
+                let valor = e.target.value.replace(/[^\d,]/g, '');
+                if (valor.split(',').length > 2) valor = valor.split(',')[0] + ',' + valor.split(',').slice(1).join('');
+                setFormData({...formData, valor_frete: valor});
+              }} />
+            </div>
+
+            {/* NOVO: Frete Real (Auditado) */}
+            <div className="form-group">
+              <label style={{ color: '#166534', fontWeight: 'bold' }}>Frete Real (CTE) (R$)</label>
+              <input type="text" className="form-input" style={{ backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }} placeholder="Auto-preenchido pelo CTE..." value={formData.valor_frete_real} onChange={(e) => {
+                let valor = e.target.value.replace(/[^\d,]/g, '');
+                if (valor.split(',').length > 2) valor = valor.split(',')[0] + ',' + valor.split(',').slice(1).join('');
+                setFormData({...formData, valor_frete_real: valor});
+              }} />
+            </div>
 
             <div className="form-group"><label>Volume (Caixas)</label><input type="number" className="form-input" value={formData.volume} onChange={(e) => setFormData({...formData, volume: e.target.value})} /></div>
             
-            {/* CAMPO DE PESO COM A MÁSCARA PARA ACEITAR VÍRGULA */}
             <div className="form-group">
               <label>Peso (Kg) <span style={{ color: '#ef4444' }}>*</span></label>
-              <input 
-                type="text" 
-                className="form-input" 
-                placeholder="Ex: 15,50"
-                required 
-                value={formData.peso_kg} 
-                onChange={(e) => {
+              <input type="text" className="form-input" placeholder="Ex: 15,50" required value={formData.peso_kg} onChange={(e) => {
                   let valor = e.target.value.replace(/[^\d,]/g, '');
-                  const partes = valor.split(',');
-                  if (partes.length > 2) {
-                    valor = partes[0] + ',' + partes.slice(1).join('');
-                  }
+                  if (valor.split(',').length > 2) valor = valor.split(',')[0] + ',' + valor.split(',').slice(1).join('');
                   setFormData({...formData, peso_kg: valor});
                 }} 
               />
@@ -266,17 +179,9 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
             
             <div className="form-group">
               <label>Data Entrega</label>
-              <input 
-                type="date" 
-                className="form-input" 
-                value={formData.data_entrega_agendamento} 
-                onChange={(e) => {
+              <input type="date" className="form-input" value={formData.data_entrega_agendamento} onChange={(e) => {
                   const novaData = e.target.value;
-                  setFormData({
-                    ...formData, 
-                    data_entrega_agendamento: novaData,
-                    status: novaData ? 'Entregue' : formData.status
-                  });
+                  setFormData({ ...formData, data_entrega_agendamento: novaData, status: novaData ? 'Entregue' : formData.status });
                 }} 
               />
             </div>
@@ -315,15 +220,7 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
 
           <div className="modal-footer">
             <button type="button" className="btn-secondary" onClick={onClose}>Cancelar</button>
-            <button 
-              type="submit" 
-              className="btn-primary" 
-              disabled={nfStatus === 'duplicate' || nfStatus === 'checking'}
-              style={{ 
-                opacity: (nfStatus === 'duplicate' || nfStatus === 'checking') ? 0.6 : 1, 
-                cursor: (nfStatus === 'duplicate' || nfStatus === 'checking') ? 'not-allowed' : 'pointer' 
-              }}
-            >
+            <button type="submit" className="btn-primary" disabled={nfStatus === 'duplicate' || nfStatus === 'checking'} style={{ opacity: (nfStatus === 'duplicate' || nfStatus === 'checking') ? 0.6 : 1, cursor: (nfStatus === 'duplicate' || nfStatus === 'checking') ? 'not-allowed' : 'pointer' }}>
               {isEditing ? 'Atualizar Entrega' : 'Salvar Entrega'}
             </button>
           </div>

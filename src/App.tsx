@@ -44,11 +44,13 @@ export default function App() {
   const [filtroFreteConfirmado, setFiltroFreteConfirmado] = useState(false);
   const [filtroComAgendamento, setFiltroComAgendamento] = useState(false);
   const [filtroSemAgendamento, setFiltroSemAgendamento] = useState(false);
+  
+  const [filtroComFreteCotado, setFiltroComFreteCotado] = useState(false);
+  const [filtroComFreteReal, setFiltroComFreteReal] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
-  // ADICIONADO: valor_frete_real
   const [formData, setFormData] = useState({
     nota_fiscal: '', cliente_id: '', transportadora_id: '', cidade_destino: '', uf_destino: '', modal_frete: '', 
     data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', valor_frete_real: '', volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', 
@@ -139,7 +141,7 @@ export default function App() {
     setFormData({ 
       nota_fiscal: entrega.nota_fiscal, cliente_id: entrega.cliente_id, transportadora_id: entrega.transportadora_id, cidade_destino: entrega.cidade_destino || '', uf_destino: entrega.uf_destino || '', modal_frete: entrega.modal_frete || '', data_faturamento: entrega.data_faturamento || '', data_coleta: entrega.data_coleta || '', valor_nf: entrega.valor_nf?.toString() || '', 
       valor_frete: entrega.valor_frete?.toString().replace('.', ',') || '', 
-      valor_frete_real: entrega.valor_frete_real?.toString().replace('.', ',') || '', // Traz o Frete Real
+      valor_frete_real: entrega.valor_frete_real?.toString().replace('.', ',') || '', 
       volume: entrega.volume?.toString() || '', 
       peso_kg: entrega.peso_kg?.toString().replace('.', ',') || '', 
       tem_agendamento: entrega.tem_agendamento || false, data_previsao: entrega.data_previsao || '', data_entrega_agendamento: entrega.data_entrega_agendamento || '', observacoes: entrega.observacoes || '', status: entrega.status, frete_confirmado: entrega.frete_confirmado || false 
@@ -197,7 +199,6 @@ export default function App() {
 
     const nf = parseFloat(formData.valor_nf) || 0; 
     
-    // Tratamento das vírgulas para Frete Cotado, Frete Real e Peso
     const freteCotado = parseFloat(String(formData.valor_frete).replace(',', '.')) || null;
     const freteReal = parseFloat(String(formData.valor_frete_real).replace(',', '.')) || null;
     const pesoFormatado = parseFloat(String(formData.peso_kg).replace(',', '.')) || null;
@@ -307,7 +308,13 @@ export default function App() {
     }
   };
 
-  function limparFiltros() { setSearchTerm(''); setFiltroDataInicio(''); setFiltroDataFim(''); setFiltroTransportadora(''); setFiltroModal(''); setFiltroStatus([]); setFiltroFreteVazio(false); setFiltroFreteConfirmado(false); setFiltroComAgendamento(false); setFiltroSemAgendamento(false); }
+  function limparFiltros() { 
+    setSearchTerm(''); setFiltroDataInicio(''); setFiltroDataFim(''); 
+    setFiltroTransportadora(''); setFiltroModal(''); setFiltroStatus([]); 
+    setFiltroFreteVazio(false); setFiltroFreteConfirmado(false); 
+    setFiltroComAgendamento(false); setFiltroSemAgendamento(false);
+    setFiltroComFreteCotado(false); setFiltroComFreteReal(false); 
+  }
 
   const entregasFiltradas = entregas.filter(entrega => {
     const termo = searchTerm.toLowerCase();
@@ -325,21 +332,19 @@ export default function App() {
     
     const passaStatus = filtroStatus.length === 0 ? true : filtroStatus.includes(entrega.status);
     
-    // Filtro vazio verifica o Frete Real primeiro, senão olha para o Cotado
     const passaFreteVazio = filtroFreteVazio ? (!entrega.valor_frete_real && !entrega.valor_frete) : true;
-    
     const passaFreteConfirmado = filtroFreteConfirmado ? entrega.frete_confirmado === true : true;
     const passaComAgendamento = filtroComAgendamento ? entrega.tem_agendamento === true : true;
     const passaSemAgendamento = filtroSemAgendamento ? (!entrega.tem_agendamento) : true;
 
-    return passaTexto && passaData && passaTransp && passaModal && passaStatus && passaFreteVazio && passaFreteConfirmado && passaComAgendamento && passaSemAgendamento;
+    const passaComFreteCotado = filtroComFreteCotado ? (Number(entrega.valor_frete) > 0) : true;
+    const passaComFreteReal = filtroComFreteReal ? (Number(entrega.valor_frete_real) > 0) : true;
+
+    return passaTexto && passaData && passaTransp && passaModal && passaStatus && passaFreteVazio && passaFreteConfirmado && passaComAgendamento && passaSemAgendamento && passaComFreteCotado && passaComFreteReal;
   }).sort((a, b) => new Date(b.data_faturamento || b.created_at || 0).getTime() - new Date(a.data_faturamento || a.created_at || 0).getTime());
 
   const faturamentoTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
-  
-  // O KPI de Frete Total agora dá preferência ao Frete Real. Se não existir, soma o Cotado.
   const freteTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_frete_real) || Number(curr.valor_frete) || 0), 0);
-  
   const freteMedio = faturamentoTotal > 0 ? ((freteTotal / faturamentoTotal) * 100).toFixed(2) : '0.00';
   const volumeTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.volume) || 0), 0);
   const pesoTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.peso_kg) || 0), 0);
@@ -365,9 +370,13 @@ export default function App() {
               filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado}
               filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento}
               filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento}
+              filtroComFreteCotado={filtroComFreteCotado} setFiltroComFreteCotado={setFiltroComFreteCotado}
+              filtroComFreteReal={filtroComFreteReal} setFiltroComFreteReal={setFiltroComFreteReal}
               transportadoras={transportadoras} limparFiltros={limparFiltros} 
               abrirModalNovaEntrega={abrirModalNovaEntrega}
-              faturamentoTotal={faturamentoTotal} progressoMeta={'0'} freteTotal={freteTotal} freteMedio={freteMedio} atrasados={0} volumeTotal={volumeTotal} pesoTotal={pesoTotal} loading={loading}
+              
+              /* AQUI: Removi faturamentoTotal, progressoMeta e atrasados da chamada! */
+              freteTotal={freteTotal} freteMedio={freteMedio} volumeTotal={volumeTotal} pesoTotal={pesoTotal} loading={loading}
               entregasFiltradas={entregasFiltradas} formatarData={formatarData} calcularPorcentagemFrete={calcularPorcentagemFrete} calcularDiasEntrega={calcularDiasEntrega} getStatusColor={getStatusColor}
               abrirModalEdicao={abrirModalEdicao} handleDeleteEntrega={handleDeleteEntrega}
             />
@@ -377,10 +386,7 @@ export default function App() {
           <Route path="clientes" element={<Clientes clientes={clientes} metas={metas} abrirModalNovoCliente={abrirModalNovoCliente} abrirModalNovaMeta={abrirModalNovaMeta} abrirModalEdicaoCliente={abrirModalEdicaoCliente} handleDeleteCliente={handleDeleteCliente} onUpdate={carregarDadosDoBanco} />} />
           <Route path="transportadoras" element={<Transportadoras transportadoras={transportadoras} entregas={entregas} onUpdate={buscarDominios} />} />
           <Route path="devolucoes" element={<Devolucoes devolucoes={devolucoes} clientes={clientes} onUpdate={buscarDevolucoes} formatarData={formatarData} getStatusColor={getStatusColor} />} />
-          
-          {/* CTEs RECEBE ONUPDATE PARA ATUALIZAR ENTREGAS QUANDO SALVAR UM CTE */}
           <Route path="ctes" element={<Ctes transportadoras={transportadoras} formatarData={formatarData} onUpdateEntregas={carregarDadosDoBanco} />} />
-          
           <Route path="auditoria" element={<Auditoria />} />
 
           <Route path="calculadora" element={

@@ -1,128 +1,110 @@
 import { Search, Filter, Download, Plus } from 'lucide-react';
 
-interface HeaderProps {
-  searchTerm: string;
-  setSearchTerm: (value: string) => void;
-  mostrarFiltros: boolean;
-  setMostrarFiltros: (value: boolean) => void;
-  filtroDataInicio: string;
-  setFiltroDataInicio: (value: string) => void;
-  filtroDataFim: string;
-  setFiltroDataFim: (value: string) => void;
-  filtroTransportadora: string;
-  setFiltroTransportadora: (value: string) => void;
-  filtroModal: string;
-  setFiltroModal: (value: string) => void;
-  
-  // ATUALIZADO: Array de strings
-  filtroStatus: string[];
-  setFiltroStatus: (value: string[]) => void;
-  
-  filtroFreteVazio: boolean;
-  setFiltroFreteVazio: (value: boolean) => void;
-  filtroFreteConfirmado: boolean;
-  setFiltroFreteConfirmado: (value: boolean) => void;
-  filtroComAgendamento: boolean;
-  setFiltroComAgendamento: (value: boolean) => void;
-  filtroSemAgendamento: boolean;
-  setFiltroSemAgendamento: (value: boolean) => void;
-  transportadoras: any[];
-  limparFiltros: () => void;
-  exportarParaExcel: () => void;
-  abrirModalNovaEntrega: () => void;
-}
+export function Header(props: any) {
+  const {
+    searchTerm, setSearchTerm,
+    mostrarFiltros, setMostrarFiltros,
+    filtroDataInicio, setFiltroDataInicio,
+    filtroDataFim, setFiltroDataFim,
+    filtroTransportadora, setFiltroTransportadora,
+    filtroModal, setFiltroModal,
+    filtroStatus, setFiltroStatus,
+    filtroFreteVazio, setFiltroFreteVazio,
+    filtroFreteConfirmado, setFiltroFreteConfirmado,
+    filtroComAgendamento, setFiltroComAgendamento,
+    filtroSemAgendamento, setFiltroSemAgendamento,
+    filtroComFreteCotado, setFiltroComFreteCotado,
+    filtroComFreteReal, setFiltroComFreteReal,
+    transportadoras, limparFiltros,
+    exportarParaExcel, abrirModalNovaEntrega
+  } = props;
 
-export function Header({
-  searchTerm, setSearchTerm, mostrarFiltros, setMostrarFiltros,
-  filtroDataInicio, setFiltroDataInicio, filtroDataFim, setFiltroDataFim,
-  filtroTransportadora, setFiltroTransportadora, filtroModal, setFiltroModal,
-  filtroStatus, setFiltroStatus, filtroFreteVazio, setFiltroFreteVazio, 
-  filtroFreteConfirmado, setFiltroFreteConfirmado, 
-  filtroComAgendamento, setFiltroComAgendamento, 
-  filtroSemAgendamento, setFiltroSemAgendamento, 
-  transportadoras, limparFiltros,
-  exportarParaExcel, abrirModalNovaEntrega
-}: HeaderProps) {
-
-  // Função para marcar/desmarcar um status específico no array
-  const handleStatusToggle = (status: string) => {
+  const toggleStatus = (status: string) => {
     if (filtroStatus.includes(status)) {
-      setFiltroStatus(filtroStatus.filter(s => s !== status));
+      setFiltroStatus(filtroStatus.filter((s: string) => s !== status));
     } else {
       setFiltroStatus([...filtroStatus, status]);
     }
   };
 
-  const listaDeStatus = [
+  const statusOptions = [
     'Pendente', 'Pendente agendamento', 'Aguardando coleta', 'Solicitado Agendamento', 
     'Agendado', 'Em Transporte', 'Entregue', 'Atrasado', 'Devolução', 'Frete Conferido'
   ];
 
   return (
-    <div style={{ marginBottom: '24px' }}>
-      <div className="header">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h2>Acompanhamento Logístico</h2>
-          <p>Gerenciamento de entregas de {new Date().getFullYear()}</p>
+          <h2 style={{ fontSize: '1.5rem', color: 'var(--text-main)', margin: 0 }}>Acompanhamento Logístico</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>Gerenciamento de entregas de 2026</p>
         </div>
-        
-        <div style={{ display: 'flex', gap: '12px' }}>
+
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <div style={{ position: 'relative' }}>
-            <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '11px' }} />
+            <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '10px' }} />
             <input 
               type="text" 
-              placeholder="Buscar NF, Cliente ou Status..." 
               className="form-input" 
-              style={{ paddingLeft: '36px', width: '250px' }}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar NF, Cliente ou Status..." 
+              value={searchTerm} 
+              onChange={e => setSearchTerm(e.target.value)} 
+              style={{ paddingLeft: '36px', width: '250px' }} 
             />
           </div>
-          
+
           <button 
+            type="button" 
             className="btn-secondary" 
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: mostrarFiltros ? '#f1f5f9' : 'white' }}
             onClick={() => setMostrarFiltros(!mostrarFiltros)}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: mostrarFiltros ? '#f1f5f9' : 'white' }}
           >
             <Filter size={18} /> Filtros
           </button>
-          
-          <button className="btn-secondary" onClick={exportarParaExcel} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+
+          <button 
+            type="button" 
+            className="btn-secondary" 
+            onClick={exportarParaExcel}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#16a34a', borderColor: '#16a34a' }}
+          >
             <Download size={18} /> Exportar
           </button>
 
-          <button className="btn-primary" onClick={abrirModalNovaEntrega}>
+          <button 
+            type="button" 
+            className="btn-primary" 
+            onClick={abrirModalNovaEntrega}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
             <Plus size={18} /> Nova Entrega
           </button>
         </div>
       </div>
 
       {mostrarFiltros && (
-        <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          
-          {/* LINHA 1 DOS FILTROS (Datas e Dropdowns) */}
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap', width: '100%' }}>
-            <div className="form-group">
-              <label style={{ fontSize: '0.75rem' }}>Data Início (Fat.)</label>
-              <input type="date" className="form-input" value={filtroDataInicio} onChange={(e) => setFiltroDataInicio(e.target.value)} />
+        <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '16px' }}>
+            <div className="form-group" style={{ flex: '1 1 120px', margin: 0 }}>
+              <label>Data Início (Fat.)</label>
+              <input type="date" className="form-input" value={filtroDataInicio} onChange={e => setFiltroDataInicio(e.target.value)} />
             </div>
-            
-            <div className="form-group">
-              <label style={{ fontSize: '0.75rem' }}>Data Fim (Fat.)</label>
-              <input type="date" className="form-input" value={filtroDataFim} onChange={(e) => setFiltroDataFim(e.target.value)} />
+            <div className="form-group" style={{ flex: '1 1 120px', margin: 0 }}>
+              <label>Data Fim (Fat.)</label>
+              <input type="date" className="form-input" value={filtroDataFim} onChange={e => setFiltroDataFim(e.target.value)} />
             </div>
-            
-            <div className="form-group">
-              <label style={{ fontSize: '0.75rem' }}>Transportadora</label>
-              <select className="form-select" value={filtroTransportadora} onChange={(e) => setFiltroTransportadora(e.target.value)}>
+            <div className="form-group" style={{ flex: '2 1 200px', margin: 0 }}>
+              <label>Transportadora</label>
+              <select className="form-select" value={filtroTransportadora} onChange={e => setFiltroTransportadora(e.target.value)}>
                 <option value="">Todas as Transp.</option>
-                {transportadoras.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+                {transportadoras.map((t: any) => (
+                  <option key={t.id} value={t.id}>{t.nome}</option>
+                ))}
               </select>
             </div>
-            
-            <div className="form-group">
-              <label style={{ fontSize: '0.75rem' }}>Modal</label>
-              <select className="form-select" value={filtroModal} onChange={(e) => setFiltroModal(e.target.value)}>
+            <div className="form-group" style={{ flex: '1 1 150px', margin: 0 }}>
+              <label>Modal</label>
+              <select className="form-select" value={filtroModal} onChange={e => setFiltroModal(e.target.value)}>
                 <option value="">Todos</option>
                 <option value="AÉREO">Aéreo</option>
                 <option value="RODOVIÁRIO">Rodoviário</option>
@@ -131,59 +113,55 @@ export function Header({
               </select>
             </div>
 
-            <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', marginLeft: 'auto' }}>
-              {/* GRUPO DE FRETES */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
-                  <input type="checkbox" id="freteVazio" checked={filtroFreteVazio} onChange={(e) => setFiltroFreteVazio(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ef4444' }} />
-                  <label htmlFor="freteVazio" style={{ fontSize: '0.85rem', cursor: 'pointer', margin: 0, color: '#ef4444', fontWeight: 'bold' }}>Exibir Fretes Zerados</label>
-                </div>
-                <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
-                  <input type="checkbox" id="freteConfirmadoFiltro" checked={filtroFreteConfirmado} onChange={(e) => setFiltroFreteConfirmado(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#16a34a' }} />
-                  <label htmlFor="freteConfirmadoFiltro" style={{ fontSize: '0.85rem', cursor: 'pointer', margin: 0, color: '#166534', fontWeight: 'bold' }}>Apenas Fretes Confirmados</label>
-                </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginLeft: 'auto' }}>
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem', cursor: 'pointer', color: '#ef4444' }}>
+                  <input type="checkbox" checked={filtroFreteVazio} onChange={e => setFiltroFreteVazio(e.target.checked)} /> Exibir Fretes Zerados
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem', cursor: 'pointer', color: '#16a34a' }}>
+                  <input type="checkbox" checked={filtroFreteConfirmado} onChange={e => setFiltroFreteConfirmado(e.target.checked)} /> Apenas Fretes Confirmados
+                </label>
               </div>
-
-              {/* GRUPO DE AGENDAMENTOS */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
-                  <input type="checkbox" id="comAgendamento" checked={filtroComAgendamento} onChange={(e) => setFiltroComAgendamento(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#8b5cf6' }} />
-                  <label htmlFor="comAgendamento" style={{ fontSize: '0.85rem', cursor: 'pointer', margin: 0, color: '#6d28d9', fontWeight: 'bold' }}>Com Agendamento (SIM)</label>
-                </div>
-                <div className="form-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '8px' }}>
-                  <input type="checkbox" id="semAgendamento" checked={filtroSemAgendamento} onChange={(e) => setFiltroSemAgendamento(e.target.checked)} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#64748b' }} />
-                  <label htmlFor="semAgendamento" style={{ fontSize: '0.85rem', cursor: 'pointer', margin: 0, color: '#475569', fontWeight: 'bold' }}>Sem Agendamento (NÃO)</label>
-                </div>
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem', cursor: 'pointer', color: '#6b21a8' }}>
+                  <input type="checkbox" checked={filtroComAgendamento} onChange={e => setFiltroComAgendamento(e.target.checked)} /> Com Agendamento (SIM)
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem', cursor: 'pointer', color: '#475569' }}>
+                  <input type="checkbox" checked={filtroSemAgendamento} onChange={e => setFiltroSemAgendamento(e.target.checked)} /> Sem Agendamento (NÃO)
+                </label>
               </div>
               
-              <button 
-                type="button" 
-                onClick={limparFiltros}
-                style={{ padding: '10px 16px', backgroundColor: 'white', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, height: '42px', marginLeft: '8px' }}
-              >
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem', cursor: 'pointer', color: '#0284c7' }}>
+                  <input type="checkbox" checked={filtroComFreteCotado} onChange={e => setFiltroComFreteCotado(e.target.checked)} /> Apenas com Frete Cotado
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem', cursor: 'pointer', color: '#166534' }}>
+                  <input type="checkbox" checked={filtroComFreteReal} onChange={e => setFiltroComFreteReal(e.target.checked)} /> Apenas com Frete Real
+                </label>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'flex-end', marginLeft: '16px' }}>
+              <button type="button" className="btn-secondary" style={{ color: '#ef4444', borderColor: '#ef4444', height: '38px' }} onClick={limparFiltros}>
                 Limpar Filtros
               </button>
             </div>
           </div>
 
-          {/* LINHA 2 DOS FILTROS (Checkboxes de Status) */}
-          <div style={{ width: '100%', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-main)', marginBottom: '12px', display: 'block' }}>Status da Entrega (Múltipla Escolha)</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-              {listaDeStatus.map(status => (
-                <label key={status} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer', backgroundColor: 'white', padding: '6px 12px', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
-                  <input
-                    type="checkbox"
-                    checked={filtroStatus.includes(status)}
-                    onChange={() => handleStatusToggle(status)}
-                    style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-                  />
+          <div className="form-group" style={{ margin: 0 }}>
+            <label style={{ fontWeight: 'bold' }}>Status da Entrega (Múltipla Escolha)</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '8px' }}>
+              {statusOptions.map(status => (
+                <label key={status} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: filtroStatus.includes(status) ? '#e0f2fe' : '#f8fafc', border: `1px solid ${filtroStatus.includes(status) ? '#bae6fd' : '#e2e8f0'}`, borderRadius: '6px', cursor: 'pointer', fontSize: '0.80rem', color: filtroStatus.includes(status) ? '#0369a1' : '#475569', transition: 'all 0.2s' }}>
+                  <input type="checkbox" checked={filtroStatus.includes(status)} onChange={() => toggleStatus(status)} style={{ display: 'none' }} />
+                  <div style={{ width: '14px', height: '14px', borderRadius: '3px', border: `1px solid ${filtroStatus.includes(status) ? '#0284c7' : '#cbd5e1'}`, backgroundColor: filtroStatus.includes(status) ? '#0284c7' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {filtroStatus.includes(status) && <div style={{ width: '8px', height: '8px', backgroundColor: 'white', borderRadius: '1px' }}></div>}
+                  </div>
                   {status}
                 </label>
               ))}
             </div>
           </div>
-
         </div>
       )}
     </div>

@@ -25,14 +25,15 @@ interface DashboardProps {
   setFiltroComAgendamento: (value: boolean) => void;
   filtroSemAgendamento: boolean;
   setFiltroSemAgendamento: (value: boolean) => void;
+  filtroComFreteCotado: boolean;
+  setFiltroComFreteCotado: (value: boolean) => void;
+  filtroComFreteReal: boolean;
+  setFiltroComFreteReal: (value: boolean) => void;
   transportadoras: any[];
   limparFiltros: () => void;
   abrirModalNovaEntrega: () => void;
-  faturamentoTotal: number;
-  progressoMeta: string;
   freteTotal: number;
   freteMedio: string;
-  atrasados: number; 
   volumeTotal: number;
   pesoTotal: number;
   loading: boolean;
@@ -53,6 +54,8 @@ export function Dashboard({
   filtroFreteConfirmado, setFiltroFreteConfirmado, 
   filtroComAgendamento, setFiltroComAgendamento,
   filtroSemAgendamento, setFiltroSemAgendamento,
+  filtroComFreteCotado, setFiltroComFreteCotado,
+  filtroComFreteReal, setFiltroComFreteReal,
   transportadoras, limparFiltros, abrirModalNovaEntrega,
   freteTotal, freteMedio,
   volumeTotal, pesoTotal, loading, entregasFiltradas, formatarData, calcularPorcentagemFrete,
@@ -116,13 +119,14 @@ export function Dashboard({
           filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado}
           filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento}
           filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento}
+          filtroComFreteCotado={filtroComFreteCotado} setFiltroComFreteCotado={setFiltroComFreteCotado}
+          filtroComFreteReal={filtroComFreteReal} setFiltroComFreteReal={setFiltroComFreteReal}
           transportadoras={transportadoras} limparFiltros={limparFiltros} exportarParaExcel={exportarParaExcel} abrirModalNovaEntrega={abrirModalNovaEntrega}
         />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px', flexShrink: 0 }}>
         
-        {/* CARD 1: VALOR TOTAL NFs */}
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Valor Total NFs</p>
@@ -134,7 +138,6 @@ export function Dashboard({
           <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Soma do período selecionado</p>
         </div>
 
-        {/* CARD 2: COMPARATIVO COTADO VS REAL */}
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Comparativo Frete</p>

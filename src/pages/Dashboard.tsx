@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit, Trash2, DollarSign, TrendingUp, Target, Package, Scale, FileText } from 'lucide-react';
+import { Edit, Trash2, TrendingUp, Target, Package, Scale, FileText, ArrowRightLeft } from 'lucide-react';
 import { Header } from '../components/Header';
 
 interface DashboardProps {
@@ -54,12 +54,15 @@ export function Dashboard({
   filtroComAgendamento, setFiltroComAgendamento,
   filtroSemAgendamento, setFiltroSemAgendamento,
   transportadoras, limparFiltros, abrirModalNovaEntrega,
-  faturamentoTotal, progressoMeta, freteTotal, freteMedio,
+  freteTotal, freteMedio,
   volumeTotal, pesoTotal, loading, entregasFiltradas, formatarData, calcularPorcentagemFrete,
   calcularDiasEntrega, getStatusColor, abrirModalEdicao, handleDeleteEntrega
 }: DashboardProps) {
 
+  // CÁLCULOS DOS DASHBOARDS
   const valorTotalNf = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
+  const totalFreteCotado = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_frete) || 0), 0);
+  const totalFreteReal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_frete_real) || 0), 0);
 
   const exportarParaExcel = () => {
     if (entregasFiltradas.length === 0) { alert("Não há dados para exportar."); return; }
@@ -118,6 +121,8 @@ export function Dashboard({
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px', flexShrink: 0 }}>
+        
+        {/* CARD 1: VALOR TOTAL NFs */}
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Valor Total NFs</p>
@@ -129,22 +134,31 @@ export function Dashboard({
           <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Soma do período selecionado</p>
         </div>
 
+        {/* CARD 2: COMPARATIVO COTADO VS REAL */}
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Faturamento</p>
-            <DollarSign size={16} color="#16a34a" />
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Comparativo Frete</p>
+            <ArrowRightLeft size={16} color="#8b5cf6" />
           </div>
-          <h3 style={{ fontSize: '1.25rem', color: 'var(--text-main)', marginBottom: '6px', fontWeight: 700 }}>
-            R$ {faturamentoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </h3>
-          <div style={{ width: '100%', backgroundColor: '#f1f5f9', borderRadius: '2px', height: '4px' }}>
-            <div style={{ width: `${Math.min(Number(progressoMeta), 100)}%`, backgroundColor: '#16a34a', height: '100%', borderRadius: '2px' }}></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+            <div>
+              <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '2px' }}>Cotado</p>
+              <h3 style={{ fontSize: '1.05rem', color: 'var(--text-main)', fontWeight: 700 }}>
+                R$ {totalFreteCotado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h3>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '2px' }}>Real (CTE)</p>
+              <h3 style={{ fontSize: '1.05rem', color: '#16a34a', fontWeight: 700 }}>
+                R$ {totalFreteReal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h3>
+            </div>
           </div>
         </div>
 
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Custo Logístico Real</p>
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Custo Logístico (Mix)</p>
             <TrendingUp size={16} color="#ea580c" />
           </div>
           <h3 style={{ fontSize: '1.25rem', color: 'var(--text-main)', fontWeight: 700 }}>

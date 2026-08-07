@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { FileText, Save, Trash2, Edit, UploadCloud, Download, Printer, XCircle, Filter, PlusCircle, DollarSign, Calendar } from 'lucide-react';
+import { FileText, Save, Trash2, Edit, UploadCloud, Download, Printer, XCircle, Filter, PlusCircle, DollarSign, Calendar, RefreshCcw } from 'lucide-react';
 
 interface CtesProps {
   transportadoras: any[];
@@ -12,6 +12,7 @@ export function Ctes({ transportadoras, formatarData, onUpdateEntregas }: CtesPr
   const [ctes, setCtes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
   const [userEmail, setUserEmail] = useState<string>('');
@@ -60,47 +61,51 @@ export function Ctes({ transportadoras, formatarData, onUpdateEntregas }: CtesPr
     finally { setLoading(false); }
   }
 
-  const extrairNFsDasChaves = (chavesStr: string) => {
-    if (!chavesStr) return '-';
-    const chavesArray = chavesStr.split(',');
+  // =========================================================
+  // NOVA INTELIGÊNCIA DE EXTRAÇÃO DE NFs (Flexível e Robusta)
+  // =========================================================
+  function obterListaNFs(chavesStr: string): string[] {
+    if (!chavesStr) return [];
+    
+    // Divide a string seja por vírgula ou por barra "/" (ex: "11812 / 11813")
+    const chavesArray = chavesStr.split(/,| \/ |\//); 
     
     const nfs = chavesArray.map(chaveRaw => {
       const chave = chaveRaw.replace(/\D/g, ''); 
       if (chave.length === 44) {
-        return Number(chave.substring(25, 34)).toString(); 
+        return Number(chave.substring(25, 34)).toString(); // Extrai da chave longa
+      } else if (chave.length > 0) {
+        return Number(chave).toString(); // Aceita o número curto digitado à mão!
       }
       return ''; 
-    }).filter(nf => nf !== ''); 
-    
-    if (nfs.length === 0) return '-';
-    return nfs.join(' / ');
+    }).filter(nf => nf !== '');
+
+    return Array.from(new Set(nfs)); // Remove duplicatas
+  }
+
+  const extrairNFsDasChaves = (chavesStr: string) => {
+    const nfs = obterListaNFs(chavesStr);
+    return nfs.length > 0 ? nfs.join(' / ') : '-';
   };
 
   // =========================================================
-  // MOTOR DE INTEGRAÇÃO AVANÇADO COM FEEDBACK
+  // MOTOR DE INTEGRAÇÃO (CTEs -> Painel Principal)
   // =========================================================
   async function processarIntegracaoFrete(cteData: any) {
-    if (!cteData.chave_acesso) return;
-
-    const chavesArray = cteData.chave_acesso.split(',');
-    const nfsExtraidas = chavesArray.map((chaveRaw: string) => {
-      const chave = chaveRaw.replace(/\D/g, '');
-      if (chave.length === 44) return Number(chave.substring(25, 34)).toString();
-      return '';
-    }).filter((nf: string) => nf !== '');
-
+    const nfsExtraidas = obterListaNFs(cteData.chave_acesso);
     if (nfsExtraidas.length === 0) return;
 
+    // Rateio do valor do CTE (Não altera o CTE, só calcula para enviar ao Painel)
     const valorTotalCTE = Number(cteData.valor_total_servico) || 0;
     const valorRateado = parseFloat((valorTotalCTE / nfsExtraidas.length).toFixed(2));
 
-    // CORREÇÃO TYPESCRIPT: (nf: string)
     const nfVariations = nfsExtraidas.flatMap((nf: string) => {
         const numStr = Number(nf).toString(); 
-        return [numStr, numStr.padStart(9, '0')];
+        return [numStr, numStr.padStart(9, '0')]; // Procura tanto por "16464" como "000016464"
     });
 
     try {
+      // O UPDATE OCORRE NA TABELA 'entregas' (Painel Principal), o CTE fica intacto!
       const { data: entregasAtualizadas, error } = await supabase
         .from('entregas')
         .update({
@@ -123,6 +128,55 @@ export function Ctes({ transportadoras, formatarData, onUpdateEntregas }: CtesPr
       }
     } catch (err) {
       console.error("Exceção na integração", err);
+    }
+  }
+
+  // =========================================================
+  // ROBÔ DE SINCRONIZAÇÃO RETROATIVA
+  // =========================================================
+  async function sincronizarHistorico() {
+    if (!window.confirm("⏳ SINCRONIZAÇÃO RETROATIVA\n\nO sistema vai ler todos os CTEs e copiar o valor Rateado para o 'Frete Real' das NFs correspondentes no Painel Principal.\nNenhum dado do CTE será apagado ou alterado.\n\nDeseja continuar?")) return;
+    
+    setIsSyncing(true);
+    let nfsAtualizadasCount = 0;
+
+    try {
+      for (const cte of ctes) {
+        const nfsExtraidas = obterListaNFs(cte.chave_acesso);
+        if (nfsExtraidas.length === 0) continue;
+
+        const valorTotalCTE = Number(cte.valor_total_servico) || 0;
+        const valorRateado = parseFloat((valorTotalCTE / nfsExtraidas.length).toFixed(2));
+
+        const nfVariations = nfsExtraidas.flatMap((nf: string) => {
+          const numStr = Number(nf).toString(); 
+          return [numStr, numStr.padStart(9, '0')];
+        });
+
+        // Atualiza a tabela 'entregas'
+        const { data, error } = await supabase
+          .from('entregas')
+          .update({
+            valor_frete_real: valorRateado,
+            frete_confirmado: true 
+          })
+          .in('nota_fiscal', nfVariations)
+          .select('nota_fiscal');
+
+        if (!error && data) {
+          nfsAtualizadasCount += data.length;
+        }
+      }
+
+      alert(`✅ SINCRONIZAÇÃO CONCLUÍDA!\n\nUm total de ${nfsAtualizadasCount} Notas Fiscais no Painel Principal foram atualizadas com sucesso puxando os valores dos CTEs!`);
+      await registrarLogCte('EDITOU', `Executou a sincronização retroativa de CTEs (${nfsAtualizadasCount} NFs atualizadas no Painel Principal)`);
+      if (onUpdateEntregas) onUpdateEntregas();
+
+    } catch (error) {
+      console.error("Erro na sincronização:", error);
+      alert("Ocorreu um erro durante a sincronização.");
+    } finally {
+      setIsSyncing(false);
     }
   }
 
@@ -337,8 +391,7 @@ export function Ctes({ transportadoras, formatarData, onUpdateEntregas }: CtesPr
 
   const exportarParaPDF = () => { window.print(); };
 
-  const chavesParaValidar = formData.chave_acesso.filter(chave => chave.replace(/\D/g, '').length === 44);
-  const nfsIdentificadas = chavesParaValidar.map(chave => Number(chave.replace(/\D/g, '').substring(25, 34)).toString());
+  const nfsIdentificadas = obterListaNFs(formData.chave_acesso.join(','));
 
   const thStyle: React.CSSProperties = { padding: '12px 16px', backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', textAlign: 'left', whiteSpace: 'nowrap' };
   const tdStyle: React.CSSProperties = { padding: '12px 16px', borderBottom: '1px solid #f1f5f9', fontSize: '0.85rem', color: '#334155', whiteSpace: 'nowrap' };
@@ -359,6 +412,17 @@ export function Ctes({ transportadoras, formatarData, onUpdateEntregas }: CtesPr
           
           <div style={{ display: 'flex', gap: '8px' }}>
             <input type="file" accept=".xml" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileUpload} />
+            
+            <button 
+              type="button" 
+              className="btn-secondary" 
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#8b5cf6', borderColor: '#8b5cf6' }} 
+              onClick={sincronizarHistorico}
+              disabled={isSyncing}
+            >
+              <RefreshCcw size={16} /> {isSyncing ? 'Sincronizando...' : 'Sincronizar Histórico'}
+            </button>
+
             <button type="button" className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => fileInputRef.current?.click()}>
               <UploadCloud size={16} /> Importar XML
             </button>

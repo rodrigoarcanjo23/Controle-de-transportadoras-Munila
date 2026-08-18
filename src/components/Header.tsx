@@ -15,9 +15,20 @@ export function Header(props: any) {
     filtroSemAgendamento, setFiltroSemAgendamento,
     filtroComFreteCotado, setFiltroComFreteCotado,
     filtroComFreteReal, setFiltroComFreteReal,
+    
+    // NOSSOS NOVOS FILTROS AQUI
+    filtroUf, setFiltroUf,
+    filtroSemDataEntrega, setFiltroSemDataEntrega,
+    filtroValorNfMin, setFiltroValorNfMin,
+    filtroValorNfMax, setFiltroValorNfMax,
+    filtroPercFreteMin, setFiltroPercFreteMin,
+    filtroPercFreteMax, setFiltroPercFreteMax,
+
     transportadoras, limparFiltros,
     exportarParaExcel, abrirModalNovaEntrega
   } = props;
+
+  const estadosBR = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 
   const toggleStatus = (status: string) => {
     if (filtroStatus.includes(status)) {
@@ -84,6 +95,8 @@ export function Header(props: any) {
 
       {mostrarFiltros && (
         <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          
+          {/* PRIMEIRA LINHA DE FILTROS */}
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '16px' }}>
             <div className="form-group" style={{ flex: '1 1 120px', margin: 0 }}>
               <label>Data Início (Fat.)</label>
@@ -112,8 +125,42 @@ export function Header(props: any) {
                 <option value="SEDEX">Sedex</option>
               </select>
             </div>
+            
+            {/* NOVO: FILTRO DE ESTADO (UF) */}
+            <div className="form-group" style={{ flex: '1 1 100px', margin: 0 }}>
+              <label>Estado (UF)</label>
+              <select className="form-select" value={filtroUf} onChange={e => setFiltroUf(e.target.value)}>
+                <option value="">Todos</option>
+                {estadosBR.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+              </select>
+            </div>
+          </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginLeft: 'auto' }}>
+          {/* SEGUNDA LINHA DE FILTROS: RANGES NUMÉRICOS, CHECKBOXES E LIMPAR */}
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            
+            {/* NOSSOS NOVOS RANGES DE VALOR E % DE FRETE */}
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <div className="form-group" style={{ margin: 0, width: '130px' }}>
+                <label>Valor NF (Mín) R$</label>
+                <input type="number" step="0.01" className="form-input" value={filtroValorNfMin} onChange={e => setFiltroValorNfMin(e.target.value)} />
+              </div>
+              <div className="form-group" style={{ margin: 0, width: '130px' }}>
+                <label>Valor NF (Máx) R$</label>
+                <input type="number" step="0.01" className="form-input" value={filtroValorNfMax} onChange={e => setFiltroValorNfMax(e.target.value)} />
+              </div>
+              <div className="form-group" style={{ margin: 0, width: '110px' }}>
+                <label>% Frete (Mín)</label>
+                <input type="number" step="0.01" className="form-input" value={filtroPercFreteMin} onChange={e => setFiltroPercFreteMin(e.target.value)} placeholder="Ex: 2.5" />
+              </div>
+              <div className="form-group" style={{ margin: 0, width: '110px' }}>
+                <label>% Frete (Máx)</label>
+                <input type="number" step="0.01" className="form-input" value={filtroPercFreteMax} onChange={e => setFiltroPercFreteMax(e.target.value)} placeholder="Ex: 15" />
+              </div>
+            </div>
+
+            {/* CAIXAS DE SELEÇÃO */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginLeft: 'auto', marginTop: '8px' }}>
               <div style={{ display: 'flex', gap: '16px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem', cursor: 'pointer', color: '#ef4444' }}>
                   <input type="checkbox" checked={filtroFreteVazio} onChange={e => setFiltroFreteVazio(e.target.checked)} /> Exibir Fretes Zerados
@@ -138,17 +185,23 @@ export function Header(props: any) {
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem', cursor: 'pointer', color: '#166534' }}>
                   <input type="checkbox" checked={filtroComFreteReal} onChange={e => setFiltroComFreteReal(e.target.checked)} /> Apenas com Frete Real
                 </label>
+                
+                {/* NOVO: NFs Sem Data de Entrega */}
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem', cursor: 'pointer', color: '#ea580c' }}>
+                  <input type="checkbox" checked={filtroSemDataEntrega} onChange={e => setFiltroSemDataEntrega(e.target.checked)} /> NFs sem Data Entrega
+                </label>
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'flex-end', marginLeft: '16px' }}>
-              <button type="button" className="btn-secondary" style={{ color: '#ef4444', borderColor: '#ef4444', height: '38px' }} onClick={limparFiltros}>
+            {/* BOTÃO LIMPAR FILTROS */}
+            <div style={{ display: 'flex', alignItems: 'flex-end', marginLeft: '16px', marginTop: '14px' }}>
+              <button type="button" className="btn-secondary" style={{ color: '#ef4444', borderColor: '#ef4444', height: '42px' }} onClick={limparFiltros}>
                 Limpar Filtros
               </button>
             </div>
           </div>
 
-          <div className="form-group" style={{ margin: 0 }}>
+          <div className="form-group" style={{ margin: '16px 0 0 0' }}>
             <label style={{ fontWeight: 'bold' }}>Status da Entrega (Múltipla Escolha)</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '8px' }}>
               {statusOptions.map(status => (

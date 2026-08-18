@@ -29,6 +29,21 @@ interface DashboardProps {
   setFiltroComFreteCotado: (value: boolean) => void;
   filtroComFreteReal: boolean;
   setFiltroComFreteReal: (value: boolean) => void;
+  
+  // OS 6 NOVOS PROPS AQUI
+  filtroUf: string;
+  setFiltroUf: (value: string) => void;
+  filtroSemDataEntrega: boolean;
+  setFiltroSemDataEntrega: (value: boolean) => void;
+  filtroValorNfMin: string;
+  setFiltroValorNfMin: (value: string) => void;
+  filtroValorNfMax: string;
+  setFiltroValorNfMax: (value: string) => void;
+  filtroPercFreteMin: string;
+  setFiltroPercFreteMin: (value: string) => void;
+  filtroPercFreteMax: string;
+  setFiltroPercFreteMax: (value: string) => void;
+
   transportadoras: any[];
   limparFiltros: () => void;
   abrirModalNovaEntrega: () => void;
@@ -56,6 +71,11 @@ export function Dashboard({
   filtroSemAgendamento, setFiltroSemAgendamento,
   filtroComFreteCotado, setFiltroComFreteCotado,
   filtroComFreteReal, setFiltroComFreteReal,
+  
+  filtroUf, setFiltroUf, filtroSemDataEntrega, setFiltroSemDataEntrega,
+  filtroValorNfMin, setFiltroValorNfMin, filtroValorNfMax, setFiltroValorNfMax,
+  filtroPercFreteMin, setFiltroPercFreteMin, filtroPercFreteMax, setFiltroPercFreteMax,
+
   transportadoras, limparFiltros, abrirModalNovaEntrega,
   freteTotal, freteMedio,
   volumeTotal, pesoTotal, loading, entregasFiltradas, formatarData, calcularPorcentagemFrete,
@@ -121,6 +141,14 @@ export function Dashboard({
           filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento}
           filtroComFreteCotado={filtroComFreteCotado} setFiltroComFreteCotado={setFiltroComFreteCotado}
           filtroComFreteReal={filtroComFreteReal} setFiltroComFreteReal={setFiltroComFreteReal}
+          
+          filtroUf={filtroUf} setFiltroUf={setFiltroUf}
+          filtroSemDataEntrega={filtroSemDataEntrega} setFiltroSemDataEntrega={setFiltroSemDataEntrega}
+          filtroValorNfMin={filtroValorNfMin} setFiltroValorNfMin={setFiltroValorNfMin}
+          filtroValorNfMax={filtroValorNfMax} setFiltroValorNfMax={setFiltroValorNfMax}
+          filtroPercFreteMin={filtroPercFreteMin} setFiltroPercFreteMin={setFiltroPercFreteMin}
+          filtroPercFreteMax={filtroPercFreteMax} setFiltroPercFreteMax={setFiltroPercFreteMax}
+
           transportadoras={transportadoras} limparFiltros={limparFiltros} exportarParaExcel={exportarParaExcel} abrirModalNovaEntrega={abrirModalNovaEntrega}
         />
       </div>

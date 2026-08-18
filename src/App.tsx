@@ -33,6 +33,7 @@ export default function App() {
   const [metas, setMetas] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
 
+  // ESTADOS DE FILTROS GERAIS
   const [searchTerm, setSearchTerm] = useState('');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
@@ -40,13 +41,22 @@ export default function App() {
   const [filtroTransportadora, setFiltroTransportadora] = useState('');
   const [filtroModal, setFiltroModal] = useState('');
   const [filtroStatus, setFiltroStatus] = useState<string[]>([]);
+  
+  // ESTADOS DE CHECKBOXES
   const [filtroFreteVazio, setFiltroFreteVazio] = useState(false);
   const [filtroFreteConfirmado, setFiltroFreteConfirmado] = useState(false);
   const [filtroComAgendamento, setFiltroComAgendamento] = useState(false);
   const [filtroSemAgendamento, setFiltroSemAgendamento] = useState(false);
-  
   const [filtroComFreteCotado, setFiltroComFreteCotado] = useState(false);
   const [filtroComFreteReal, setFiltroComFreteReal] = useState(false);
+  const [filtroSemDataEntrega, setFiltroSemDataEntrega] = useState(false); // NOVO
+  
+  // ESTADOS DE UF E RANGES (Com Valor Inicial de 1000)
+  const [filtroUf, setFiltroUf] = useState('');
+  const [filtroValorNfMin, setFiltroValorNfMin] = useState('1000'); // Já começa a limpar o ruído
+  const [filtroValorNfMax, setFiltroValorNfMax] = useState('');
+  const [filtroPercFreteMin, setFiltroPercFreteMin] = useState('');
+  const [filtroPercFreteMax, setFiltroPercFreteMax] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -314,6 +324,14 @@ export default function App() {
     setFiltroFreteVazio(false); setFiltroFreteConfirmado(false); 
     setFiltroComAgendamento(false); setFiltroSemAgendamento(false);
     setFiltroComFreteCotado(false); setFiltroComFreteReal(false); 
+    
+    // NOSSOS NOVOS FILTROS A LIMPAR
+    setFiltroUf('');
+    setFiltroSemDataEntrega(false);
+    setFiltroValorNfMin('1000'); // Mantém os 1.000 como padrão de corte!
+    setFiltroValorNfMax('');
+    setFiltroPercFreteMin('');
+    setFiltroPercFreteMax('');
   }
 
   const entregasFiltradas = entregas.filter(entrega => {
@@ -340,7 +358,23 @@ export default function App() {
     const passaComFreteCotado = filtroComFreteCotado ? (Number(entrega.valor_frete) > 0) : true;
     const passaComFreteReal = filtroComFreteReal ? (Number(entrega.valor_frete_real) > 0) : true;
 
-    return passaTexto && passaData && passaTransp && passaModal && passaStatus && passaFreteVazio && passaFreteConfirmado && passaComAgendamento && passaSemAgendamento && passaComFreteCotado && passaComFreteReal;
+    // INTEGRAÇÃO DA INTELIGÊNCIA DOS NOVOS FILTROS
+    const ufDestino = entrega.uf_destino || entrega.clientes?.uf || '';
+    const passaUf = filtroUf ? ufDestino === filtroUf : true;
+
+    const passaSemData = filtroSemDataEntrega ? !entrega.data_entrega_agendamento : true;
+
+    const valNf = Number(entrega.valor_nf) || 0;
+    const passaValNfMin = filtroValorNfMin ? valNf >= Number(filtroValorNfMin) : true;
+    const passaValNfMax = filtroValorNfMax ? valNf <= Number(filtroValorNfMax) : true;
+
+    const calcFreteReal = entrega.valor_frete_real !== null && entrega.valor_frete_real !== undefined && entrega.valor_frete_real !== '';
+    const valorFreteCalculo = calcFreteReal ? Number(entrega.valor_frete_real) : Number(entrega.valor_frete);
+    const percFrete = valNf > 0 ? (valorFreteCalculo / valNf) * 100 : 0;
+    const passaPercMin = filtroPercFreteMin ? percFrete >= Number(filtroPercFreteMin) : true;
+    const passaPercMax = filtroPercFreteMax ? percFrete <= Number(filtroPercFreteMax) : true;
+
+    return passaTexto && passaData && passaTransp && passaModal && passaStatus && passaFreteVazio && passaFreteConfirmado && passaComAgendamento && passaSemAgendamento && passaComFreteCotado && passaComFreteReal && passaUf && passaSemData && passaValNfMin && passaValNfMax && passaPercMin && passaPercMax;
   }).sort((a, b) => new Date(b.data_faturamento || b.created_at || 0).getTime() - new Date(a.data_faturamento || a.created_at || 0).getTime());
 
   const faturamentoTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
@@ -372,10 +406,17 @@ export default function App() {
               filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento}
               filtroComFreteCotado={filtroComFreteCotado} setFiltroComFreteCotado={setFiltroComFreteCotado}
               filtroComFreteReal={filtroComFreteReal} setFiltroComFreteReal={setFiltroComFreteReal}
+              
+              /* REPASSANDO TUDO PARA O DASHBOARD E DEPOIS PARA O HEADER */
+              filtroUf={filtroUf} setFiltroUf={setFiltroUf}
+              filtroSemDataEntrega={filtroSemDataEntrega} setFiltroSemDataEntrega={setFiltroSemDataEntrega}
+              filtroValorNfMin={filtroValorNfMin} setFiltroValorNfMin={setFiltroValorNfMin}
+              filtroValorNfMax={filtroValorNfMax} setFiltroValorNfMax={setFiltroValorNfMax}
+              filtroPercFreteMin={filtroPercFreteMin} setFiltroPercFreteMin={setFiltroPercFreteMin}
+              filtroPercFreteMax={filtroPercFreteMax} setFiltroPercFreteMax={setFiltroPercFreteMax}
+
               transportadoras={transportadoras} limparFiltros={limparFiltros} 
               abrirModalNovaEntrega={abrirModalNovaEntrega}
-              
-              /* AQUI: Removi faturamentoTotal, progressoMeta e atrasados da chamada! */
               freteTotal={freteTotal} freteMedio={freteMedio} volumeTotal={volumeTotal} pesoTotal={pesoTotal} loading={loading}
               entregasFiltradas={entregasFiltradas} formatarData={formatarData} calcularPorcentagemFrete={calcularPorcentagemFrete} calcularDiasEntrega={calcularDiasEntrega} getStatusColor={getStatusColor}
               abrirModalEdicao={abrirModalEdicao} handleDeleteEntrega={handleDeleteEntrega}

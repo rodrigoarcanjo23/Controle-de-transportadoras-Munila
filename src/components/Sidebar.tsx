@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, UserSquare2, Truck, RefreshCcw, Calculator, LogOut, FileText, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Users, UserSquare2, Truck, RefreshCcw, Calculator, LogOut, FileText, ShieldAlert, PieChart } from 'lucide-react';
 
 interface SidebarProps {
   handleLogout: () => void;
@@ -7,6 +7,12 @@ interface SidebarProps {
 }
 
 export function Sidebar({ handleLogout, onNavigate }: SidebarProps) {
+  
+  // Otimização: Criámos uma função para não ter de repetir a lógica em cada botão
+  const getNavClass = ({ isActive }: { isActive: boolean }) => {
+    return isActive ? "nav-item active" : "nav-item";
+  };
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -15,43 +21,50 @@ export function Sidebar({ handleLogout, onNavigate }: SidebarProps) {
       <nav className="sidebar-nav">
         <ul className="nav-list">
           <li>
-            <NavLink to="/dashboard" onClick={onNavigate} className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
+            <NavLink to="/dashboard" onClick={onNavigate} className={getNavClass}>
               <LayoutDashboard size={20} /> Painel Principal
             </NavLink>
           </li>
+          
+          {/* NOVO LINK DO PAINEL DE BI (ANÁLISE) */}
           <li>
-            <NavLink to="/equipe" onClick={onNavigate} className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
+            <NavLink to="/analise" onClick={onNavigate} className={getNavClass}>
+              <PieChart size={20} /> Painel de BI (Análise)
+            </NavLink>
+          </li>
+
+          <li>
+            <NavLink to="/equipe" onClick={onNavigate} className={getNavClass}>
               <Users size={20} /> Equipe
             </NavLink>
           </li>
           <li>
-            <NavLink to="/clientes" onClick={onNavigate} className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
+            <NavLink to="/clientes" onClick={onNavigate} className={getNavClass}>
               <UserSquare2 size={20} /> Clientes & Metas
             </NavLink>
           </li>
           <li>
-            <NavLink to="/transportadoras" onClick={onNavigate} className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
+            <NavLink to="/transportadoras" onClick={onNavigate} className={getNavClass}>
               <Truck size={20} /> Transportadoras
             </NavLink>
           </li>
           <li>
-            <NavLink to="/devolucoes" onClick={onNavigate} className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
+            <NavLink to="/devolucoes" onClick={onNavigate} className={getNavClass}>
               <RefreshCcw size={20} /> Devoluções
             </NavLink>
           </li>
           <li>
-            <NavLink to="/calculadora" onClick={onNavigate} className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
+            <NavLink to="/calculadora" onClick={onNavigate} className={getNavClass}>
               <Calculator size={20} /> Calculadora
             </NavLink>
           </li>
           <li>
-            <NavLink to="/ctes" onClick={onNavigate} className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
+            <NavLink to="/ctes" onClick={onNavigate} className={getNavClass}>
               <FileText size={20} /> Registro de CTE
             </NavLink>
           </li>
-          {/* NOVO LINK DE AUDITORIA */}
           <li>
-            <NavLink to="/auditoria" onClick={onNavigate} className={({ isActive }) => isActive ? "nav-item active" : "nav-item"}>
+            <NavLink to="/auditoria" onClick={onNavigate} className={getNavClass}>
               <ShieldAlert size={20} /> Auditoria
             </NavLink>
           </li>

@@ -58,6 +58,7 @@ interface DashboardProps {
   entregasFiltradas: any[];
   formatarData: (dataStr: string) => string;
   calcularPorcentagemFrete: (frete: number, nf: number) => string;
+  calcularDiferencaDias: (dataDe: string, dataAte: string) => string;
   calcularGapPedidoEntrega: (entrada: string, entrega: string) => string;
   getStatusColor: (status: string) => React.CSSProperties;
   abrirModalEdicao: (entrega: any) => void;
@@ -83,7 +84,7 @@ export function Dashboard({
   transportadoras, limparFiltros, abrirModalNovaEntrega,
   freteMedio,
   volumeTotal, pesoTotal, loading, entregasFiltradas, formatarData, calcularPorcentagemFrete,
-  calcularGapPedidoEntrega, getStatusColor, abrirModalEdicao, handleDeleteEntrega
+  calcularDiferencaDias, calcularGapPedidoEntrega, getStatusColor, abrirModalEdicao, handleDeleteEntrega
 }: DashboardProps) {
 
   const valorTotalNf = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
@@ -93,7 +94,13 @@ export function Dashboard({
   const exportarParaExcel = () => {
     if (entregasFiltradas.length === 0) { alert("Não há dados para exportar."); return; }
     
-    const cabecalho = ["Entrada Pedido", "Data Fat.", "Coleta", "Cliente", "Cidade", "UF", "Volume (Cx)", "Peso (Kg)", "Nº NF", "Valor NF", "Transportadora", "Modal", "Frete Cotado (R$)", "Frete Real (R$)", "% Frete Real", "Agendamento", "Previsão", "Dt Entrega", "GAP (Dias)", "Status", "Frete Confirmado", "Observações"].join(";");
+    const cabecalho = [
+      "Entrada Pedido", "Data Fat.", "Coleta", "Cliente", "Cidade", "UF", "Volume (Cx)", "Peso (Kg)", 
+      "Nº NF", "Valor NF", "Transportadora", "Modal", "Frete Cotado (R$)", "Frete Real (R$)", "% Frete Real", 
+      "Agendamento", "Previsão", "Dt Entrega", 
+      "Dias Pedido -> Fat", "Dias Pedido -> Coleta", "Dias Coleta -> Entrega", "GAP Total (Dias)", 
+      "Status", "Frete Confirmado", "Observações"
+    ].join(";");
     
     const linhas = entregasFiltradas.map(e => {
       const cidadeFormatada = e.cidade_destino || e.clientes?.cidade || '-';
@@ -103,6 +110,11 @@ export function Dashboard({
       const temReal = e.valor_frete_real !== null && e.valor_frete_real !== undefined && e.valor_frete_real !== '';
       const calcFrete = temReal ? e.valor_frete_real : e.valor_frete;
 
+      const dPedFat = calcularDiferencaDias(e.data_entrada_pedido, e.data_faturamento).replace(' d', '');
+      const dPedCol = calcularDiferencaDias(e.data_entrada_pedido, e.data_coleta).replace(' d', '');
+      const dColEnt = calcularDiferencaDias(e.data_coleta, e.data_entrega_agendamento).replace(' d', '');
+      const gapTotal = calcularGapPedidoEntrega(e.data_entrada_pedido, e.data_entrega_agendamento).replace(' dias', '');
+
       return [
         formatarData(e.data_entrada_pedido), formatarData(e.data_faturamento), formatarData(e.data_coleta), e.clientes?.nome || '-', cidadeFormatada, ufFormatada,
         e.volume || e.volume_peso || '-', e.peso_kg?.toString().replace('.', ',') || '-', e.nota_fiscal, 
@@ -111,7 +123,9 @@ export function Dashboard({
         e.valor_frete_real?.toString().replace('.', ',') || '0,00', 
         calcularPorcentagemFrete(calcFrete, e.valor_nf), 
         e.tem_agendamento ? 'SIM' : 'NÃO',
-        formatarData(e.data_previsao), formatarData(e.data_entrega_agendamento), calcularGapPedidoEntrega(e.data_entrada_pedido, e.data_entrega_agendamento).replace(' dias', ''), e.status, e.frete_confirmado ? 'SIM' : 'NÃO', e.observacoes || '-'
+        formatarData(e.data_previsao), formatarData(e.data_entrega_agendamento),
+        dPedFat, dPedCol, dColEnt, gapTotal,
+        e.status, e.frete_confirmado ? 'SIM' : 'NÃO', e.observacoes || '-'
       ].join(";");
     });
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + cabecalho + "\n" + linhas.join("\n");
@@ -121,9 +135,9 @@ export function Dashboard({
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
-  const thStyle: React.CSSProperties = { position: 'sticky', top: 0, backgroundColor: '#f8fafc', zIndex: 10, borderBottom: '2px solid #e2e8f0', padding: '12px 16px', color: '#475569', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', whiteSpace: 'nowrap' };
+  const thStyle: React.CSSProperties = { position: 'sticky', top: 0, backgroundColor: '#f8fafc', zIndex: 10, borderBottom: '2px solid #e2e8f0', padding: '12px 14px', color: '#475569', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', whiteSpace: 'nowrap' };
   const thAcoesStyle: React.CSSProperties = { ...thStyle, right: 0, zIndex: 11, textAlign: 'center', borderLeft: '1px solid #e2e8f0' };
-  const tdStyle: React.CSSProperties = { padding: '10px 16px', borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap', fontSize: '0.85rem', color: '#334155' };
+  const tdStyle: React.CSSProperties = { padding: '10px 14px', borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap', fontSize: '0.85rem', color: '#334155' };
   const tdAcoesStyle: React.CSSProperties = { ...tdStyle, textAlign: 'center', position: 'sticky', right: 0, backgroundColor: 'white', zIndex: 1, borderLeft: '1px solid #e2e8f0' };
 
   return (
@@ -234,7 +248,7 @@ export function Dashboard({
       </div>
 
       <div className="table-container" style={{ flex: 1, minHeight: 0, overflow: 'auto', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'white', position: 'relative' }}>
-        <table style={{ width: '100%', minWidth: '1600px', borderCollapse: 'separate', borderSpacing: 0 }}>
+        <table style={{ width: '100%', minWidth: '2000px', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
             <tr>
               <th style={{...thStyle, backgroundColor: '#f0fdf4', color: '#166534'}}>Entrada Pedido</th>
@@ -255,14 +269,20 @@ export function Dashboard({
               <th style={thStyle}>Agendamento?</th>
               <th style={thStyle}>Previsão</th>
               <th style={thStyle}>Dt Entrega</th>
-              <th style={{...thStyle, backgroundColor: '#fff7ed', color: '#c2410c'}}>GAP (Dias)</th>
+              
+              {/* AS 4 COLUNAS DE SLA / ANÁLISE DE GARGALO */}
+              <th style={{...thStyle, backgroundColor: '#eff6ff', color: '#1d4ed8', textAlign: 'center'}} title="Dias decorridos da Entrada do Pedido até o Faturamento">Ped ➔ Fat</th>
+              <th style={{...thStyle, backgroundColor: '#eff6ff', color: '#1d4ed8', textAlign: 'center'}} title="Dias decorridos da Entrada do Pedido até a Coleta">Ped ➔ Col</th>
+              <th style={{...thStyle, backgroundColor: '#eff6ff', color: '#1d4ed8', textAlign: 'center'}} title="Dias decorridos da Coleta até a Entrega Final">Col ➔ Ent</th>
+              <th style={{...thStyle, backgroundColor: '#fff7ed', color: '#c2410c', textAlign: 'center'}} title="Tempo total da Entrada do Pedido até a Entrega">GAP Total</th>
+
               <th style={thStyle}>Status</th>
               <th style={thStyle}>Observações</th>
               <th style={thAcoesStyle}>Ações</th>
             </tr>
           </thead>
           <tbody>
-            {loading ? ( <tr><td colSpan={22} style={{ textAlign: 'center', padding: '32px' }}>A carregar...</td></tr> ) : entregasFiltradas.length === 0 ? ( <tr><td colSpan={22} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma entrega encontrada.</td></tr> ) : entregasFiltradas.map((entrega) => {
+            {loading ? ( <tr><td colSpan={25} style={{ textAlign: 'center', padding: '32px' }}>A carregar...</td></tr> ) : entregasFiltradas.length === 0 ? ( <tr><td colSpan={25} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma entrega encontrada.</td></tr> ) : entregasFiltradas.map((entrega) => {
               
               const isFreteConfirmado = entrega.frete_confirmado;
               const freteColor = isFreteConfirmado ? '#166534' : 'inherit';
@@ -271,7 +291,11 @@ export function Dashboard({
               const hasFreteReal = entrega.valor_frete_real !== null && entrega.valor_frete_real !== undefined && entrega.valor_frete_real !== '';
               const valorFreteCalculo = hasFreteReal ? entrega.valor_frete_real : entrega.valor_frete;
 
-              const gapText = calcularGapPedidoEntrega(entrega.data_entrada_pedido, entrega.data_entrega_agendamento);
+              // CÁLCULO DOS DIAS DE CADA ETAPA
+              const diasPedFat = calcularDiferencaDias(entrega.data_entrada_pedido, entrega.data_faturamento);
+              const diasPedCol = calcularDiferencaDias(entrega.data_entrada_pedido, entrega.data_coleta);
+              const diasColEnt = calcularDiferencaDias(entrega.data_coleta, entrega.data_entrega_agendamento);
+              const gapTotal = calcularGapPedidoEntrega(entrega.data_entrada_pedido, entrega.data_entrega_agendamento);
 
               return (
                 <tr key={entrega.id} className="trow-hover">
@@ -307,8 +331,18 @@ export function Dashboard({
                   <td style={tdStyle}>{formatarData(entrega.data_previsao)}</td>
                   <td style={tdStyle}>{formatarData(entrega.data_entrega_agendamento)}</td>
                   
+                  {/* AS 4 CÉLULAS DAS ETAPAS */}
+                  <td style={{ ...tdStyle, backgroundColor: '#f8fafc', color: '#1e40af', fontWeight: 'bold', textAlign: 'center' }}>
+                    {diasPedFat}
+                  </td>
+                  <td style={{ ...tdStyle, backgroundColor: '#f8fafc', color: '#1e40af', fontWeight: 'bold', textAlign: 'center' }}>
+                    {diasPedCol}
+                  </td>
+                  <td style={{ ...tdStyle, backgroundColor: '#f8fafc', color: '#1e40af', fontWeight: 'bold', textAlign: 'center' }}>
+                    {diasColEnt}
+                  </td>
                   <td style={{ ...tdStyle, backgroundColor: '#fff7ed', color: '#c2410c', fontWeight: 'bold', textAlign: 'center' }}>
-                    {gapText}
+                    {gapTotal}
                   </td>
 
                   <td style={tdStyle}><span className="status-badge" style={getStatusColor(entrega.status)}>{entrega.status}</span></td>

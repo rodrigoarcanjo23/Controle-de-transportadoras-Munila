@@ -13,6 +13,7 @@ import { ModalEntrega } from './modals/ModalEntrega';
 import { ModalCliente } from './modals/ModalCliente';
 import { Ctes } from './pages/Ctes';
 import { Auditoria } from './pages/Auditoria';
+import { Analise } from './pages/Analise';
 
 import './index.css';
 
@@ -33,7 +34,6 @@ export default function App() {
   const [metas, setMetas] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
 
-  // ESTADOS DE FILTROS GERAIS
   const [searchTerm, setSearchTerm] = useState('');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
@@ -42,7 +42,6 @@ export default function App() {
   const [filtroModal, setFiltroModal] = useState('');
   const [filtroStatus, setFiltroStatus] = useState<string[]>([]);
   
-  // ESTADOS DE CHECKBOXES E NOVOS FILTROS
   const [filtroFreteVazio, setFiltroFreteVazio] = useState(false);
   const [filtroFreteConfirmado, setFiltroFreteConfirmado] = useState(false);
   const [filtroComAgendamento, setFiltroComAgendamento] = useState(false);
@@ -51,7 +50,6 @@ export default function App() {
   const [filtroComFreteReal, setFiltroComFreteReal] = useState(false);
   const [filtroSemDataEntrega, setFiltroSemDataEntrega] = useState(false);
   
-  // ESTADOS RANGES E DATAS 
   const [filtroUf, setFiltroUf] = useState('');
   const [filtroValorNfMin, setFiltroValorNfMin] = useState(''); 
   const [filtroValorNfMax, setFiltroValorNfMax] = useState('');
@@ -285,6 +283,15 @@ export default function App() {
     return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR');
   };
 
+  const calcularDiferencaDias = (dataDe: string, dataAte: string) => {
+    if (!dataDe || !dataAte) return '-';
+    const d1 = new Date(dataDe + 'T12:00:00');
+    const d2 = new Date(dataAte + 'T12:00:00');
+    const diffTime = d2.getTime() - d1.getTime();
+    const dias = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return dias >= 0 ? `${dias} d` : `${dias} d`;
+  };
+
   const calcularGapPedidoEntrega = (entrada: string, entrega: string) => {
     if (!entrada || !entrega) return '-';
     const d1 = new Date(entrada + 'T12:00:00');
@@ -431,6 +438,7 @@ export default function App() {
               abrirModalNovaEntrega={abrirModalNovaEntrega}
               freteMedio={freteMedio} volumeTotal={volumeTotal} pesoTotal={pesoTotal} loading={loading}
               entregasFiltradas={entregasFiltradas} formatarData={formatarData} calcularPorcentagemFrete={calcularPorcentagemFrete} 
+              calcularDiferencaDias={calcularDiferencaDias}
               calcularGapPedidoEntrega={calcularGapPedidoEntrega}
               getStatusColor={getStatusColor} abrirModalEdicao={abrirModalEdicao} handleDeleteEntrega={handleDeleteEntrega}
             />
@@ -442,6 +450,9 @@ export default function App() {
           <Route path="devolucoes" element={<Devolucoes devolucoes={devolucoes} clientes={clientes} onUpdate={buscarDevolucoes} formatarData={formatarData} getStatusColor={getStatusColor} />} />
           <Route path="ctes" element={<Ctes transportadoras={transportadoras} formatarData={formatarData} onUpdateEntregas={carregarDadosDoBanco} />} />
           <Route path="auditoria" element={<Auditoria />} />
+          
+          {/* ROTA ATUALIZADA DO BI - Passando as funções para tornar clicável */}
+          <Route path="analise" element={<Analise entregas={entregas} setFiltroStatus={setFiltroStatus} limparFiltros={limparFiltros} />} />
 
           <Route path="calculadora" element={
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100%' }}>

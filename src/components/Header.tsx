@@ -16,13 +16,16 @@ export function Header(props: any) {
     filtroComFreteCotado, setFiltroComFreteCotado,
     filtroComFreteReal, setFiltroComFreteReal,
     
-    // NOSSOS NOVOS FILTROS AQUI
     filtroUf, setFiltroUf,
     filtroSemDataEntrega, setFiltroSemDataEntrega,
     filtroValorNfMin, setFiltroValorNfMin,
     filtroValorNfMax, setFiltroValorNfMax,
     filtroPercFreteMin, setFiltroPercFreteMin,
     filtroPercFreteMax, setFiltroPercFreteMax,
+    
+    // NOSSAS DUAS NOVAS DATAS DE ENTRADA DO PEDIDO
+    filtroDataEntradaInicio, setFiltroDataEntradaInicio,
+    filtroDataEntradaFim, setFiltroDataEntradaFim,
 
     transportadoras, limparFiltros,
     exportarParaExcel, abrirModalNovaEntrega
@@ -96,8 +99,20 @@ export function Header(props: any) {
       {mostrarFiltros && (
         <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           
-          {/* PRIMEIRA LINHA DE FILTROS */}
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '16px' }}>
+            
+            {/* NOVO: DATAS DE ENTRADA DO PEDIDO */}
+            <div style={{ display: 'flex', gap: '12px', backgroundColor: '#f0fdf4', padding: '10px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
+              <div className="form-group" style={{ flex: '1 1 120px', margin: 0 }}>
+                <label style={{ color: '#166534', fontWeight: 'bold' }}>Início (Entrada)</label>
+                <input type="date" className="form-input" value={filtroDataEntradaInicio} onChange={e => setFiltroDataEntradaInicio(e.target.value)} />
+              </div>
+              <div className="form-group" style={{ flex: '1 1 120px', margin: 0 }}>
+                <label style={{ color: '#166534', fontWeight: 'bold' }}>Fim (Entrada)</label>
+                <input type="date" className="form-input" value={filtroDataEntradaFim} onChange={e => setFiltroDataEntradaFim(e.target.value)} />
+              </div>
+            </div>
+
             <div className="form-group" style={{ flex: '1 1 120px', margin: 0 }}>
               <label>Data Início (Fat.)</label>
               <input type="date" className="form-input" value={filtroDataInicio} onChange={e => setFiltroDataInicio(e.target.value)} />
@@ -125,8 +140,6 @@ export function Header(props: any) {
                 <option value="SEDEX">Sedex</option>
               </select>
             </div>
-            
-            {/* NOVO: FILTRO DE ESTADO (UF) */}
             <div className="form-group" style={{ flex: '1 1 100px', margin: 0 }}>
               <label>Estado (UF)</label>
               <select className="form-select" value={filtroUf} onChange={e => setFiltroUf(e.target.value)}>
@@ -136,10 +149,7 @@ export function Header(props: any) {
             </div>
           </div>
 
-          {/* SEGUNDA LINHA DE FILTROS: RANGES NUMÉRICOS, CHECKBOXES E LIMPAR */}
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-            
-            {/* NOSSOS NOVOS RANGES DE VALOR E % DE FRETE */}
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <div className="form-group" style={{ margin: 0, width: '130px' }}>
                 <label>Valor NF (Mín) R$</label>
@@ -159,7 +169,6 @@ export function Header(props: any) {
               </div>
             </div>
 
-            {/* CAIXAS DE SELEÇÃO */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginLeft: 'auto', marginTop: '8px' }}>
               <div style={{ display: 'flex', gap: '16px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem', cursor: 'pointer', color: '#ef4444' }}>
@@ -186,14 +195,12 @@ export function Header(props: any) {
                   <input type="checkbox" checked={filtroComFreteReal} onChange={e => setFiltroComFreteReal(e.target.checked)} /> Apenas com Frete Real
                 </label>
                 
-                {/* NOVO: NFs Sem Data de Entrega */}
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.80rem', cursor: 'pointer', color: '#ea580c' }}>
                   <input type="checkbox" checked={filtroSemDataEntrega} onChange={e => setFiltroSemDataEntrega(e.target.checked)} /> NFs sem Data Entrega
                 </label>
               </div>
             </div>
 
-            {/* BOTÃO LIMPAR FILTROS */}
             <div style={{ display: 'flex', alignItems: 'flex-end', marginLeft: '16px', marginTop: '14px' }}>
               <button type="button" className="btn-secondary" style={{ color: '#ef4444', borderColor: '#ef4444', height: '42px' }} onClick={limparFiltros}>
                 Limpar Filtros

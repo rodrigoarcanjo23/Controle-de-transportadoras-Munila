@@ -128,12 +128,17 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               </select>
             </div>
 
-            <div className="form-group"><label>Data Faturamento</label><input type="date" className="form-input" value={formData.data_faturamento} onChange={(e) => setFormData({...formData, data_faturamento: e.target.value})} /></div>
-            <div className="form-group"><label>Data Coleta</label><input type="date" className="form-input" value={formData.data_coleta} onChange={(e) => setFormData({...formData, data_coleta: e.target.value})} /></div>
+            {/* ADICIONADO AQUI: DATA DE ENTRADA DO PEDIDO */}
+            <div className="form-group" style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px dashed #cbd5e1' }}>
+              <label style={{ color: 'var(--munila-blue)', fontWeight: 'bold' }}>Data de Entrada do Pedido</label>
+              <input type="date" className="form-input" value={formData.data_entrada_pedido} onChange={(e) => setFormData({...formData, data_entrada_pedido: e.target.value})} />
+            </div>
 
+            <div className="form-group"><label>Data Faturamento</label><input type="date" className="form-input" value={formData.data_faturamento} onChange={(e) => setFormData({...formData, data_faturamento: e.target.value})} /></div>
+            
+            <div className="form-group"><label>Data Coleta</label><input type="date" className="form-input" value={formData.data_coleta} onChange={(e) => setFormData({...formData, data_coleta: e.target.value})} /></div>
             <div className="form-group"><label>Valor da NF (R$)</label><input type="number" step="0.01" className="form-input" value={formData.valor_nf} onChange={(e) => setFormData({...formData, valor_nf: e.target.value})} /></div>
             
-            {/* Frete Cotado */}
             <div className="form-group">
               <label>Frete Cotado (R$)</label>
               <input type="text" className="form-input" placeholder="0,00" value={formData.valor_frete} onChange={(e) => {
@@ -143,7 +148,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               }} />
             </div>
 
-            {/* NOVO: Frete Real (Auditado) */}
             <div className="form-group">
               <label style={{ color: '#166534', fontWeight: 'bold' }}>Frete Real (CTE) (R$)</label>
               <input type="text" className="form-input" style={{ backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }} placeholder="Auto-preenchido pelo CTE..." value={formData.valor_frete_real} onChange={(e) => {

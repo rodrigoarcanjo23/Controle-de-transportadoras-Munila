@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit, Trash2, TrendingUp, Target, Package, Scale, FileText, ArrowRightLeft } from 'lucide-react';
+import { Edit, Trash2, Target, Package, Scale, FileText, ArrowRightLeft, Hash } from 'lucide-react';
 import { Header } from '../components/Header';
 
 interface DashboardProps {
@@ -30,7 +30,6 @@ interface DashboardProps {
   filtroComFreteReal: boolean;
   setFiltroComFreteReal: (value: boolean) => void;
   
-  // OS 6 NOVOS PROPS AQUI
   filtroUf: string;
   setFiltroUf: (value: string) => void;
   filtroSemDataEntrega: boolean;
@@ -44,10 +43,14 @@ interface DashboardProps {
   filtroPercFreteMax: string;
   setFiltroPercFreteMax: (value: string) => void;
 
+  filtroDataEntradaInicio: string;
+  setFiltroDataEntradaInicio: (value: string) => void;
+  filtroDataEntradaFim: string;
+  setFiltroDataEntradaFim: (value: string) => void;
+
   transportadoras: any[];
   limparFiltros: () => void;
   abrirModalNovaEntrega: () => void;
-  freteTotal: number;
   freteMedio: string;
   volumeTotal: number;
   pesoTotal: number;
@@ -55,7 +58,7 @@ interface DashboardProps {
   entregasFiltradas: any[];
   formatarData: (dataStr: string) => string;
   calcularPorcentagemFrete: (frete: number, nf: number) => string;
-  calcularDiasEntrega: (coleta: string, entrega: string) => string;
+  calcularGapPedidoEntrega: (entrada: string, entrega: string) => string;
   getStatusColor: (status: string) => React.CSSProperties;
   abrirModalEdicao: (entrega: any) => void;
   handleDeleteEntrega: (id: string) => void;
@@ -75,14 +78,14 @@ export function Dashboard({
   filtroUf, setFiltroUf, filtroSemDataEntrega, setFiltroSemDataEntrega,
   filtroValorNfMin, setFiltroValorNfMin, filtroValorNfMax, setFiltroValorNfMax,
   filtroPercFreteMin, setFiltroPercFreteMin, filtroPercFreteMax, setFiltroPercFreteMax,
+  filtroDataEntradaInicio, setFiltroDataEntradaInicio, filtroDataEntradaFim, setFiltroDataEntradaFim,
 
   transportadoras, limparFiltros, abrirModalNovaEntrega,
-  freteTotal, freteMedio,
+  freteMedio,
   volumeTotal, pesoTotal, loading, entregasFiltradas, formatarData, calcularPorcentagemFrete,
-  calcularDiasEntrega, getStatusColor, abrirModalEdicao, handleDeleteEntrega
+  calcularGapPedidoEntrega, getStatusColor, abrirModalEdicao, handleDeleteEntrega
 }: DashboardProps) {
 
-  // CÁLCULOS DOS DASHBOARDS
   const valorTotalNf = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
   const totalFreteCotado = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_frete) || 0), 0);
   const totalFreteReal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_frete_real) || 0), 0);
@@ -90,7 +93,7 @@ export function Dashboard({
   const exportarParaExcel = () => {
     if (entregasFiltradas.length === 0) { alert("Não há dados para exportar."); return; }
     
-    const cabecalho = ["Data Fat.", "Coleta", "Cliente", "Cidade", "UF", "Volume (Cx)", "Peso (Kg)", "Nº NF", "Valor NF", "Transportadora", "Modal", "Frete Cotado (R$)", "Frete Real (R$)", "% Frete Real", "Agendamento", "Previsão", "Dt Entrega", "Dias", "Status", "Frete Confirmado", "Observações"].join(";");
+    const cabecalho = ["Entrada Pedido", "Data Fat.", "Coleta", "Cliente", "Cidade", "UF", "Volume (Cx)", "Peso (Kg)", "Nº NF", "Valor NF", "Transportadora", "Modal", "Frete Cotado (R$)", "Frete Real (R$)", "% Frete Real", "Agendamento", "Previsão", "Dt Entrega", "GAP (Dias)", "Status", "Frete Confirmado", "Observações"].join(";");
     
     const linhas = entregasFiltradas.map(e => {
       const cidadeFormatada = e.cidade_destino || e.clientes?.cidade || '-';
@@ -101,14 +104,14 @@ export function Dashboard({
       const calcFrete = temReal ? e.valor_frete_real : e.valor_frete;
 
       return [
-        formatarData(e.data_faturamento), formatarData(e.data_coleta), e.clientes?.nome || '-', cidadeFormatada, ufFormatada,
+        formatarData(e.data_entrada_pedido), formatarData(e.data_faturamento), formatarData(e.data_coleta), e.clientes?.nome || '-', cidadeFormatada, ufFormatada,
         e.volume || e.volume_peso || '-', e.peso_kg?.toString().replace('.', ',') || '-', e.nota_fiscal, 
         e.valor_nf?.toString().replace('.', ',') || '0,00', e.transportadoras?.nome || '-', modalFormatado,
         e.valor_frete?.toString().replace('.', ',') || '0,00', 
         e.valor_frete_real?.toString().replace('.', ',') || '0,00', 
         calcularPorcentagemFrete(calcFrete, e.valor_nf), 
         e.tem_agendamento ? 'SIM' : 'NÃO',
-        formatarData(e.data_previsao), formatarData(e.data_entrega_agendamento), calcularDiasEntrega(e.data_coleta, e.data_entrega_agendamento).replace(' dias', ''), e.status, e.frete_confirmado ? 'SIM' : 'NÃO', e.observacoes || '-'
+        formatarData(e.data_previsao), formatarData(e.data_entrega_agendamento), calcularGapPedidoEntrega(e.data_entrada_pedido, e.data_entrega_agendamento).replace(' dias', ''), e.status, e.frete_confirmado ? 'SIM' : 'NÃO', e.observacoes || '-'
       ].join(";");
     });
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + cabecalho + "\n" + linhas.join("\n");
@@ -148,6 +151,9 @@ export function Dashboard({
           filtroValorNfMax={filtroValorNfMax} setFiltroValorNfMax={setFiltroValorNfMax}
           filtroPercFreteMin={filtroPercFreteMin} setFiltroPercFreteMin={setFiltroPercFreteMin}
           filtroPercFreteMax={filtroPercFreteMax} setFiltroPercFreteMax={setFiltroPercFreteMax}
+          
+          filtroDataEntradaInicio={filtroDataEntradaInicio} setFiltroDataEntradaInicio={setFiltroDataEntradaInicio}
+          filtroDataEntradaFim={filtroDataEntradaFim} setFiltroDataEntradaFim={setFiltroDataEntradaFim}
 
           transportadoras={transportadoras} limparFiltros={limparFiltros} exportarParaExcel={exportarParaExcel} abrirModalNovaEntrega={abrirModalNovaEntrega}
         />
@@ -155,6 +161,17 @@ export function Dashboard({
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px', flexShrink: 0 }}>
         
+        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Número de Carga</p>
+            <Hash size={16} color="#6366f1" />
+          </div>
+          <h3 style={{ fontSize: '1.25rem', color: 'var(--text-main)', marginBottom: '6px', fontWeight: 700 }}>
+            {entregasFiltradas.length} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>NFs</span>
+          </h3>
+          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Notas encontradas</p>
+        </div>
+
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Valor Total NFs</p>
@@ -185,16 +202,6 @@ export function Dashboard({
               </h3>
             </div>
           </div>
-        </div>
-
-        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Custo Logístico (Mix)</p>
-            <TrendingUp size={16} color="#ea580c" />
-          </div>
-          <h3 style={{ fontSize: '1.25rem', color: 'var(--text-main)', fontWeight: 700 }}>
-            R$ {freteTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </h3>
         </div>
 
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
@@ -230,6 +237,7 @@ export function Dashboard({
         <table style={{ width: '100%', minWidth: '1600px', borderCollapse: 'separate', borderSpacing: 0 }}>
           <thead>
             <tr>
+              <th style={{...thStyle, backgroundColor: '#f0fdf4', color: '#166534'}}>Entrada Pedido</th>
               <th style={thStyle}>Data Fat.</th>
               <th style={thStyle}>Coleta</th>
               <th style={thStyle}>Cliente</th>
@@ -247,12 +255,14 @@ export function Dashboard({
               <th style={thStyle}>Agendamento?</th>
               <th style={thStyle}>Previsão</th>
               <th style={thStyle}>Dt Entrega</th>
+              <th style={{...thStyle, backgroundColor: '#fff7ed', color: '#c2410c'}}>GAP (Dias)</th>
               <th style={thStyle}>Status</th>
+              <th style={thStyle}>Observações</th>
               <th style={thAcoesStyle}>Ações</th>
             </tr>
           </thead>
           <tbody>
-            {loading ? ( <tr><td colSpan={19} style={{ textAlign: 'center', padding: '32px' }}>A carregar...</td></tr> ) : entregasFiltradas.length === 0 ? ( <tr><td colSpan={19} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma entrega encontrada.</td></tr> ) : entregasFiltradas.map((entrega) => {
+            {loading ? ( <tr><td colSpan={22} style={{ textAlign: 'center', padding: '32px' }}>A carregar...</td></tr> ) : entregasFiltradas.length === 0 ? ( <tr><td colSpan={22} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma entrega encontrada.</td></tr> ) : entregasFiltradas.map((entrega) => {
               
               const isFreteConfirmado = entrega.frete_confirmado;
               const freteColor = isFreteConfirmado ? '#166534' : 'inherit';
@@ -261,8 +271,11 @@ export function Dashboard({
               const hasFreteReal = entrega.valor_frete_real !== null && entrega.valor_frete_real !== undefined && entrega.valor_frete_real !== '';
               const valorFreteCalculo = hasFreteReal ? entrega.valor_frete_real : entrega.valor_frete;
 
+              const gapText = calcularGapPedidoEntrega(entrega.data_entrada_pedido, entrega.data_entrega_agendamento);
+
               return (
                 <tr key={entrega.id} className="trow-hover">
+                  <td style={{ ...tdStyle, backgroundColor: '#f0fdf4', fontWeight: 'bold' }}>{formatarData(entrega.data_entrada_pedido)}</td>
                   <td style={tdStyle}>{formatarData(entrega.data_faturamento)}</td>
                   <td style={tdStyle}>{formatarData(entrega.data_coleta)}</td>
                   <td style={tdStyle}>{entrega.clientes?.nome || '-'}</td>
@@ -293,7 +306,16 @@ export function Dashboard({
 
                   <td style={tdStyle}>{formatarData(entrega.data_previsao)}</td>
                   <td style={tdStyle}>{formatarData(entrega.data_entrega_agendamento)}</td>
+                  
+                  <td style={{ ...tdStyle, backgroundColor: '#fff7ed', color: '#c2410c', fontWeight: 'bold', textAlign: 'center' }}>
+                    {gapText}
+                  </td>
+
                   <td style={tdStyle}><span className="status-badge" style={getStatusColor(entrega.status)}>{entrega.status}</span></td>
+                  
+                  <td style={{ ...tdStyle, maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={entrega.observacoes || ''}>
+                    {entrega.observacoes || '-'}
+                  </td>
                   
                   <td style={tdAcoesStyle}>
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>

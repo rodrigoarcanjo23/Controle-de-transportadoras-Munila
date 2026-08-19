@@ -42,28 +42,31 @@ export default function App() {
   const [filtroModal, setFiltroModal] = useState('');
   const [filtroStatus, setFiltroStatus] = useState<string[]>([]);
   
-  // ESTADOS DE CHECKBOXES
+  // ESTADOS DE CHECKBOXES E NOVOS FILTROS
   const [filtroFreteVazio, setFiltroFreteVazio] = useState(false);
   const [filtroFreteConfirmado, setFiltroFreteConfirmado] = useState(false);
   const [filtroComAgendamento, setFiltroComAgendamento] = useState(false);
   const [filtroSemAgendamento, setFiltroSemAgendamento] = useState(false);
   const [filtroComFreteCotado, setFiltroComFreteCotado] = useState(false);
   const [filtroComFreteReal, setFiltroComFreteReal] = useState(false);
-  const [filtroSemDataEntrega, setFiltroSemDataEntrega] = useState(false); // NOVO
+  const [filtroSemDataEntrega, setFiltroSemDataEntrega] = useState(false);
   
-  // ESTADOS DE UF E RANGES (Com Valor Inicial de 1000)
+  // ESTADOS RANGES E DATAS 
   const [filtroUf, setFiltroUf] = useState('');
-  const [filtroValorNfMin, setFiltroValorNfMin] = useState('1000'); // Já começa a limpar o ruído
+  const [filtroValorNfMin, setFiltroValorNfMin] = useState(''); 
   const [filtroValorNfMax, setFiltroValorNfMax] = useState('');
   const [filtroPercFreteMin, setFiltroPercFreteMin] = useState('');
   const [filtroPercFreteMax, setFiltroPercFreteMax] = useState('');
+  
+  const [filtroDataEntradaInicio, setFiltroDataEntradaInicio] = useState('');
+  const [filtroDataEntradaFim, setFiltroDataEntradaFim] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     nota_fiscal: '', cliente_id: '', transportadora_id: '', cidade_destino: '', uf_destino: '', modal_frete: '', 
-    data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', valor_frete_real: '', volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', 
+    data_entrada_pedido: '', data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', valor_frete_real: '', volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', 
     data_entrega_agendamento: '', observacoes: '', status: 'Pendente', frete_confirmado: false
   });
 
@@ -142,14 +145,15 @@ export default function App() {
 
   function abrirModalNovaEntrega() { 
     setEditingId(null); 
-    setFormData({ nota_fiscal: '', cliente_id: '', transportadora_id: '', cidade_destino: '', uf_destino: '', modal_frete: '', data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', valor_frete_real: '', volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', data_entrega_agendamento: '', observacoes: '', status: 'Pendente', frete_confirmado: false }); 
+    setFormData({ nota_fiscal: '', cliente_id: '', transportadora_id: '', cidade_destino: '', uf_destino: '', modal_frete: '', data_entrada_pedido: '', data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', valor_frete_real: '', volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', data_entrega_agendamento: '', observacoes: '', status: 'Pendente', frete_confirmado: false }); 
     setIsModalOpen(true); 
   }
   
   function abrirModalEdicao(entrega: any) { 
     setEditingId(entrega.id); 
     setFormData({ 
-      nota_fiscal: entrega.nota_fiscal, cliente_id: entrega.cliente_id, transportadora_id: entrega.transportadora_id, cidade_destino: entrega.cidade_destino || '', uf_destino: entrega.uf_destino || '', modal_frete: entrega.modal_frete || '', data_faturamento: entrega.data_faturamento || '', data_coleta: entrega.data_coleta || '', valor_nf: entrega.valor_nf?.toString() || '', 
+      nota_fiscal: entrega.nota_fiscal, cliente_id: entrega.cliente_id, transportadora_id: entrega.transportadora_id, cidade_destino: entrega.cidade_destino || '', uf_destino: entrega.uf_destino || '', modal_frete: entrega.modal_frete || '', 
+      data_entrada_pedido: entrega.data_entrada_pedido || '', data_faturamento: entrega.data_faturamento || '', data_coleta: entrega.data_coleta || '', valor_nf: entrega.valor_nf?.toString() || '', 
       valor_frete: entrega.valor_frete?.toString().replace('.', ',') || '', 
       valor_frete_real: entrega.valor_frete_real?.toString().replace('.', ',') || '', 
       volume: entrega.volume?.toString() || '', 
@@ -214,7 +218,7 @@ export default function App() {
     const pesoFormatado = parseFloat(String(formData.peso_kg).replace(',', '.')) || null;
     
     const payload = { 
-      nota_fiscal: nfLimpa, cliente_id: formData.cliente_id, transportadora_id: formData.transportadora_id || null, cidade_destino: formData.cidade_destino || null, uf_destino: formData.uf_destino || null, modal_frete: formData.modal_frete || null, data_faturamento: formData.data_faturamento || null, data_coleta: formData.data_coleta || null, valor_nf: nf, valor_frete: freteCotado, valor_frete_real: freteReal, volume: parseInt(formData.volume) || null, peso_kg: pesoFormatado, tem_agendamento: formData.tem_agendamento, data_previsao: formData.data_previsao || null, data_entrega_agendamento: formData.data_entrega_agendamento || null, observacoes: formData.observacoes, status: formData.status, frete_confirmado: formData.frete_confirmado 
+      nota_fiscal: nfLimpa, cliente_id: formData.cliente_id, transportadora_id: formData.transportadora_id || null, cidade_destino: formData.cidade_destino || null, uf_destino: formData.uf_destino || null, modal_frete: formData.modal_frete || null, data_entrada_pedido: formData.data_entrada_pedido || null, data_faturamento: formData.data_faturamento || null, data_coleta: formData.data_coleta || null, valor_nf: nf, valor_frete: freteCotado, valor_frete_real: freteReal, volume: parseInt(formData.volume) || null, peso_kg: pesoFormatado, tem_agendamento: formData.tem_agendamento, data_previsao: formData.data_previsao || null, data_entrega_agendamento: formData.data_entrega_agendamento || null, observacoes: formData.observacoes, status: formData.status, frete_confirmado: formData.frete_confirmado 
     };
     
     try {
@@ -281,9 +285,9 @@ export default function App() {
     return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR');
   };
 
-  const calcularDiasEntrega = (coleta: string, entrega: string) => {
-    if (!coleta || !entrega) return '-';
-    const d1 = new Date(coleta + 'T12:00:00');
+  const calcularGapPedidoEntrega = (entrada: string, entrega: string) => {
+    if (!entrada || !entrega) return '-';
+    const d1 = new Date(entrada + 'T12:00:00');
     const d2 = new Date(entrega + 'T12:00:00');
     const diffTime = Math.abs(d2.getTime() - d1.getTime());
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + ' dias';
@@ -325,13 +329,15 @@ export default function App() {
     setFiltroComAgendamento(false); setFiltroSemAgendamento(false);
     setFiltroComFreteCotado(false); setFiltroComFreteReal(false); 
     
-    // NOSSOS NOVOS FILTROS A LIMPAR
     setFiltroUf('');
     setFiltroSemDataEntrega(false);
-    setFiltroValorNfMin('1000'); // Mantém os 1.000 como padrão de corte!
+    setFiltroValorNfMin(''); 
     setFiltroValorNfMax('');
     setFiltroPercFreteMin('');
     setFiltroPercFreteMax('');
+
+    setFiltroDataEntradaInicio('');
+    setFiltroDataEntradaFim('');
   }
 
   const entregasFiltradas = entregas.filter(entrega => {
@@ -345,6 +351,11 @@ export default function App() {
     let passaData = true;
     if (filtroDataInicio && entrega.data_faturamento < filtroDataInicio) passaData = false;
     if (filtroDataFim && entrega.data_faturamento > filtroDataFim) passaData = false;
+
+    let passaDataEntrada = true;
+    if (filtroDataEntradaInicio && (!entrega.data_entrada_pedido || entrega.data_entrada_pedido < filtroDataEntradaInicio)) passaDataEntrada = false;
+    if (filtroDataEntradaFim && (!entrega.data_entrada_pedido || entrega.data_entrada_pedido > filtroDataEntradaFim)) passaDataEntrada = false;
+
     const passaTransp = filtroTransportadora ? entrega.transportadora_id === filtroTransportadora : true;
     const passaModal = filtroModal ? (entrega.modal_frete === filtroModal || entrega.transportadoras?.modal_padrao === filtroModal) : true;
     
@@ -358,7 +369,6 @@ export default function App() {
     const passaComFreteCotado = filtroComFreteCotado ? (Number(entrega.valor_frete) > 0) : true;
     const passaComFreteReal = filtroComFreteReal ? (Number(entrega.valor_frete_real) > 0) : true;
 
-    // INTEGRAÇÃO DA INTELIGÊNCIA DOS NOVOS FILTROS
     const ufDestino = entrega.uf_destino || entrega.clientes?.uf || '';
     const passaUf = filtroUf ? ufDestino === filtroUf : true;
 
@@ -374,7 +384,7 @@ export default function App() {
     const passaPercMin = filtroPercFreteMin ? percFrete >= Number(filtroPercFreteMin) : true;
     const passaPercMax = filtroPercFreteMax ? percFrete <= Number(filtroPercFreteMax) : true;
 
-    return passaTexto && passaData && passaTransp && passaModal && passaStatus && passaFreteVazio && passaFreteConfirmado && passaComAgendamento && passaSemAgendamento && passaComFreteCotado && passaComFreteReal && passaUf && passaSemData && passaValNfMin && passaValNfMax && passaPercMin && passaPercMax;
+    return passaTexto && passaData && passaDataEntrada && passaTransp && passaModal && passaStatus && passaFreteVazio && passaFreteConfirmado && passaComAgendamento && passaSemAgendamento && passaComFreteCotado && passaComFreteReal && passaUf && passaSemData && passaValNfMin && passaValNfMax && passaPercMin && passaPercMax;
   }).sort((a, b) => new Date(b.data_faturamento || b.created_at || 0).getTime() - new Date(a.data_faturamento || a.created_at || 0).getTime());
 
   const faturamentoTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
@@ -407,19 +417,22 @@ export default function App() {
               filtroComFreteCotado={filtroComFreteCotado} setFiltroComFreteCotado={setFiltroComFreteCotado}
               filtroComFreteReal={filtroComFreteReal} setFiltroComFreteReal={setFiltroComFreteReal}
               
-              /* REPASSANDO TUDO PARA O DASHBOARD E DEPOIS PARA O HEADER */
               filtroUf={filtroUf} setFiltroUf={setFiltroUf}
               filtroSemDataEntrega={filtroSemDataEntrega} setFiltroSemDataEntrega={setFiltroSemDataEntrega}
               filtroValorNfMin={filtroValorNfMin} setFiltroValorNfMin={setFiltroValorNfMin}
               filtroValorNfMax={filtroValorNfMax} setFiltroValorNfMax={setFiltroValorNfMax}
               filtroPercFreteMin={filtroPercFreteMin} setFiltroPercFreteMin={setFiltroPercFreteMin}
               filtroPercFreteMax={filtroPercFreteMax} setFiltroPercFreteMax={setFiltroPercFreteMax}
+              
+              filtroDataEntradaInicio={filtroDataEntradaInicio} setFiltroDataEntradaInicio={setFiltroDataEntradaInicio}
+              filtroDataEntradaFim={filtroDataEntradaFim} setFiltroDataEntradaFim={setFiltroDataEntradaFim}
 
               transportadoras={transportadoras} limparFiltros={limparFiltros} 
               abrirModalNovaEntrega={abrirModalNovaEntrega}
-              freteTotal={freteTotal} freteMedio={freteMedio} volumeTotal={volumeTotal} pesoTotal={pesoTotal} loading={loading}
-              entregasFiltradas={entregasFiltradas} formatarData={formatarData} calcularPorcentagemFrete={calcularPorcentagemFrete} calcularDiasEntrega={calcularDiasEntrega} getStatusColor={getStatusColor}
-              abrirModalEdicao={abrirModalEdicao} handleDeleteEntrega={handleDeleteEntrega}
+              freteMedio={freteMedio} volumeTotal={volumeTotal} pesoTotal={pesoTotal} loading={loading}
+              entregasFiltradas={entregasFiltradas} formatarData={formatarData} calcularPorcentagemFrete={calcularPorcentagemFrete} 
+              calcularGapPedidoEntrega={calcularGapPedidoEntrega}
+              getStatusColor={getStatusColor} abrirModalEdicao={abrirModalEdicao} handleDeleteEntrega={handleDeleteEntrega}
             />
           } />
 

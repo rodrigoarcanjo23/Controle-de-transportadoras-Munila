@@ -34,6 +34,7 @@ export default function App() {
   const [metas, setMetas] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
 
+  // ESTADOS DE FILTROS GERAIS
   const [searchTerm, setSearchTerm] = useState('');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
@@ -42,6 +43,7 @@ export default function App() {
   const [filtroModal, setFiltroModal] = useState('');
   const [filtroStatus, setFiltroStatus] = useState<string[]>([]);
   
+  // ESTADOS DE CHECKBOXES
   const [filtroFreteVazio, setFiltroFreteVazio] = useState(false);
   const [filtroFreteConfirmado, setFiltroFreteConfirmado] = useState(false);
   const [filtroComAgendamento, setFiltroComAgendamento] = useState(false);
@@ -50,14 +52,12 @@ export default function App() {
   const [filtroComFreteReal, setFiltroComFreteReal] = useState(false);
   const [filtroSemDataEntrega, setFiltroSemDataEntrega] = useState(false);
   
+  // ESTADOS RANGES
   const [filtroUf, setFiltroUf] = useState('');
   const [filtroValorNfMin, setFiltroValorNfMin] = useState(''); 
   const [filtroValorNfMax, setFiltroValorNfMax] = useState('');
   const [filtroPercFreteMin, setFiltroPercFreteMin] = useState('');
   const [filtroPercFreteMax, setFiltroPercFreteMax] = useState('');
-  
-  const [filtroDataEntradaInicio, setFiltroDataEntradaInicio] = useState('');
-  const [filtroDataEntradaFim, setFiltroDataEntradaFim] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -342,9 +342,6 @@ export default function App() {
     setFiltroValorNfMax('');
     setFiltroPercFreteMin('');
     setFiltroPercFreteMax('');
-
-    setFiltroDataEntradaInicio('');
-    setFiltroDataEntradaFim('');
   }
 
   const entregasFiltradas = entregas.filter(entrega => {
@@ -358,10 +355,6 @@ export default function App() {
     let passaData = true;
     if (filtroDataInicio && entrega.data_faturamento < filtroDataInicio) passaData = false;
     if (filtroDataFim && entrega.data_faturamento > filtroDataFim) passaData = false;
-
-    let passaDataEntrada = true;
-    if (filtroDataEntradaInicio && (!entrega.data_entrada_pedido || entrega.data_entrada_pedido < filtroDataEntradaInicio)) passaDataEntrada = false;
-    if (filtroDataEntradaFim && (!entrega.data_entrada_pedido || entrega.data_entrada_pedido > filtroDataEntradaFim)) passaDataEntrada = false;
 
     const passaTransp = filtroTransportadora ? entrega.transportadora_id === filtroTransportadora : true;
     const passaModal = filtroModal ? (entrega.modal_frete === filtroModal || entrega.transportadoras?.modal_padrao === filtroModal) : true;
@@ -391,7 +384,7 @@ export default function App() {
     const passaPercMin = filtroPercFreteMin ? percFrete >= Number(filtroPercFreteMin) : true;
     const passaPercMax = filtroPercFreteMax ? percFrete <= Number(filtroPercFreteMax) : true;
 
-    return passaTexto && passaData && passaDataEntrada && passaTransp && passaModal && passaStatus && passaFreteVazio && passaFreteConfirmado && passaComAgendamento && passaSemAgendamento && passaComFreteCotado && passaComFreteReal && passaUf && passaSemData && passaValNfMin && passaValNfMax && passaPercMin && passaPercMax;
+    return passaTexto && passaData && passaTransp && passaModal && passaStatus && passaFreteVazio && passaFreteConfirmado && passaComAgendamento && passaSemAgendamento && passaComFreteCotado && passaComFreteReal && passaUf && passaSemData && passaValNfMin && passaValNfMax && passaPercMin && passaPercMax;
   }).sort((a, b) => new Date(b.data_faturamento || b.created_at || 0).getTime() - new Date(a.data_faturamento || a.created_at || 0).getTime());
 
   const faturamentoTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
@@ -430,9 +423,6 @@ export default function App() {
               filtroValorNfMax={filtroValorNfMax} setFiltroValorNfMax={setFiltroValorNfMax}
               filtroPercFreteMin={filtroPercFreteMin} setFiltroPercFreteMin={setFiltroPercFreteMin}
               filtroPercFreteMax={filtroPercFreteMax} setFiltroPercFreteMax={setFiltroPercFreteMax}
-              
-              filtroDataEntradaInicio={filtroDataEntradaInicio} setFiltroDataEntradaInicio={setFiltroDataEntradaInicio}
-              filtroDataEntradaFim={filtroDataEntradaFim} setFiltroDataEntradaFim={setFiltroDataEntradaFim}
 
               transportadoras={transportadoras} limparFiltros={limparFiltros} 
               abrirModalNovaEntrega={abrirModalNovaEntrega}
@@ -451,7 +441,6 @@ export default function App() {
           <Route path="ctes" element={<Ctes transportadoras={transportadoras} formatarData={formatarData} onUpdateEntregas={carregarDadosDoBanco} />} />
           <Route path="auditoria" element={<Auditoria />} />
           
-          {/* ROTA ATUALIZADA DO BI - Passando as funções para tornar clicável */}
           <Route path="analise" element={<Analise entregas={entregas} setFiltroStatus={setFiltroStatus} limparFiltros={limparFiltros} />} />
 
           <Route path="calculadora" element={

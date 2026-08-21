@@ -43,11 +43,6 @@ interface DashboardProps {
   filtroPercFreteMax: string;
   setFiltroPercFreteMax: (value: string) => void;
 
-  filtroDataEntradaInicio: string;
-  setFiltroDataEntradaInicio: (value: string) => void;
-  filtroDataEntradaFim: string;
-  setFiltroDataEntradaFim: (value: string) => void;
-
   transportadoras: any[];
   limparFiltros: () => void;
   abrirModalNovaEntrega: () => void;
@@ -79,7 +74,6 @@ export function Dashboard({
   filtroUf, setFiltroUf, filtroSemDataEntrega, setFiltroSemDataEntrega,
   filtroValorNfMin, setFiltroValorNfMin, filtroValorNfMax, setFiltroValorNfMax,
   filtroPercFreteMin, setFiltroPercFreteMin, filtroPercFreteMax, setFiltroPercFreteMax,
-  filtroDataEntradaInicio, setFiltroDataEntradaInicio, filtroDataEntradaFim, setFiltroDataEntradaFim,
 
   transportadoras, limparFiltros, abrirModalNovaEntrega,
   freteMedio,
@@ -165,9 +159,6 @@ export function Dashboard({
           filtroValorNfMax={filtroValorNfMax} setFiltroValorNfMax={setFiltroValorNfMax}
           filtroPercFreteMin={filtroPercFreteMin} setFiltroPercFreteMin={setFiltroPercFreteMin}
           filtroPercFreteMax={filtroPercFreteMax} setFiltroPercFreteMax={setFiltroPercFreteMax}
-          
-          filtroDataEntradaInicio={filtroDataEntradaInicio} setFiltroDataEntradaInicio={setFiltroDataEntradaInicio}
-          filtroDataEntradaFim={filtroDataEntradaFim} setFiltroDataEntradaFim={setFiltroDataEntradaFim}
 
           transportadoras={transportadoras} limparFiltros={limparFiltros} exportarParaExcel={exportarParaExcel} abrirModalNovaEntrega={abrirModalNovaEntrega}
         />
@@ -270,7 +261,6 @@ export function Dashboard({
               <th style={thStyle}>Previsão</th>
               <th style={thStyle}>Dt Entrega</th>
               
-              {/* AS 4 COLUNAS DE SLA / ANÁLISE DE GARGALO */}
               <th style={{...thStyle, backgroundColor: '#eff6ff', color: '#1d4ed8', textAlign: 'center'}} title="Dias decorridos da Entrada do Pedido até o Faturamento">Ped ➔ Fat</th>
               <th style={{...thStyle, backgroundColor: '#eff6ff', color: '#1d4ed8', textAlign: 'center'}} title="Dias decorridos da Entrada do Pedido até a Coleta">Ped ➔ Col</th>
               <th style={{...thStyle, backgroundColor: '#eff6ff', color: '#1d4ed8', textAlign: 'center'}} title="Dias decorridos da Coleta até a Entrega Final">Col ➔ Ent</th>
@@ -291,7 +281,6 @@ export function Dashboard({
               const hasFreteReal = entrega.valor_frete_real !== null && entrega.valor_frete_real !== undefined && entrega.valor_frete_real !== '';
               const valorFreteCalculo = hasFreteReal ? entrega.valor_frete_real : entrega.valor_frete;
 
-              // CÁLCULO DOS DIAS DE CADA ETAPA
               const diasPedFat = calcularDiferencaDias(entrega.data_entrada_pedido, entrega.data_faturamento);
               const diasPedCol = calcularDiferencaDias(entrega.data_entrada_pedido, entrega.data_coleta);
               const diasColEnt = calcularDiferencaDias(entrega.data_coleta, entrega.data_entrega_agendamento);
@@ -331,7 +320,6 @@ export function Dashboard({
                   <td style={tdStyle}>{formatarData(entrega.data_previsao)}</td>
                   <td style={tdStyle}>{formatarData(entrega.data_entrega_agendamento)}</td>
                   
-                  {/* AS 4 CÉLULAS DAS ETAPAS */}
                   <td style={{ ...tdStyle, backgroundColor: '#f8fafc', color: '#1e40af', fontWeight: 'bold', textAlign: 'center' }}>
                     {diasPedFat}
                   </td>

@@ -22,10 +22,6 @@ export function Header(props: any) {
     filtroValorNfMax, setFiltroValorNfMax,
     filtroPercFreteMin, setFiltroPercFreteMin,
     filtroPercFreteMax, setFiltroPercFreteMax,
-    
-    // NOSSAS DUAS NOVAS DATAS DE ENTRADA DO PEDIDO
-    filtroDataEntradaInicio, setFiltroDataEntradaInicio,
-    filtroDataEntradaFim, setFiltroDataEntradaFim,
 
     transportadoras, limparFiltros,
     exportarParaExcel, abrirModalNovaEntrega
@@ -101,18 +97,6 @@ export function Header(props: any) {
           
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '16px' }}>
             
-            {/* NOVO: DATAS DE ENTRADA DO PEDIDO */}
-            <div style={{ display: 'flex', gap: '12px', backgroundColor: '#f0fdf4', padding: '10px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
-              <div className="form-group" style={{ flex: '1 1 120px', margin: 0 }}>
-                <label style={{ color: '#166534', fontWeight: 'bold' }}>Início (Entrada)</label>
-                <input type="date" className="form-input" value={filtroDataEntradaInicio} onChange={e => setFiltroDataEntradaInicio(e.target.value)} />
-              </div>
-              <div className="form-group" style={{ flex: '1 1 120px', margin: 0 }}>
-                <label style={{ color: '#166534', fontWeight: 'bold' }}>Fim (Entrada)</label>
-                <input type="date" className="form-input" value={filtroDataEntradaFim} onChange={e => setFiltroDataEntradaFim(e.target.value)} />
-              </div>
-            </div>
-
             <div className="form-group" style={{ flex: '1 1 120px', margin: 0 }}>
               <label>Data Início (Fat.)</label>
               <input type="date" className="form-input" value={filtroDataInicio} onChange={e => setFiltroDataInicio(e.target.value)} />

@@ -3,12 +3,12 @@ import { LayoutDashboard, Users, UserSquare2, Truck, RefreshCcw, Calculator, Log
 
 interface SidebarProps {
   handleLogout: () => void;
-  onNavigate?: () => void; // Propriedade para controlar o fecho no mobile
+  onNavigate?: () => void;
+  isAdmin: boolean; // <-- LÊ A PERMISSÃO
 }
 
-export function Sidebar({ handleLogout, onNavigate }: SidebarProps) {
+export function Sidebar({ handleLogout, onNavigate, isAdmin }: SidebarProps) {
   
-  // Otimização: Criámos uma função para não ter de repetir a lógica em cada botão
   const getNavClass = ({ isActive }: { isActive: boolean }) => {
     return isActive ? "nav-item active" : "nav-item";
   };
@@ -26,18 +26,21 @@ export function Sidebar({ handleLogout, onNavigate }: SidebarProps) {
             </NavLink>
           </li>
           
-          {/* NOVO LINK DO PAINEL DE BI (ANÁLISE) */}
           <li>
             <NavLink to="/analise" onClick={onNavigate} className={getNavClass}>
               <PieChart size={20} /> Painel de BI (Análise)
             </NavLink>
           </li>
 
-          <li>
-            <NavLink to="/equipe" onClick={onNavigate} className={getNavClass}>
-              <Users size={20} /> Equipe
-            </NavLink>
-          </li>
+          {/* SÓ MOSTRA O MENU EQUIPE SE FOR ADMIN */}
+          {isAdmin && (
+            <li>
+              <NavLink to="/equipe" onClick={onNavigate} className={getNavClass}>
+                <Users size={20} /> Equipe
+              </NavLink>
+            </li>
+          )}
+
           <li>
             <NavLink to="/clientes" onClick={onNavigate} className={getNavClass}>
               <UserSquare2 size={20} /> Clientes & Metas
@@ -63,11 +66,15 @@ export function Sidebar({ handleLogout, onNavigate }: SidebarProps) {
               <FileText size={20} /> Registro de CTE
             </NavLink>
           </li>
-          <li>
-            <NavLink to="/auditoria" onClick={onNavigate} className={getNavClass}>
-              <ShieldAlert size={20} /> Auditoria
-            </NavLink>
-          </li>
+
+          {/* SÓ MOSTRA A AUDITORIA SE FOR ADMIN */}
+          {isAdmin && (
+            <li>
+              <NavLink to="/auditoria" onClick={onNavigate} className={getNavClass}>
+                <ShieldAlert size={20} /> Auditoria
+              </NavLink>
+            </li>
+          )}
         </ul>
         
         <button 

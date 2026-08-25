@@ -24,7 +24,8 @@ export function Header(props: any) {
     filtroPercFreteMax, setFiltroPercFreteMax,
 
     transportadoras, limparFiltros,
-    exportarParaExcel, abrirModalNovaEntrega
+    exportarParaExcel, abrirModalNovaEntrega,
+    isAdmin // <-- RECEBEMOS A PERMISSÃO AQUI
   } = props;
 
   const estadosBR = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
@@ -81,14 +82,17 @@ export function Header(props: any) {
             <Download size={18} /> Exportar
           </button>
 
-          <button 
-            type="button" 
-            className="btn-primary" 
-            onClick={abrirModalNovaEntrega}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-          >
-            <Plus size={18} /> Nova Entrega
-          </button>
+          {/* SÓ MOSTRA BOTÃO DE CRIAR SE FOR ADMIN */}
+          {isAdmin && (
+            <button 
+              type="button" 
+              className="btn-primary" 
+              onClick={abrirModalNovaEntrega}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <Plus size={18} /> Nova Entrega
+            </button>
+          )}
         </div>
       </div>
 

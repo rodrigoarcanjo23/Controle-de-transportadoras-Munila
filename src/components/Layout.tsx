@@ -5,14 +5,14 @@ import { Menu, X } from 'lucide-react';
 
 interface LayoutProps {
   handleLogout: () => void;
+  isAdmin: boolean; // <-- RECEBE A INFORMAÇÃO DE SEGURANÇA
 }
 
-export function Layout({ handleLogout }: LayoutProps) {
+export function Layout({ handleLogout, isAdmin }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
     <div className="app-container">
-      {/* Botão de Menu Hambúrguer (Oculto no Desktop via CSS) */}
       <button 
         className="mobile-menu-toggle" 
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -21,12 +21,11 @@ export function Layout({ handleLogout }: LayoutProps) {
         {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
-      {/* Wrapper isolador da Sidebar para transição mobile */}
       <div className={`sidebar-wrapper ${isMobileMenuOpen ? 'open' : ''}`}>
-        <Sidebar handleLogout={handleLogout} onNavigate={() => setIsMobileMenuOpen(false)} />
+        {/* REPASSA O isAdmin PARA A SIDEBAR */}
+        <Sidebar handleLogout={handleLogout} onNavigate={() => setIsMobileMenuOpen(false)} isAdmin={isAdmin} />
       </div>
       
-      {/* Máscara escura ao abrir o menu no celular */}
       {isMobileMenuOpen && (
         <div className="sidebar-overlay-backdrop" onClick={() => setIsMobileMenuOpen(false)}></div>
       )}

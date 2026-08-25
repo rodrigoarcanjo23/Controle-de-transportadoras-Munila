@@ -34,7 +34,6 @@ export default function App() {
   const [metas, setMetas] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
 
-  // ESTADOS DE FILTROS GERAIS
   const [searchTerm, setSearchTerm] = useState('');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
@@ -43,7 +42,6 @@ export default function App() {
   const [filtroModal, setFiltroModal] = useState('');
   const [filtroStatus, setFiltroStatus] = useState<string[]>([]);
   
-  // ESTADOS DE CHECKBOXES
   const [filtroFreteVazio, setFiltroFreteVazio] = useState(false);
   const [filtroFreteConfirmado, setFiltroFreteConfirmado] = useState(false);
   const [filtroComAgendamento, setFiltroComAgendamento] = useState(false);
@@ -52,7 +50,6 @@ export default function App() {
   const [filtroComFreteReal, setFiltroComFreteReal] = useState(false);
   const [filtroSemDataEntrega, setFiltroSemDataEntrega] = useState(false);
   
-  // ESTADOS RANGES
   const [filtroUf, setFiltroUf] = useState('');
   const [filtroValorNfMin, setFiltroValorNfMin] = useState(''); 
   const [filtroValorNfMax, setFiltroValorNfMax] = useState('');
@@ -75,11 +72,16 @@ export default function App() {
   const [isMetaModalOpen, setIsMetaModalOpen] = useState(false);
   const [metaFormData, setMetaFormData] = useState({ cliente_id: '', transportadora_id: '', meta_percentual: '' });
 
+  // ESTADOS DO PERFIL DE EQUIPE
   const [isPerfilModalOpen, setIsPerfilModalOpen] = useState(false);
+  const [editingPerfilId, setEditingPerfilId] = useState<string | null>(null); // NOVO ESTADO
   const [perfilFormData, setPerfilFormData] = useState({ nome: '', email: '', cargo: '', nivel_acesso: 'Operador' });
 
   const [calcProdutoId, setCalcProdutoId] = useState('');
   const [calcQuantidade, setCalcQuantidade] = useState('');
+
+  const perfilLogado = perfis.find(p => p.email === session?.user?.email);
+  const isAdmin = perfis.length === 0 || perfilLogado?.nivel_acesso === 'Administrador';
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -165,9 +167,35 @@ export default function App() {
   function abrirModalEdicaoCliente(cliente: any) { setEditingClienteId(cliente.id); setClienteFormData({ nome: cliente.nome, cnpj_cpf: cliente.cnpj_cpf || '', razao_social: cliente.razao_social || '', nome_fantasia: cliente.nome_fantasia || '', cidade: cliente.cidade || '', uf: cliente.uf || '', telefone: cliente.telefone || '', email: cliente.email || '', exige_agendamento: cliente.exige_agendamento || false }); setIsClienteModalOpen(true); }
   
   function abrirModalNovaMeta() { setMetaFormData({ cliente_id: '', transportadora_id: '', meta_percentual: '' }); setIsMetaModalOpen(true); }
-  function abrirModalNovoPerfil() { setPerfilFormData({ nome: '', email: '', cargo: '', nivel_acesso: 'Operador' }); setIsPerfilModalOpen(true); }
+  
+  // ==========================================
+  // FUNÇÕES DE EQUIPE
+  // ==========================================
+  function abrirModalNovoPerfil() { 
+    setEditingPerfilId(null);
+    setPerfilFormData({ nome: '', email: '', cargo: '', nivel_acesso: 'Operador' }); 
+    setIsPerfilModalOpen(true); 
+  }
+
+  function abrirModalEdicaoPerfil(perfil: any) {
+    setEditingPerfilId(perfil.id);
+    setPerfilFormData({ nome: perfil.nome, email: perfil.email, cargo: perfil.cargo, nivel_acesso: perfil.nivel_acesso });
+    setIsPerfilModalOpen(true);
+  }
+
+  async function handleDeletePerfil(id: string) {
+    if (!isAdmin) { alert("⚠️ Acesso Restrito."); return; }
+    if (!window.confirm("⚠️ ATENÇÃO: Tem certeza que deseja excluir este perfil de acesso?")) return;
+    try {
+      const perfil = perfis.find(p => p.id === id);
+      await supabase.from('perfis').delete().eq('id', id);
+      setPerfis(perfis.filter(p => p.id !== id));
+      await registrarLog('APAGOU', 'EQUIPE', `Apagou o perfil de acesso: ${perfil?.nome}`);
+    } catch (error) { console.error(error); }
+  }
 
   async function handleDeleteEntrega(id: string) { 
+    if (!isAdmin) { alert("⚠️ Acesso Restrito: Apenas administradores podem excluir entregas."); return; }
     if (!window.confirm("⚠️ ATENÇÃO: Tem certeza que deseja excluir esta entrega?")) return; 
     try { 
       const entrega = entregas.find(e => e.id === id);
@@ -179,6 +207,7 @@ export default function App() {
   }
 
   async function handleDeleteCliente(id: string) { 
+    if (!isAdmin) { alert("⚠️ Acesso Restrito: Apenas administradores podem excluir clientes."); return; }
     if (!window.confirm("Tem certeza que deseja excluir este cliente?")) return; 
     try { 
       const cliente = clientes.find(c => c.id === id);
@@ -191,9 +220,9 @@ export default function App() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!isAdmin) { alert("⚠️ Acesso Restrito: Apenas administradores podem criar ou editar entregas."); return; }
 
     const nfLimpa = String(formData.nota_fiscal || '').trim();
-
     if (!nfLimpa) { alert("⚠️ O número da Nota Fiscal é obrigatório."); return; }
 
     try {
@@ -210,7 +239,6 @@ export default function App() {
     } catch (err) { console.error(err); }
 
     const nf = parseFloat(formData.valor_nf) || 0; 
-    
     const freteCotado = parseFloat(String(formData.valor_frete).replace(',', '.')) || null;
     const freteReal = parseFloat(String(formData.valor_frete_real).replace(',', '.')) || null;
     const pesoFormatado = parseFloat(String(formData.peso_kg).replace(',', '.')) || null;
@@ -222,16 +250,10 @@ export default function App() {
     try {
       if (editingId) {
         const { data } = await supabase.from('entregas').update([payload]).eq('id', editingId).select('*, clientes (nome, cidade, uf, telefone, email, exige_agendamento), transportadoras (nome, modal_padrao, telefone, email)');
-        if (data) {
-          setEntregas(entregas.map(e => e.id === editingId ? data[0] : e));
-          await registrarLog('EDITOU', 'ENTREGAS', `Editou os dados da Entrega (NF: ${nfLimpa})`);
-        }
+        if (data) { setEntregas(entregas.map(e => e.id === editingId ? data[0] : e)); await registrarLog('EDITOU', 'ENTREGAS', `Editou os dados da Entrega (NF: ${nfLimpa})`); }
       } else {
         const { data } = await supabase.from('entregas').insert([payload]).select('*, clientes (nome, cidade, uf, telefone, email, exige_agendamento), transportadoras (nome, modal_padrao, telefone, email)');
-        if (data) {
-          setEntregas([data[0], ...entregas]);
-          await registrarLog('CRIOU', 'ENTREGAS', `Registrou nova Entrega (NF: ${nfLimpa})`);
-        }
+        if (data) { setEntregas([data[0], ...entregas]); await registrarLog('CRIOU', 'ENTREGAS', `Registrou nova Entrega (NF: ${nfLimpa})`); }
       }
       setIsModalOpen(false);
     } catch (error) { console.error(error); alert("Erro ao salvar a entrega."); }
@@ -239,20 +261,15 @@ export default function App() {
 
   async function handleClienteSubmit(e: React.FormEvent) { 
     e.preventDefault(); 
+    if (!isAdmin) { alert("⚠️ Acesso Restrito: Apenas administradores podem criar ou editar clientes."); return; }
     const payload = { nome: clienteFormData.nome.toUpperCase(), cnpj_cpf: clienteFormData.cnpj_cpf, razao_social: clienteFormData.razao_social.toUpperCase(), nome_fantasia: clienteFormData.nome_fantasia.toUpperCase(), cidade: clienteFormData.cidade.toUpperCase(), uf: clienteFormData.uf.toUpperCase(), telefone: clienteFormData.telefone, email: clienteFormData.email.toLowerCase(), exige_agendamento: clienteFormData.exige_agendamento }; 
     try { 
       if (editingClienteId) { 
         const { data } = await supabase.from('clientes').update([payload]).eq('id', editingClienteId).select('*'); 
-        if (data) {
-          setClientes(clientes.map(c => c.id === editingClienteId ? data[0] : c)); 
-          await registrarLog('EDITOU', 'CLIENTES', `Editou os dados do Cliente: ${payload.nome}`);
-        }
+        if (data) { setClientes(clientes.map(c => c.id === editingClienteId ? data[0] : c)); await registrarLog('EDITOU', 'CLIENTES', `Editou os dados do Cliente: ${payload.nome}`); }
       } else { 
         const { data } = await supabase.from('clientes').insert([payload]).select('*'); 
-        if (data) {
-          setClientes([...clientes, data[0]]); 
-          await registrarLog('CRIOU', 'CLIENTES', `Registrou um novo Cliente: ${payload.nome}`);
-        }
+        if (data) { setClientes([...clientes, data[0]]); await registrarLog('CRIOU', 'CLIENTES', `Registrou um novo Cliente: ${payload.nome}`); }
       } 
       setIsClienteModalOpen(false); 
     } catch (error) { console.error(error); } 
@@ -260,6 +277,7 @@ export default function App() {
 
   async function handleMetaSubmit(e: React.FormEvent) { 
     e.preventDefault(); 
+    if (!isAdmin) { alert("⚠️ Acesso Restrito: Apenas administradores."); return; }
     try { 
       const { data } = await supabase.from('metas_frete').insert([{ cliente_id: metaFormData.cliente_id, transportadora_id: metaFormData.transportadora_id, meta_percentual: parseFloat(metaFormData.meta_percentual) }]).select('*, clientes (nome), transportadoras (nome)'); 
       if (data) setMetas([...metas, data[0]]); 
@@ -270,11 +288,29 @@ export default function App() {
   
   async function handlePerfilSubmit(e: React.FormEvent) { 
     e.preventDefault(); 
+    if (!isAdmin) { alert("⚠️ Acesso Restrito: Apenas administradores."); return; }
     try { 
-      const { data } = await supabase.from('perfis').insert([{ nome: perfilFormData.nome, email: perfilFormData.email.toLowerCase(), cargo: perfilFormData.cargo, nivel_acesso: perfilFormData.nivel_acesso }]).select('*'); 
-      if (data) setPerfis([...perfis, data[0]]); 
+      const payload = { 
+        nome: perfilFormData.nome, 
+        email: perfilFormData.email.toLowerCase(), 
+        cargo: perfilFormData.cargo, 
+        nivel_acesso: perfilFormData.nivel_acesso 
+      };
+
+      if (editingPerfilId) {
+        const { data } = await supabase.from('perfis').update([payload]).eq('id', editingPerfilId).select('*');
+        if (data) {
+          setPerfis(perfis.map(p => p.id === editingPerfilId ? data[0] : p));
+          await registrarLog('EDITOU', 'EQUIPE', `Editou o perfil de acesso: ${payload.nome}`);
+        }
+      } else {
+        const { data } = await supabase.from('perfis').insert([payload]).select('*'); 
+        if (data) {
+          setPerfis([...perfis, data[0]]); 
+          await registrarLog('CRIOU', 'EQUIPE', `Registrou novo membro da equipe: ${payload.nome}`);
+        }
+      }
       setIsPerfilModalOpen(false); 
-      await registrarLog('CRIOU', 'EQUIPE', `Registrou novo membro da equipe: ${perfilFormData.nome} (${perfilFormData.email})`);
     } catch (error) { console.error(error); } 
   }
 
@@ -358,20 +394,16 @@ export default function App() {
 
     const passaTransp = filtroTransportadora ? entrega.transportadora_id === filtroTransportadora : true;
     const passaModal = filtroModal ? (entrega.modal_frete === filtroModal || entrega.transportadoras?.modal_padrao === filtroModal) : true;
-    
     const passaStatus = filtroStatus.length === 0 ? true : filtroStatus.includes(entrega.status);
-    
     const passaFreteVazio = filtroFreteVazio ? (!entrega.valor_frete_real && !entrega.valor_frete) : true;
     const passaFreteConfirmado = filtroFreteConfirmado ? entrega.frete_confirmado === true : true;
     const passaComAgendamento = filtroComAgendamento ? entrega.tem_agendamento === true : true;
     const passaSemAgendamento = filtroSemAgendamento ? (!entrega.tem_agendamento) : true;
-
     const passaComFreteCotado = filtroComFreteCotado ? (Number(entrega.valor_frete) > 0) : true;
     const passaComFreteReal = filtroComFreteReal ? (Number(entrega.valor_frete_real) > 0) : true;
 
     const ufDestino = entrega.uf_destino || entrega.clientes?.uf || '';
     const passaUf = filtroUf ? ufDestino === filtroUf : true;
-
     const passaSemData = filtroSemDataEntrega ? !entrega.data_entrega_agendamento : true;
 
     const valNf = Number(entrega.valor_nf) || 0;
@@ -387,8 +419,8 @@ export default function App() {
     return passaTexto && passaData && passaTransp && passaModal && passaStatus && passaFreteVazio && passaFreteConfirmado && passaComAgendamento && passaSemAgendamento && passaComFreteCotado && passaComFreteReal && passaUf && passaSemData && passaValNfMin && passaValNfMax && passaPercMin && passaPercMax;
   }).sort((a, b) => new Date(b.data_faturamento || b.created_at || 0).getTime() - new Date(a.data_faturamento || a.created_at || 0).getTime());
 
-  const faturamentoTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
   const freteTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_frete_real) || Number(curr.valor_frete) || 0), 0);
+  const faturamentoTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
   const freteMedio = faturamentoTotal > 0 ? ((freteTotal / faturamentoTotal) * 100).toFixed(2) : '0.00';
   const volumeTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.volume) || 0), 0);
   const pesoTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.peso_kg) || 0), 0);
@@ -401,7 +433,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Layout handleLogout={handleLogout} />}>
+        <Route path="/" element={<Layout handleLogout={handleLogout} isAdmin={isAdmin} />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           
           <Route path="dashboard" element={
@@ -409,40 +441,22 @@ export default function App() {
               searchTerm={searchTerm} setSearchTerm={setSearchTerm} mostrarFiltros={mostrarFiltros} setMostrarFiltros={setMostrarFiltros}
               filtroDataInicio={filtroDataInicio} setFiltroDataInicio={setFiltroDataInicio} filtroDataFim={filtroDataFim} setFiltroDataFim={setFiltroDataFim}
               filtroTransportadora={filtroTransportadora} setFiltroTransportadora={setFiltroTransportadora} filtroModal={filtroModal} setFiltroModal={setFiltroModal}
-              filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus} 
-              filtroFreteVazio={filtroFreteVazio} setFiltroFreteVazio={setFiltroFreteVazio}
-              filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado}
-              filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento}
-              filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento}
-              filtroComFreteCotado={filtroComFreteCotado} setFiltroComFreteCotado={setFiltroComFreteCotado}
-              filtroComFreteReal={filtroComFreteReal} setFiltroComFreteReal={setFiltroComFreteReal}
-              
-              filtroUf={filtroUf} setFiltroUf={setFiltroUf}
-              filtroSemDataEntrega={filtroSemDataEntrega} setFiltroSemDataEntrega={setFiltroSemDataEntrega}
-              filtroValorNfMin={filtroValorNfMin} setFiltroValorNfMin={setFiltroValorNfMin}
-              filtroValorNfMax={filtroValorNfMax} setFiltroValorNfMax={setFiltroValorNfMax}
-              filtroPercFreteMin={filtroPercFreteMin} setFiltroPercFreteMin={setFiltroPercFreteMin}
-              filtroPercFreteMax={filtroPercFreteMax} setFiltroPercFreteMax={setFiltroPercFreteMax}
-
-              transportadoras={transportadoras} limparFiltros={limparFiltros} 
-              abrirModalNovaEntrega={abrirModalNovaEntrega}
-              freteMedio={freteMedio} volumeTotal={volumeTotal} pesoTotal={pesoTotal} loading={loading}
-              entregasFiltradas={entregasFiltradas} formatarData={formatarData} calcularPorcentagemFrete={calcularPorcentagemFrete} 
-              calcularDiferencaDias={calcularDiferencaDias}
-              calcularGapPedidoEntrega={calcularGapPedidoEntrega}
-              getStatusColor={getStatusColor} abrirModalEdicao={abrirModalEdicao} handleDeleteEntrega={handleDeleteEntrega}
+              filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus} filtroFreteVazio={filtroFreteVazio} setFiltroFreteVazio={setFiltroFreteVazio}
+              filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado} filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento}
+              filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento} filtroComFreteCotado={filtroComFreteCotado} setFiltroComFreteCotado={setFiltroComFreteCotado}
+              filtroComFreteReal={filtroComFreteReal} setFiltroComFreteReal={setFiltroComFreteReal} filtroUf={filtroUf} setFiltroUf={setFiltroUf}
+              filtroSemDataEntrega={filtroSemDataEntrega} setFiltroSemDataEntrega={setFiltroSemDataEntrega} filtroValorNfMin={filtroValorNfMin} setFiltroValorNfMin={setFiltroValorNfMin}
+              filtroValorNfMax={filtroValorNfMax} setFiltroValorNfMax={setFiltroValorNfMax} filtroPercFreteMin={filtroPercFreteMin} setFiltroPercFreteMin={setFiltroPercFreteMin}
+              filtroPercFreteMax={filtroPercFreteMax} setFiltroPercFreteMax={setFiltroPercFreteMax} transportadoras={transportadoras} limparFiltros={limparFiltros} 
+              abrirModalNovaEntrega={abrirModalNovaEntrega} freteMedio={freteMedio} volumeTotal={volumeTotal} pesoTotal={pesoTotal} loading={loading}
+              entregasFiltradas={entregasFiltradas} formatarData={formatarData} calcularPorcentagemFrete={calcularPorcentagemFrete} calcularDiferencaDias={calcularDiferencaDias}
+              calcularGapPedidoEntrega={calcularGapPedidoEntrega} getStatusColor={getStatusColor} abrirModalEdicao={abrirModalEdicao} handleDeleteEntrega={handleDeleteEntrega}
+              isAdmin={isAdmin} 
             />
           } />
 
-          <Route path="equipe" element={<Equipe perfis={perfis} abrirModalNovoPerfil={abrirModalNovoPerfil} />} />
-          <Route path="clientes" element={<Clientes clientes={clientes} metas={metas} abrirModalNovoCliente={abrirModalNovoCliente} abrirModalNovaMeta={abrirModalNovaMeta} abrirModalEdicaoCliente={abrirModalEdicaoCliente} handleDeleteCliente={handleDeleteCliente} onUpdate={carregarDadosDoBanco} />} />
-          <Route path="transportadoras" element={<Transportadoras transportadoras={transportadoras} entregas={entregas} onUpdate={buscarDominios} />} />
-          <Route path="devolucoes" element={<Devolucoes devolucoes={devolucoes} clientes={clientes} onUpdate={buscarDevolucoes} formatarData={formatarData} getStatusColor={getStatusColor} />} />
-          <Route path="ctes" element={<Ctes transportadoras={transportadoras} formatarData={formatarData} onUpdateEntregas={carregarDadosDoBanco} />} />
-          <Route path="auditoria" element={<Auditoria />} />
-          
           <Route path="analise" element={<Analise entregas={entregas} setFiltroStatus={setFiltroStatus} limparFiltros={limparFiltros} />} />
-
+          
           <Route path="calculadora" element={
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100%' }}>
               <header className="header">
@@ -475,14 +489,27 @@ export default function App() {
               </div>
             </div>
           } />
+
+          {/* ROTAS PROTEGIDAS: SÓ ADMIN ENTRA NAS PÁGINAS DE GESTÃO E AGORA PASSAMOS AS FUNÇÕES DE EDIÇÃO DE PERFIL */}
+          <Route path="equipe" element={isAdmin ? <Equipe perfis={perfis} abrirModalNovoPerfil={abrirModalNovoPerfil} abrirModalEdicaoPerfil={abrirModalEdicaoPerfil} handleDeletePerfil={handleDeletePerfil} /> : <Navigate to="/dashboard" />} />
+          <Route path="clientes" element={isAdmin ? <Clientes clientes={clientes} metas={metas} abrirModalNovoCliente={abrirModalNovoCliente} abrirModalNovaMeta={abrirModalNovaMeta} abrirModalEdicaoCliente={abrirModalEdicaoCliente} handleDeleteCliente={handleDeleteCliente} onUpdate={carregarDadosDoBanco} /> : <Navigate to="/dashboard" />} />
+          <Route path="transportadoras" element={isAdmin ? <Transportadoras transportadoras={transportadoras} entregas={entregas} onUpdate={buscarDominios} /> : <Navigate to="/dashboard" />} />
+          <Route path="devolucoes" element={isAdmin ? <Devolucoes devolucoes={devolucoes} clientes={clientes} onUpdate={buscarDevolucoes} formatarData={formatarData} getStatusColor={getStatusColor} /> : <Navigate to="/dashboard" />} />
+          <Route path="ctes" element={isAdmin ? <Ctes transportadoras={transportadoras} formatarData={formatarData} onUpdateEntregas={carregarDadosDoBanco} /> : <Navigate to="/dashboard" />} />
+          <Route path="auditoria" element={isAdmin ? <Auditoria /> : <Navigate to="/dashboard" />} />
+
         </Route>
       </Routes>
 
       {/* MODALS */}
-      <ModalEntrega isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleSubmit} formData={formData} setFormData={setFormData} isEditing={!!editingId} clientes={clientes} transportadoras={transportadoras} />
-      <ModalCliente isOpen={isClienteModalOpen} onClose={() => setIsClienteModalOpen(false)} onSubmit={handleClienteSubmit} formData={clienteFormData} setFormData={setClienteFormData} isEditing={!!editingClienteId} />
+      {isAdmin && (
+        <>
+          <ModalEntrega isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleSubmit} formData={formData} setFormData={setFormData} isEditing={!!editingId} clientes={clientes} transportadoras={transportadoras} />
+          <ModalCliente isOpen={isClienteModalOpen} onClose={() => setIsClienteModalOpen(false)} onSubmit={handleClienteSubmit} formData={clienteFormData} setFormData={setClienteFormData} isEditing={!!editingClienteId} />
+        </>
+      )}
 
-      {isMetaModalOpen && (
+      {isMetaModalOpen && isAdmin && (
         <div className="modal-overlay">
           <div className="modal-content">
             <div className="modal-header"><h3>Cadastrar Meta de Frete</h3><button className="close-btn" onClick={() => setIsMetaModalOpen(false)}><X size={24} /></button></div>
@@ -498,10 +525,14 @@ export default function App() {
         </div>
       )}
 
-      {isPerfilModalOpen && (
+      {/* MODAL DE PERFIL (CRIAR E EDITAR) */}
+      {isPerfilModalOpen && isAdmin && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <div className="modal-header"><h3>Cadastrar Novo Funcionário</h3><button className="close-btn" onClick={() => setIsPerfilModalOpen(false)}><X size={24} /></button></div>
+            <div className="modal-header">
+              <h3>{editingPerfilId ? 'Editar Funcionário' : 'Cadastrar Novo Funcionário'}</h3>
+              <button className="close-btn" onClick={() => setIsPerfilModalOpen(false)}><X size={24} /></button>
+            </div>
             <form onSubmit={handlePerfilSubmit}>
               <div className="modal-body">
                 <div className="form-group"><label>Nome Completo</label><input type="text" className="form-input" placeholder="Ex: João Silva" required value={perfilFormData.nome} onChange={(e) => setPerfilFormData({...perfilFormData, nome: e.target.value})} /></div>

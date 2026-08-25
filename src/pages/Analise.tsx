@@ -12,19 +12,14 @@ interface AnaliseProps {
 export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnaliseProps) {
   const navigate = useNavigate();
   
-  // ESTADOS DOS FILTROS
   const [periodoFiltro, setPeriodoFiltro] = useState('tudo');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
 
-  // ==========================================
-  // FILTRAGEM PRÉVIA PELO PERÍODO ESCOLHIDO
-  // ==========================================
   const entregasFiltradas = useMemo(() => {
     return entregas.filter(e => {
       if (!e.data_faturamento) return false;
 
-      // Se o usuário escolher "Personalizado", usamos as datas exatas
       if (periodoFiltro === 'personalizado') {
         if (dataInicio && e.data_faturamento < dataInicio) return false;
         if (dataFim && e.data_faturamento > dataFim) return false;
@@ -45,9 +40,6 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
     });
   }, [entregas, periodoFiltro, dataInicio, dataFim]);
 
-  // ==========================================
-  // O MOTOR DO BI: CÁLCULOS MATEMÁTICOS GERAIS
-  // ==========================================
   const stats = useMemo(() => {
     const total = entregasFiltradas.length;
     if (total === 0) return null;
@@ -83,9 +75,8 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
       clientesMap[nomeCliente].Valor += (Number(e.valor_nf) || 0);
       clientesMap[nomeCliente].Notas += 1;
 
-      // AGRUPANDO USANDO A DATA ISO PARA EVITAR BUGS DE RENDERIZAÇÃO
       if (e.data_faturamento) {
-        const isoDate = e.data_faturamento; // Ex: "2026-08-19"
+        const isoDate = e.data_faturamento; 
         const d = new Date(isoDate + 'T12:00:00');
         const diaMes = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
         
@@ -100,7 +91,6 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
     const topTransportadoras = Object.values(transportadorasMap).sort((a, b) => b.Custo - a.Custo).slice(0, 5);
     const topClientes = Object.values(clientesMap).sort((a, b) => b.Valor - a.Valor).slice(0, 5);
     
-    // ORDENAÇÃO CRONOLÓGICA DAS DATAS
     const timelineData = Object.values(timelineMap).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
 
     let gapTotal = 0, qtdGap = 0;
@@ -137,7 +127,6 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
           <p style={{ color: '#64748b', margin: 0 }}>Análise executiva dinâmica da sua operação logística</p>
         </div>
         
-        {/* CAIXA DE FILTROS COM OPÇÃO "PERSONALIZADO" E DATAS */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           
           {periodoFiltro === 'personalizado' && (
@@ -199,7 +188,6 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
             <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <TrendingDown size={20} color="#6366f1"/> Evolução Faturamento vs Frete
             </h3>
-            {/* minWidth: 0 previne bugs de redimensionamento do flexbox em monitores grandes/pequenos */}
             <div style={{ flex: 1, width: '100%', minWidth: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={stats.timelineData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -215,7 +203,8 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                   
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} minTickGap={30} />
+                  {/* ALTERAÇÕES AQUI: interval="preserveStartEnd" e minTickGap */}
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} minTickGap={30} interval="preserveStartEnd" />
                   
                   <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} />
                   <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} />
@@ -228,9 +217,9 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
                   />
                   <Legend verticalAlign="top" height={36} />
                   
-                  {/* SOLUÇÃO: Mudamos type="linear" para que o SVG nunca "quebre" as linhas matemáticas ao dar zoom */}
-                  <Area isAnimationActive={false} connectNulls type="linear" dot={{ r: 3, fill: '#0284c7' }} activeDot={{ r: 6 }} yAxisId="left" dataKey="Faturamento" stroke="#0284c7" strokeWidth={3} fillOpacity={1} fill="url(#colorFaturamento)" />
-                  <Area isAnimationActive={false} connectNulls type="linear" dot={{ r: 3, fill: '#ea580c' }} activeDot={{ r: 6 }} yAxisId="right" dataKey="Frete" stroke="#ea580c" strokeWidth={3} fillOpacity={1} fill="url(#colorFrete)" />
+                  {/* ALTERAÇÕES AQUI: type="linear" para desenhar linhas retas e dot={false} para não ter bolinhas visíveis */}
+                  <Area isAnimationActive={false} connectNulls type="linear" dot={false} activeDot={{ r: 6 }} yAxisId="left" dataKey="Faturamento" stroke="#0284c7" strokeWidth={3} fillOpacity={1} fill="url(#colorFaturamento)" />
+                  <Area isAnimationActive={false} connectNulls type="linear" dot={false} activeDot={{ r: 6 }} yAxisId="right" dataKey="Frete" stroke="#ea580c" strokeWidth={3} fillOpacity={1} fill="url(#colorFrete)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>

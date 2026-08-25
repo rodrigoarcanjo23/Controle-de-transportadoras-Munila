@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { PieChart, TrendingDown, Clock, Truck, DollarSign, Activity, Calendar, Percent } from 'lucide-react';
+import { PieChart, TrendingDown, Clock, Truck, DollarSign, Activity, Calendar, Percent, Award } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, ComposedChart, Line } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -80,14 +80,14 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
     }, 0);
     const freteMedio = faturamentoTotal > 0 ? ((custoLogistico / faturamentoTotal) * 100).toFixed(2) : '0.00';
 
-    const transportadorasMap: Record<string, { name: string, Quantidade: number, Custo: number }> = {};
+    const transportadorasMap: Record<string, { name: string, Quantidade: number, Custo: number, Faturamento: number }> = {};
     const clientesMap: Record<string, { name: string, Valor: number, Notas: number }> = {};
     const timelineMap: Record<string, { name: string, Faturamento: number, Frete: number, dateObj: Date }> = {};
     const estadosStatsMap: Record<string, { faturamento: number, custo: number }> = {};
 
     entregasFiltradas.forEach(e => {
       const nomeTransp = e.transportadoras?.nome || 'Não Informada';
-      if (!transportadorasMap[nomeTransp]) transportadorasMap[nomeTransp] = { name: nomeTransp, Quantidade: 0, Custo: 0 };
+      if (!transportadorasMap[nomeTransp]) transportadorasMap[nomeTransp] = { name: nomeTransp, Quantidade: 0, Custo: 0, Faturamento: 0 };
       transportadorasMap[nomeTransp].Quantidade += 1;
       
       const real = Number(e.valor_frete_real);
@@ -95,6 +95,7 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
       const faturamentoItem = Number(e.valor_nf) || 0;
       
       transportadorasMap[nomeTransp].Custo += custoFinalItem;
+      transportadorasMap[nomeTransp].Faturamento += faturamentoItem;
 
       const nomeCliente = e.clientes?.nome || 'Cliente Desconhecido';
       if (!clientesMap[nomeCliente]) clientesMap[nomeCliente] = { name: nomeCliente, Valor: 0, Notas: 0 };
@@ -119,8 +120,21 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
       }
     });
 
-    const topTransportadoras = Object.values(transportadorasMap).sort((a, b) => b.Custo - a.Custo).slice(0, 5);
-    const topClientes = Object.values(clientesMap).sort((a, b) => b.Valor - a.Valor).slice(0, 5);
+    // MUDANÇA AQUI: de .slice(0, 5) para .slice(0, 10)
+    const topTransportadoras = Object.values(transportadorasMap).sort((a, b) => b.Custo - a.Custo).slice(0, 10);
+    
+    const topTransportadorasEficiencia = Object.values(transportadorasMap)
+      .filter(t => t.Faturamento > 0 && t.Custo > 0)
+      .map(t => ({
+        name: t.name,
+        percentual: parseFloat(((t.Custo / t.Faturamento) * 100).toFixed(2)),
+        custo: t.Custo,
+        faturamento: t.Faturamento
+      }))
+      .sort((a, b) => a.percentual - b.percentual) 
+      .slice(0, 10); // MUDANÇA AQUI
+
+    const topClientes = Object.values(clientesMap).sort((a, b) => b.Valor - a.Valor).slice(0, 10); // MUDANÇA AQUI
     
     const analisePorEstado = Object.entries(estadosStatsMap).map(([uf, vals]) => {
       const lucro = vals.faturamento - vals.custo;
@@ -144,7 +158,7 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
 
     return {
       total, entregues, atrasadas, emAndamento, percentEntregue, percentAtraso,
-      faturamentoTotal, custoLogistico, freteMedio, topTransportadoras, topClientes, timelineData, analisePorEstado,
+      faturamentoTotal, custoLogistico, freteMedio, topTransportadoras, topTransportadorasEficiencia, topClientes, timelineData, analisePorEstado,
       mediaGap: qtdGap ? (gapTotal / qtdGap).toFixed(1) : '-'
     };
   }, [entregasFiltradas]);
@@ -239,7 +253,6 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
             </div>
           </div>
 
-          {/* NOVO: GRÁFICO DE EVOLUÇÃO COM SCROLL HORIZONTAL FORÇADO */}
           <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column' }}>
             <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <TrendingDown size={20} color="#6366f1"/> Evolução Faturamento vs Frete
@@ -279,10 +292,11 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '16px' }}>
-            <div style={{ ...cardStyle, height: '350px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '16px' }}>
+            {/* MUDANÇA AQUI: height para 450px e título atualizado */}
+            <div style={{ ...cardStyle, height: '450px', display: 'flex', flexDirection: 'column' }}>
               <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <DollarSign size={20} color="#10b981"/> Top 5 Clientes (Maior Receita)
+                <DollarSign size={20} color="#10b981"/> Top 10 Clientes (Maior Receita)
               </h3>
               <div style={{ flex: 1, width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -303,9 +317,10 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
               </div>
             </div>
 
-            <div style={{ ...cardStyle, height: '350px', display: 'flex', flexDirection: 'column' }}>
+            {/* MUDANÇA AQUI: height para 450px e título atualizado */}
+            <div style={{ ...cardStyle, height: '450px', display: 'flex', flexDirection: 'column' }}>
               <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Truck size={20} color="#8b5cf6"/> Top 5 Transportadoras (Maior Custo)
+                <Truck size={20} color="#8b5cf6"/> Top 10 Transportadoras (Maior Custo)
               </h3>
               <div style={{ flex: 1, width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -325,9 +340,33 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
                 </ResponsiveContainer>
               </div>
             </div>
+
+            {/* MUDANÇA AQUI: height para 450px e título atualizado */}
+            <div style={{ ...cardStyle, height: '450px', display: 'flex', flexDirection: 'column' }}>
+              <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Award size={20} color="#f59e0b"/> Top 10 Transportadoras (Mais Eficientes)
+              </h3>
+              <div style={{ flex: 1, width: '100%' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={stats.topTransportadorasEficiencia} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
+                    <XAxis type="number" hide />
+                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 11 }} width={120} />
+                    <Tooltip 
+                      formatter={(value: any, _name: any, props: any) => {
+                         const faturamento = Number(props.payload.faturamento).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                         const custo = Number(props.payload.custo).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                         return [`${value}% (Frete: R$ ${custo} | NF: R$ ${faturamento})`, 'Custo-Benefício (% da NF)'];
+                      }}
+                      cursor={{fill: '#f8fafc'}}
+                    />
+                    <Bar isAnimationActive={false} dataKey="percentual" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={24} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
 
-          {/* NOVO: GRÁFICO COMPARATIVO GERAL COM SCROLL HORIZONTAL FORÇADO */}
           <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column' }}>
             <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Percent size={20} color="#ef4444"/> Comparativo Geral: Receita vs Custo Logístico por Estado (%)

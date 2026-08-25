@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { PieChart, TrendingDown, Clock, Truck, DollarSign, Activity, Calendar, MapPin, Percent } from 'lucide-react';
+import { PieChart, TrendingDown, Clock, Truck, DollarSign, Activity, Calendar, Percent } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, ComposedChart, Line } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -132,7 +132,7 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
         lucro, 
         percentual: parseFloat(percentual.toFixed(2)) 
       };
-    }).sort((a, b) => b.lucro - a.lucro);
+    }).sort((a, b) => b.faturamento - a.faturamento);
 
     const timelineData = Object.values(timelineMap).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
 
@@ -162,7 +162,6 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '32px' }}>
       
-      {/* CABEÇALHO E FILTROS */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h2 style={{ fontSize: '1.75rem', color: '#0f172a', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -218,7 +217,6 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
         </div>
       ) : (
         <>
-          {/* LINHA 1: KPIs GERAIS */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
             <div style={cardStyle}>
               <p style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>Faturamento (Período)</p>
@@ -241,44 +239,46 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
             </div>
           </div>
 
-          {/* LINHA 2: EVOLUÇÃO TEMPORAL */}
-          <div style={{ ...cardStyle, height: '350px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* NOVO: GRÁFICO DE EVOLUÇÃO COM SCROLL HORIZONTAL FORÇADO */}
+          <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column' }}>
             <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <TrendingDown size={20} color="#6366f1"/> Evolução Faturamento vs Frete
             </h3>
-            <div style={{ flex: 1, width: '100%', minWidth: 0 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={stats.timelineData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorFaturamento" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0284c7" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#0284c7" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorFrete" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ea580c" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#ea580c" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} minTickGap={30} interval="preserveStartEnd" />
-                  <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} />
-                  <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} />
-                  <Tooltip 
-                    formatter={(value: any) => {
-                      const numVal = Number(value) || 0;
-                      return [`R$ ${numVal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, ''];
-                    }}
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
-                  />
-                  <Legend verticalAlign="top" height={36} />
-                  <Area isAnimationActive={false} connectNulls type="linear" dot={false} activeDot={{ r: 6 }} yAxisId="left" dataKey="Faturamento" stroke="#0284c7" strokeWidth={3} fillOpacity={1} fill="url(#colorFaturamento)" />
-                  <Area isAnimationActive={false} connectNulls type="linear" dot={false} activeDot={{ r: 6 }} yAxisId="right" dataKey="Frete" stroke="#ea580c" strokeWidth={3} fillOpacity={1} fill="url(#colorFrete)" />
-                </AreaChart>
-              </ResponsiveContainer>
+            
+            <div style={{ width: '100%', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '12px' }}>
+              <div style={{ minWidth: `${Math.max(800, stats.timelineData.length * 50)}px`, height: '280px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={stats.timelineData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorFaturamento" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0284c7" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#0284c7" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorFrete" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ea580c" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#ea580c" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} minTickGap={30} interval="preserveStartEnd" />
+                    <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} />
+                    <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} />
+                    <Tooltip 
+                      formatter={(value: any) => {
+                        const numVal = Number(value) || 0;
+                        return [`R$ ${numVal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, ''];
+                      }}
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
+                    />
+                    <Legend verticalAlign="top" height={36} />
+                    <Area isAnimationActive={false} connectNulls type="linear" dot={false} activeDot={{ r: 6 }} yAxisId="left" dataKey="Faturamento" stroke="#0284c7" strokeWidth={3} fillOpacity={1} fill="url(#colorFaturamento)" />
+                    <Area isAnimationActive={false} connectNulls type="linear" dot={false} activeDot={{ r: 6 }} yAxisId="right" dataKey="Frete" stroke="#ea580c" strokeWidth={3} fillOpacity={1} fill="url(#colorFrete)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 
-          {/* LINHA 3: TOP CLIENTES E TRANSPORTADORAS (OS GRÁFICOS RESTAURADOS!) */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '16px' }}>
             <div style={{ ...cardStyle, height: '350px', display: 'flex', flexDirection: 'column' }}>
               <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -327,45 +327,27 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
             </div>
           </div>
 
-          {/* LINHA 4: ANÁLISE GEOGRÁFICA DE LUCRO E IMPACTO */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '16px' }}>
-            <div style={{ ...cardStyle, height: '400px', display: 'flex', flexDirection: 'column' }}>
-              <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <MapPin size={20} color="#10b981"/> Lucro Bruto por Estado (Receita - Frete)
-              </h3>
-              <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '16px' }}>Estados que geram maior retorno limpo para o caixa.</p>
-              
-              <div style={{ flex: 1, width: '100%', overflowY: 'auto', paddingRight: '8px' }}>
-                <div style={{ height: `${Math.max(300, stats.analisePorEstado.length * 40)}px` }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stats.analisePorEstado} layout="vertical" margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
-                      <XAxis type="number" tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} tick={{ fill: '#64748b', fontSize: 12 }} />
-                      <YAxis dataKey="uf" type="category" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 12, fontWeight: 'bold' }} width={50} />
-                      <Tooltip 
-                        formatter={(value: any) => [`R$ ${Number(value).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, 'Lucro Bruto (R$)']}
-                        cursor={{fill: '#f0fdf4'}}
-                      />
-                      <Bar isAnimationActive={false} dataKey="lucro" fill="#10b981" radius={[0, 4, 4, 0]} barSize={22} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ ...cardStyle, height: '400px', display: 'flex', flexDirection: 'column' }}>
-              <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Percent size={20} color="#ef4444"/> Comparativo: Receita vs Custo Logístico (%)
-              </h3>
-              <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '16px' }}>Proporção do frete comparado ao faturamento nos Top 10 Estados.</p>
-              
-              <div style={{ flex: 1, width: '100%', minWidth: 0 }}>
+          {/* NOVO: GRÁFICO COMPARATIVO GERAL COM SCROLL HORIZONTAL FORÇADO */}
+          <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column' }}>
+            <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Percent size={20} color="#ef4444"/> Comparativo Geral: Receita vs Custo Logístico por Estado (%)
+            </h3>
+            <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '16px' }}>
+              Proporção do frete comparado ao faturamento em todas as regiões de operação.
+            </p>
+            
+            <div style={{ width: '100%', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '12px' }}>
+              <div style={{ minWidth: `${Math.max(800, stats.analisePorEstado.length * 60)}px`, height: '350px' }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={stats.analisePorEstado.slice(0, 10)} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                  <ComposedChart data={stats.analisePorEstado} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    
                     <XAxis dataKey="uf" scale="band" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 'bold' }} dy={10} />
+                    
                     <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} />
+                    
                     <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#ef4444', fontSize: 12, fontWeight: 'bold' }} tickFormatter={(val) => `${val}%`} />
+                    
                     <Tooltip 
                       formatter={(value: any, name: any) => {
                         if (name === '% do Frete') return [`${value}%`, name];
@@ -375,8 +357,9 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
                     />
                     <Legend verticalAlign="top" height={36} />
                     
-                    <Bar isAnimationActive={false} yAxisId="left" dataKey="faturamento" name="Faturamento (R$)" fill="#0284c7" radius={[4, 4, 0, 0]} barSize={20} />
-                    <Bar isAnimationActive={false} yAxisId="left" dataKey="custo" name="Custo Frete (R$)" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={20} />
+                    <Bar isAnimationActive={false} yAxisId="left" dataKey="faturamento" name="Faturamento (R$)" fill="#0284c7" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    <Bar isAnimationActive={false} yAxisId="left" dataKey="custo" name="Custo Frete (R$)" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    
                     <Line isAnimationActive={false} yAxisId="right" type="monotone" dataKey="percentual" name="% do Frete" stroke="#ef4444" strokeWidth={3} dot={{ r: 5, fill: '#ef4444' }} activeDot={{ r: 8 }} />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -384,7 +367,6 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
             </div>
           </div>
 
-          {/* LINHA 5: RESUMO DE STATUS E LEAD TIME */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div style={cardStyle}>
               <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}><Activity size={20} color="#f59e0b"/> Resumo de Operação</h3>

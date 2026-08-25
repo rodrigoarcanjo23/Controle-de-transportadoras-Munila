@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { PieChart, TrendingDown, Clock, Activity, Calendar, MapPin, Percent } from 'lucide-react';
+import { PieChart, TrendingDown, Clock, Truck, DollarSign, Activity, Calendar, MapPin, Percent } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, ComposedChart, Line } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -80,14 +80,27 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
     }, 0);
     const freteMedio = faturamentoTotal > 0 ? ((custoLogistico / faturamentoTotal) * 100).toFixed(2) : '0.00';
 
+    const transportadorasMap: Record<string, { name: string, Quantidade: number, Custo: number }> = {};
+    const clientesMap: Record<string, { name: string, Valor: number, Notas: number }> = {};
     const timelineMap: Record<string, { name: string, Faturamento: number, Frete: number, dateObj: Date }> = {};
     const estadosStatsMap: Record<string, { faturamento: number, custo: number }> = {};
 
     entregasFiltradas.forEach(e => {
+      const nomeTransp = e.transportadoras?.nome || 'Não Informada';
+      if (!transportadorasMap[nomeTransp]) transportadorasMap[nomeTransp] = { name: nomeTransp, Quantidade: 0, Custo: 0 };
+      transportadorasMap[nomeTransp].Quantidade += 1;
+      
       const real = Number(e.valor_frete_real);
       const custoFinalItem = real > 0 ? real : (Number(e.valor_frete) || 0);
       const faturamentoItem = Number(e.valor_nf) || 0;
       
+      transportadorasMap[nomeTransp].Custo += custoFinalItem;
+
+      const nomeCliente = e.clientes?.nome || 'Cliente Desconhecido';
+      if (!clientesMap[nomeCliente]) clientesMap[nomeCliente] = { name: nomeCliente, Valor: 0, Notas: 0 };
+      clientesMap[nomeCliente].Valor += faturamentoItem;
+      clientesMap[nomeCliente].Notas += 1;
+
       const uf = e.uf_destino || e.clientes?.uf || 'ND';
       if (!estadosStatsMap[uf]) estadosStatsMap[uf] = { faturamento: 0, custo: 0 };
       estadosStatsMap[uf].faturamento += faturamentoItem;
@@ -106,6 +119,9 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
       }
     });
 
+    const topTransportadoras = Object.values(transportadorasMap).sort((a, b) => b.Custo - a.Custo).slice(0, 5);
+    const topClientes = Object.values(clientesMap).sort((a, b) => b.Valor - a.Valor).slice(0, 5);
+    
     const analisePorEstado = Object.entries(estadosStatsMap).map(([uf, vals]) => {
       const lucro = vals.faturamento - vals.custo;
       const percentual = vals.faturamento > 0 ? (vals.custo / vals.faturamento) * 100 : 0;
@@ -128,7 +144,7 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
 
     return {
       total, entregues, atrasadas, emAndamento, percentEntregue, percentAtraso,
-      faturamentoTotal, custoLogistico, freteMedio, timelineData, analisePorEstado,
+      faturamentoTotal, custoLogistico, freteMedio, topTransportadoras, topClientes, timelineData, analisePorEstado,
       mediaGap: qtdGap ? (gapTotal / qtdGap).toFixed(1) : '-'
     };
   }, [entregasFiltradas]);
@@ -146,6 +162,7 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '32px' }}>
       
+      {/* CABEÇALHO E FILTROS */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h2 style={{ fontSize: '1.75rem', color: '#0f172a', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -201,6 +218,7 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
         </div>
       ) : (
         <>
+          {/* LINHA 1: KPIs GERAIS */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
             <div style={cardStyle}>
               <p style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>Faturamento (Período)</p>
@@ -223,6 +241,7 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
             </div>
           </div>
 
+          {/* LINHA 2: EVOLUÇÃO TEMPORAL */}
           <div style={{ ...cardStyle, height: '350px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <TrendingDown size={20} color="#6366f1"/> Evolução Faturamento vs Frete
@@ -241,9 +260,7 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                  
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} minTickGap={30} interval="preserveStartEnd" />
-                  
                   <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} />
                   <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} />
                   <Tooltip 
@@ -254,7 +271,6 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
                   />
                   <Legend verticalAlign="top" height={36} />
-                  
                   <Area isAnimationActive={false} connectNulls type="linear" dot={false} activeDot={{ r: 6 }} yAxisId="left" dataKey="Faturamento" stroke="#0284c7" strokeWidth={3} fillOpacity={1} fill="url(#colorFaturamento)" />
                   <Area isAnimationActive={false} connectNulls type="linear" dot={false} activeDot={{ r: 6 }} yAxisId="right" dataKey="Frete" stroke="#ea580c" strokeWidth={3} fillOpacity={1} fill="url(#colorFrete)" />
                 </AreaChart>
@@ -262,8 +278,57 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
             </div>
           </div>
 
+          {/* LINHA 3: TOP CLIENTES E TRANSPORTADORAS (OS GRÁFICOS RESTAURADOS!) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '16px' }}>
+            <div style={{ ...cardStyle, height: '350px', display: 'flex', flexDirection: 'column' }}>
+              <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <DollarSign size={20} color="#10b981"/> Top 5 Clientes (Maior Receita)
+              </h3>
+              <div style={{ flex: 1, width: '100%' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={stats.topClientes} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
+                    <XAxis type="number" hide />
+                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 11 }} width={120} />
+                    <Tooltip 
+                      formatter={(value: any, name: any) => {
+                        const numVal = Number(value) || 0;
+                        return [name === 'Valor' ? `R$ ${numVal.toLocaleString('pt-BR')}` : numVal, name === 'Valor' ? 'Faturamento' : 'Volume de NFs'];
+                      }}
+                      cursor={{fill: '#f8fafc'}}
+                    />
+                    <Bar isAnimationActive={false} dataKey="Valor" fill="#10b981" radius={[0, 4, 4, 0]} barSize={24} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div style={{ ...cardStyle, height: '350px', display: 'flex', flexDirection: 'column' }}>
+              <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Truck size={20} color="#8b5cf6"/> Top 5 Transportadoras (Maior Custo)
+              </h3>
+              <div style={{ flex: 1, width: '100%' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={stats.topTransportadoras} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
+                    <XAxis type="number" hide />
+                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 11 }} width={120} />
+                    <Tooltip 
+                      formatter={(value: any, name: any) => {
+                         const numVal = Number(value) || 0;
+                         return [name === 'Custo' ? `R$ ${numVal.toLocaleString('pt-BR')}` : numVal, name === 'Custo' ? 'Custo Logístico' : 'NFs Transportadas'];
+                      }}
+                      cursor={{fill: '#f8fafc'}}
+                    />
+                    <Bar isAnimationActive={false} dataKey="Custo" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={24} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          {/* LINHA 4: ANÁLISE GEOGRÁFICA DE LUCRO E IMPACTO */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '16px' }}>
-            
             <div style={{ ...cardStyle, height: '400px', display: 'flex', flexDirection: 'column' }}>
               <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <MapPin size={20} color="#10b981"/> Lucro Bruto por Estado (Receita - Frete)
@@ -298,13 +363,9 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={stats.analisePorEstado.slice(0, 10)} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    
                     <XAxis dataKey="uf" scale="band" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 'bold' }} dy={10} />
-                    
                     <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} />
-                    
                     <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#ef4444', fontSize: 12, fontWeight: 'bold' }} tickFormatter={(val) => `${val}%`} />
-                    
                     <Tooltip 
                       formatter={(value: any, name: any) => {
                         if (name === '% do Frete') return [`${value}%`, name];
@@ -316,20 +377,18 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
                     
                     <Bar isAnimationActive={false} yAxisId="left" dataKey="faturamento" name="Faturamento (R$)" fill="#0284c7" radius={[4, 4, 0, 0]} barSize={20} />
                     <Bar isAnimationActive={false} yAxisId="left" dataKey="custo" name="Custo Frete (R$)" fill="#f59e0b" radius={[4, 4, 0, 0]} barSize={20} />
-                    
                     <Line isAnimationActive={false} yAxisId="right" type="monotone" dataKey="percentual" name="% do Frete" stroke="#ef4444" strokeWidth={3} dot={{ r: 5, fill: '#ef4444' }} activeDot={{ r: 8 }} />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
             </div>
-
           </div>
 
+          {/* LINHA 5: RESUMO DE STATUS E LEAD TIME */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div style={cardStyle}>
               <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}><Activity size={20} color="#f59e0b"/> Resumo de Operação</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                
                 <div onClick={() => handleStatusClick(['Entregue'])} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'} title="Clique para ver todas as NFs entregues">
                   <span style={{ color: '#475569', fontWeight: 600 }}>Entregues</span>
                   <span style={{ color: '#15803d', fontWeight: 800 }}>{stats.entregues}</span>
@@ -344,7 +403,6 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
                   <span style={{ color: '#991b1b', fontWeight: 600 }}>Atrasadas ou Críticas</span>
                   <span style={{ color: '#b91c1c', fontWeight: 800 }}>{stats.atrasadas}</span>
                 </div>
-
               </div>
             </div>
 

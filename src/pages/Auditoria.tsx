@@ -39,7 +39,7 @@ export function Auditoria() {
       const to = (pageAtual * LIMIT_POR_PAGINA) - 1;
 
       const { data, error } = await query
-        .order('criado_em', { ascending: false }) // Nome da coluna original recuperado
+        .order('criado_em', { ascending: false })
         .range(from, to);
 
       if (error) throw error;
@@ -76,30 +76,30 @@ export function Auditoria() {
     
     if (buscaTexto && !log.usuario_email?.toLowerCase().includes(termo) && !log.detalhes?.toLowerCase().includes(termo)) passa = false;
     
-    // Obs: A filtragem de Módulo e Ação já está a ser feita lá no Supabase para poupar banda.
-    // O JS só filtra o texto solto.
-    
     return passa;
   });
 
   // ==========================================
-  // O SEU FORMATADOR INFALÍVEL RECUPERADO
+  // O FORMATADOR FINAL E BLINDADO (-3 HORAS)
   // ==========================================
   const formatarDataHora = (dataStr: string) => {
     if (!dataStr) return '-';
     
-    const dataSegura = dataStr.endsWith('Z') || dataStr.includes('+') ? dataStr : dataStr + 'Z';
-    const data = new Date(dataSegura);
+    // O JS vai ler a data crua do banco (ex: "2026-08-25T19:55:02")
+    const data = new Date(dataStr);
     
-    data.setUTCHours(data.getUTCHours() - 3);
+    // Subtrai exatamente 3 horas do relógio local
+    data.setHours(data.getHours() - 3);
     
-    const dia = String(data.getUTCDate()).padStart(2, '0');
-    const mes = String(data.getUTCMonth() + 1).padStart(2, '0');
-    const ano = data.getUTCFullYear();
-    const hora = String(data.getUTCHours()).padStart(2, '0');
-    const minuto = String(data.getUTCMinutes()).padStart(2, '0');
+    // Extrai os valores já corrigidos sem se importar com fusos
+    const dia = String(data.getDate()).padStart(2, '0');
+    const mes = String(data.getMonth() + 1).padStart(2, '0');
+    const ano = data.getFullYear();
+    const hora = String(data.getHours()).padStart(2, '0');
+    const minuto = String(data.getMinutes()).padStart(2, '0');
+    const segundo = String(data.getSeconds()).padStart(2, '0');
     
-    return `${dia}/${mes}/${ano} às ${hora}:${minuto}`;
+    return `${dia}/${mes}/${ano}, ${hora}:${minuto}:${segundo}`;
   };
 
   const getAcaoColor = (acao: string) => {
@@ -192,7 +192,7 @@ export function Auditoria() {
           </tbody>
         </table>
         
-        {/* BOTÃO MÁGICO DE PAGINAÇÃO: Só aparece se a lista for real e houver mais dados lá no Supabase */}
+        {/* BOTÃO DE PAGINAÇÃO */}
         {!loading && logs.length > 0 && temMaisDados && !buscaTexto && (
            <div style={{ display: 'flex', justifyContent: 'center', padding: '16px', backgroundColor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
                <button 

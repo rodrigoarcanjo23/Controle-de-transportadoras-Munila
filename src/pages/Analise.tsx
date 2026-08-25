@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { PieChart, TrendingDown, Clock, Truck, DollarSign, Activity, Calendar } from 'lucide-react';
+import { PieChart, TrendingDown, Clock, Truck, DollarSign, Activity, Calendar, Map } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -12,13 +12,47 @@ interface AnaliseProps {
 export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnaliseProps) {
   const navigate = useNavigate();
   
+  // ESTADOS DOS FILTROS
   const [periodoFiltro, setPeriodoFiltro] = useState('tudo');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
+  const [mesSelecionado, setMesSelecionado] = useState(''); // NOVO: Filtro de Mês
 
+  // ==========================================
+  // DESCOBRIR QUAIS MESES EXISTEM NO BANCO
+  // ==========================================
+  const mesesDisponiveis = useMemo(() => {
+    const meses = new Set<string>();
+    entregas.forEach(e => {
+      if (e.data_faturamento) {
+        // Pega apenas o "YYYY-MM" (Ex: "2026-08")
+        meses.add(e.data_faturamento.substring(0, 7));
+      }
+    });
+    return Array.from(meses).sort().reverse(); // Do mais recente para o mais antigo
+  }, [entregas]);
+
+  // Função para formatar "2026-08" para "Agosto/2026"
+  const formatarMesAno = (yyyyMM: string) => {
+    if (!yyyyMM) return '';
+    const [ano, mes] = yyyyMM.split('-');
+    const mesesStr = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    return `${mesesStr[parseInt(mes) - 1]}/${ano}`;
+  };
+
+  // ==========================================
+  // FILTRAGEM PRÉVIA PELO PERÍODO ESCOLHIDO
+  // ==========================================
   const entregasFiltradas = useMemo(() => {
     return entregas.filter(e => {
       if (!e.data_faturamento) return false;
+
+      // Filtro de Mês Específico
+      if (periodoFiltro === 'mes') {
+        if (!mesSelecionado) return true; // Mostra tudo se não selecionou o mês ainda
+        const mesDaNota = e.data_faturamento.substring(0, 7);
+        return mesDaNota === mesSelecionado;
+      }
 
       if (periodoFiltro === 'personalizado') {
         if (dataInicio && e.data_faturamento < dataInicio) return false;
@@ -38,8 +72,11 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
 
       return d >= dataLimite;
     });
-  }, [entregas, periodoFiltro, dataInicio, dataFim]);
+  }, [entregas, periodoFiltro, dataInicio, dataFim, mesSelecionado]);
 
+  // ==========================================
+  // O MOTOR DO BI: CÁLCULOS MATEMÁTICOS GERAIS
+  // ==========================================
   const stats = useMemo(() => {
     const total = entregasFiltradas.length;
     if (total === 0) return null;
@@ -62,19 +99,29 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
     const transportadorasMap: Record<string, { name: string, Quantidade: number, Custo: number }> = {};
     const clientesMap: Record<string, { name: string, Valor: number, Notas: number }> = {};
     const timelineMap: Record<string, { name: string, Faturamento: number, Frete: number, dateObj: Date }> = {};
+    const estadosCustoMap: Record<string, number> = {}; // NOVO: Mapeamento de custo por Estado (UF)
 
     entregasFiltradas.forEach(e => {
+      // 1. Custo por Transportadora
       const nomeTransp = e.transportadoras?.nome || 'Não Informada';
       if (!transportadorasMap[nomeTransp]) transportadorasMap[nomeTransp] = { name: nomeTransp, Quantidade: 0, Custo: 0 };
       transportadorasMap[nomeTransp].Quantidade += 1;
+      
       const real = Number(e.valor_frete_real);
-      transportadorasMap[nomeTransp].Custo += (real > 0 ? real : Number(e.valor_frete) || 0);
+      const custoFinalItem = real > 0 ? real : (Number(e.valor_frete) || 0);
+      transportadorasMap[nomeTransp].Custo += custoFinalItem;
 
+      // 2. Custo por Cliente
       const nomeCliente = e.clientes?.nome || 'Cliente Desconhecido';
       if (!clientesMap[nomeCliente]) clientesMap[nomeCliente] = { name: nomeCliente, Valor: 0, Notas: 0 };
       clientesMap[nomeCliente].Valor += (Number(e.valor_nf) || 0);
       clientesMap[nomeCliente].Notas += 1;
 
+      // 3. Custo por Estado (UF)
+      const uf = e.uf_destino || e.clientes?.uf || 'ND';
+      estadosCustoMap[uf] = (estadosCustoMap[uf] || 0) + custoFinalItem;
+
+      // 4. Evolução no Tempo
       if (e.data_faturamento) {
         const isoDate = e.data_faturamento; 
         const d = new Date(isoDate + 'T12:00:00');
@@ -84,13 +131,18 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
           timelineMap[isoDate] = { name: diaMes, Faturamento: 0, Frete: 0, dateObj: d };
         }
         timelineMap[isoDate].Faturamento += (Number(e.valor_nf) || 0);
-        timelineMap[isoDate].Frete += (real > 0 ? real : Number(e.valor_frete) || 0);
+        timelineMap[isoDate].Frete += custoFinalItem;
       }
     });
 
     const topTransportadoras = Object.values(transportadorasMap).sort((a, b) => b.Custo - a.Custo).slice(0, 5);
     const topClientes = Object.values(clientesMap).sort((a, b) => b.Valor - a.Valor).slice(0, 5);
     
+    // Transforma o mapa de estados num Array e ordena do estado mais caro para o mais barato
+    const fretePorEstado = Object.entries(estadosCustoMap)
+      .map(([uf, custo]) => ({ uf, custo }))
+      .sort((a, b) => b.custo - a.custo);
+
     const timelineData = Object.values(timelineMap).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
 
     let gapTotal = 0, qtdGap = 0;
@@ -101,7 +153,7 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
 
     return {
       total, entregues, atrasadas, emAndamento, percentEntregue, percentAtraso,
-      faturamentoTotal, custoLogistico, freteMedio, topTransportadoras, topClientes, timelineData,
+      faturamentoTotal, custoLogistico, freteMedio, topTransportadoras, topClientes, timelineData, fretePorEstado,
       mediaGap: qtdGap ? (gapTotal / qtdGap).toFixed(1) : '-'
     };
   }, [entregasFiltradas]);
@@ -127,6 +179,7 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
           <p style={{ color: '#64748b', margin: 0 }}>Análise executiva dinâmica da sua operação logística</p>
         </div>
         
+        {/* CAIXA DE FILTROS COM OPÇÃO DE MÊS */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           
           {periodoFiltro === 'personalizado' && (
@@ -134,6 +187,18 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
               <input type="date" className="form-input" style={{ padding: '4px 8px', height: '32px', fontSize: '0.85rem' }} value={dataInicio} onChange={e => setDataInicio(e.target.value)} />
               <span style={{ color: '#166534', fontWeight: 'bold' }}>até</span>
               <input type="date" className="form-input" style={{ padding: '4px 8px', height: '32px', fontSize: '0.85rem' }} value={dataFim} onChange={e => setDataFim(e.target.value)} />
+            </div>
+          )}
+
+          {/* O NOVO FILTRO DE SELEÇÃO DE MÊS */}
+          {periodoFiltro === 'mes' && (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: '#fefce8', padding: '6px 12px', borderRadius: '8px', border: '1px solid #fef08a' }}>
+              <select className="form-select" style={{ padding: '4px 8px', height: '32px', fontSize: '0.85rem', border: 'none', backgroundColor: 'transparent', fontWeight: 'bold', color: '#854d0e', outline: 'none' }} value={mesSelecionado} onChange={e => setMesSelecionado(e.target.value)}>
+                <option value="">Selecione o Mês...</option>
+                {mesesDisponiveis.map(m => (
+                  <option key={m} value={m}>{formatarMesAno(m)}</option>
+                ))}
+              </select>
             </div>
           )}
 
@@ -150,6 +215,7 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
               <option value="30dias">Últimos 30 Dias</option>
               <option value="90dias">Últimos 3 Meses</option>
               <option value="esteAno">Este Ano (YTD)</option>
+              <option value="mes">Mês Específico...</option>
               <option value="personalizado">Personalizado...</option>
             </select>
           </div>
@@ -158,7 +224,7 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
 
       {!stats ? (
         <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', backgroundColor: 'white', borderRadius: '12px' }}>
-          Nenhuma entrega encontrada para o período selecionado.
+          Nenhum dado financeiro ou de entrega encontrado para o período selecionado.
         </div>
       ) : (
         <>
@@ -203,7 +269,6 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                   
-                  {/* ALTERAÇÕES AQUI: interval="preserveStartEnd" e minTickGap */}
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} minTickGap={30} interval="preserveStartEnd" />
                   
                   <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} />
@@ -217,10 +282,31 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
                   />
                   <Legend verticalAlign="top" height={36} />
                   
-                  {/* ALTERAÇÕES AQUI: type="linear" para desenhar linhas retas e dot={false} para não ter bolinhas visíveis */}
                   <Area isAnimationActive={false} connectNulls type="linear" dot={false} activeDot={{ r: 6 }} yAxisId="left" dataKey="Faturamento" stroke="#0284c7" strokeWidth={3} fillOpacity={1} fill="url(#colorFaturamento)" />
                   <Area isAnimationActive={false} connectNulls type="linear" dot={false} activeDot={{ r: 6 }} yAxisId="right" dataKey="Frete" stroke="#ea580c" strokeWidth={3} fillOpacity={1} fill="url(#colorFrete)" />
                 </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* NOVO GRÁFICO: CUSTO LOGÍSTICO POR ESTADO (O "MAPA DE CALOR" FINANCEIRO) */}
+          <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column' }}>
+            <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Map size={20} color="#f59e0b"/> Custo de Frete por Estado (UF)
+            </h3>
+            {/* Altura Dinâmica: cresce conforme a quantidade de Estados operados */}
+            <div style={{ flex: 1, width: '100%', minWidth: 0, minHeight: `${Math.max(300, stats.fretePorEstado.length * 35)}px` }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats.fretePorEstado} layout="vertical" margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
+                  <XAxis type="number" tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} tick={{ fill: '#64748b', fontSize: 12 }} />
+                  <YAxis dataKey="uf" type="category" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 12, fontWeight: 'bold' }} width={50} />
+                  <Tooltip 
+                    formatter={(value: any) => [`R$ ${Number(value).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, 'Custo Logístico (R$)']}
+                    cursor={{fill: '#f8fafc'}}
+                  />
+                  <Bar isAnimationActive={false} dataKey="custo" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={20} />
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </div>

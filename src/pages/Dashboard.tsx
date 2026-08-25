@@ -3,82 +3,26 @@ import { Edit, Trash2, Target, Package, Scale, FileText, ArrowRightLeft, Hash } 
 import { Header } from '../components/Header';
 
 interface DashboardProps {
-  searchTerm: string;
-  setSearchTerm: (value: string) => void;
-  mostrarFiltros: boolean;
-  setMostrarFiltros: (value: boolean) => void;
-  filtroDataInicio: string;
-  setFiltroDataInicio: (value: string) => void;
-  filtroDataFim: string;
-  setFiltroDataFim: (value: string) => void;
-  filtroTransportadora: string;
-  setFiltroTransportadora: (value: string) => void;
-  filtroModal: string;
-  setFiltroModal: (value: string) => void;
-  filtroStatus: string[];
-  setFiltroStatus: (value: string[]) => void;
-  filtroFreteVazio: boolean;
-  setFiltroFreteVazio: (value: boolean) => void;
-  filtroFreteConfirmado: boolean;
-  setFiltroFreteConfirmado: (value: boolean) => void;
-  filtroComAgendamento: boolean;
-  setFiltroComAgendamento: (value: boolean) => void;
-  filtroSemAgendamento: boolean;
-  setFiltroSemAgendamento: (value: boolean) => void;
-  filtroComFreteCotado: boolean;
-  setFiltroComFreteCotado: (value: boolean) => void;
-  filtroComFreteReal: boolean;
-  setFiltroComFreteReal: (value: boolean) => void;
-  
-  filtroUf: string;
-  setFiltroUf: (value: string) => void;
-  filtroSemDataEntrega: boolean;
-  setFiltroSemDataEntrega: (value: boolean) => void;
-  filtroValorNfMin: string;
-  setFiltroValorNfMin: (value: string) => void;
-  filtroValorNfMax: string;
-  setFiltroValorNfMax: (value: string) => void;
-  filtroPercFreteMin: string;
-  setFiltroPercFreteMin: (value: string) => void;
-  filtroPercFreteMax: string;
-  setFiltroPercFreteMax: (value: string) => void;
-
-  transportadoras: any[];
-  limparFiltros: () => void;
-  abrirModalNovaEntrega: () => void;
-  freteMedio: string;
-  volumeTotal: number;
-  pesoTotal: number;
-  loading: boolean;
-  entregasFiltradas: any[];
-  formatarData: (dataStr: string) => string;
-  calcularPorcentagemFrete: (frete: number, nf: number) => string;
-  calcularDiferencaDias: (dataDe: string, dataAte: string) => string;
-  calcularGapPedidoEntrega: (entrada: string, entrega: string) => string;
-  getStatusColor: (status: string) => React.CSSProperties;
-  abrirModalEdicao: (entrega: any) => void;
-  handleDeleteEntrega: (id: string) => void;
+  searchTerm: string; setSearchTerm: (value: string) => void; mostrarFiltros: boolean; setMostrarFiltros: (value: boolean) => void;
+  filtroDataInicio: string; setFiltroDataInicio: (value: string) => void; filtroDataFim: string; setFiltroDataFim: (value: string) => void;
+  filtroTransportadora: string; setFiltroTransportadora: (value: string) => void; filtroModal: string; setFiltroModal: (value: string) => void;
+  filtroStatus: string[]; setFiltroStatus: (value: string[]) => void; filtroFreteVazio: boolean; setFiltroFreteVazio: (value: boolean) => void;
+  filtroFreteConfirmado: boolean; setFiltroFreteConfirmado: (value: boolean) => void; filtroComAgendamento: boolean; setFiltroComAgendamento: (value: boolean) => void;
+  filtroSemAgendamento: boolean; setFiltroSemAgendamento: (value: boolean) => void; filtroComFreteCotado: boolean; setFiltroComFreteCotado: (value: boolean) => void;
+  filtroComFreteReal: boolean; setFiltroComFreteReal: (value: boolean) => void; filtroUf: string; setFiltroUf: (value: string) => void;
+  filtroSemDataEntrega: boolean; setFiltroSemDataEntrega: (value: boolean) => void; filtroValorNfMin: string; setFiltroValorNfMin: (value: string) => void;
+  filtroValorNfMax: string; setFiltroValorNfMax: (value: string) => void; filtroPercFreteMin: string; setFiltroPercFreteMin: (value: string) => void;
+  filtroPercFreteMax: string; setFiltroPercFreteMax: (value: string) => void; transportadoras: any[]; limparFiltros: () => void;
+  abrirModalNovaEntrega: () => void; freteMedio: string; volumeTotal: number; pesoTotal: number; loading: boolean; entregasFiltradas: any[];
+  formatarData: (dataStr: string) => string; calcularPorcentagemFrete: (frete: number, nf: number) => string; calcularDiferencaDias: (dataDe: string, dataAte: string) => string;
+  calcularGapPedidoEntrega: (entrada: string, entrega: string) => string; getStatusColor: (status: string) => React.CSSProperties;
+  abrirModalEdicao: (entrega: any) => void; handleDeleteEntrega: (id: string) => void;
+  isAdmin: boolean; // <-- PROPRIEDADE ADICIONADA AQUI!
 }
 
 export function Dashboard({
-  searchTerm, setSearchTerm, mostrarFiltros, setMostrarFiltros,
-  filtroDataInicio, setFiltroDataInicio, filtroDataFim, setFiltroDataFim,
-  filtroTransportadora, setFiltroTransportadora, filtroModal, setFiltroModal,
-  filtroStatus, setFiltroStatus, filtroFreteVazio, setFiltroFreteVazio, 
-  filtroFreteConfirmado, setFiltroFreteConfirmado, 
-  filtroComAgendamento, setFiltroComAgendamento,
-  filtroSemAgendamento, setFiltroSemAgendamento,
-  filtroComFreteCotado, setFiltroComFreteCotado,
-  filtroComFreteReal, setFiltroComFreteReal,
-  
-  filtroUf, setFiltroUf, filtroSemDataEntrega, setFiltroSemDataEntrega,
-  filtroValorNfMin, setFiltroValorNfMin, filtroValorNfMax, setFiltroValorNfMax,
-  filtroPercFreteMin, setFiltroPercFreteMin, filtroPercFreteMax, setFiltroPercFreteMax,
-
-  transportadoras, limparFiltros, abrirModalNovaEntrega,
-  freteMedio,
-  volumeTotal, pesoTotal, loading, entregasFiltradas, formatarData, calcularPorcentagemFrete,
-  calcularDiferencaDias, calcularGapPedidoEntrega, getStatusColor, abrirModalEdicao, handleDeleteEntrega
+  searchTerm, setSearchTerm, mostrarFiltros, setMostrarFiltros, filtroDataInicio, setFiltroDataInicio, filtroDataFim, setFiltroDataFim, filtroTransportadora, setFiltroTransportadora, filtroModal, setFiltroModal, filtroStatus, setFiltroStatus, filtroFreteVazio, setFiltroFreteVazio, filtroFreteConfirmado, setFiltroFreteConfirmado, filtroComAgendamento, setFiltroComAgendamento, filtroSemAgendamento, setFiltroSemAgendamento, filtroComFreteCotado, setFiltroComFreteCotado, filtroComFreteReal, setFiltroComFreteReal, filtroUf, setFiltroUf, filtroSemDataEntrega, setFiltroSemDataEntrega, filtroValorNfMin, setFiltroValorNfMin, filtroValorNfMax, setFiltroValorNfMax, filtroPercFreteMin, setFiltroPercFreteMin, filtroPercFreteMax, setFiltroPercFreteMax, transportadoras, limparFiltros, abrirModalNovaEntrega, freteMedio, volumeTotal, pesoTotal, loading, entregasFiltradas, formatarData, calcularPorcentagemFrete, calcularDiferencaDias, calcularGapPedidoEntrega, getStatusColor, abrirModalEdicao, handleDeleteEntrega, 
+  isAdmin // <-- RECEBENDO A PROPRIEDADE AQUI!
 }: DashboardProps) {
 
   const valorTotalNf = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
@@ -139,28 +83,8 @@ export function Dashboard({
       
       <div style={{ flexShrink: 0 }}>
         <Header 
-          searchTerm={searchTerm} setSearchTerm={setSearchTerm}
-          mostrarFiltros={mostrarFiltros} setMostrarFiltros={setMostrarFiltros}
-          filtroDataInicio={filtroDataInicio} setFiltroDataInicio={setFiltroDataInicio}
-          filtroDataFim={filtroDataFim} setFiltroDataFim={setFiltroDataFim}
-          filtroTransportadora={filtroTransportadora} setFiltroTransportadora={setFiltroTransportadora}
-          filtroModal={filtroModal} setFiltroModal={setFiltroModal}
-          filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus}
-          filtroFreteVazio={filtroFreteVazio} setFiltroFreteVazio={setFiltroFreteVazio}
-          filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado}
-          filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento}
-          filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento}
-          filtroComFreteCotado={filtroComFreteCotado} setFiltroComFreteCotado={setFiltroComFreteCotado}
-          filtroComFreteReal={filtroComFreteReal} setFiltroComFreteReal={setFiltroComFreteReal}
-          
-          filtroUf={filtroUf} setFiltroUf={setFiltroUf}
-          filtroSemDataEntrega={filtroSemDataEntrega} setFiltroSemDataEntrega={setFiltroSemDataEntrega}
-          filtroValorNfMin={filtroValorNfMin} setFiltroValorNfMin={setFiltroValorNfMin}
-          filtroValorNfMax={filtroValorNfMax} setFiltroValorNfMax={setFiltroValorNfMax}
-          filtroPercFreteMin={filtroPercFreteMin} setFiltroPercFreteMin={setFiltroPercFreteMin}
-          filtroPercFreteMax={filtroPercFreteMax} setFiltroPercFreteMax={setFiltroPercFreteMax}
-
-          transportadoras={transportadoras} limparFiltros={limparFiltros} exportarParaExcel={exportarParaExcel} abrirModalNovaEntrega={abrirModalNovaEntrega}
+          searchTerm={searchTerm} setSearchTerm={setSearchTerm} mostrarFiltros={mostrarFiltros} setMostrarFiltros={setMostrarFiltros} filtroDataInicio={filtroDataInicio} setFiltroDataInicio={setFiltroDataInicio} filtroDataFim={filtroDataFim} setFiltroDataFim={setFiltroDataFim} filtroTransportadora={filtroTransportadora} setFiltroTransportadora={setFiltroTransportadora} filtroModal={filtroModal} setFiltroModal={setFiltroModal} filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus} filtroFreteVazio={filtroFreteVazio} setFiltroFreteVazio={setFiltroFreteVazio} filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado} filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento} filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento} filtroComFreteCotado={filtroComFreteCotado} setFiltroComFreteCotado={setFiltroComFreteCotado} filtroComFreteReal={filtroComFreteReal} setFiltroComFreteReal={setFiltroComFreteReal} filtroUf={filtroUf} setFiltroUf={setFiltroUf} filtroSemDataEntrega={filtroSemDataEntrega} setFiltroSemDataEntrega={setFiltroSemDataEntrega} filtroValorNfMin={filtroValorNfMin} setFiltroValorNfMin={setFiltroValorNfMin} filtroValorNfMax={filtroValorNfMax} setFiltroValorNfMax={setFiltroValorNfMax} filtroPercFreteMin={filtroPercFreteMin} setFiltroPercFreteMin={setFiltroPercFreteMin} filtroPercFreteMax={filtroPercFreteMax} setFiltroPercFreteMax={setFiltroPercFreteMax} transportadoras={transportadoras} limparFiltros={limparFiltros} exportarParaExcel={exportarParaExcel} abrirModalNovaEntrega={abrirModalNovaEntrega}
+          isAdmin={isAdmin} 
         />
       </div>
 
@@ -268,11 +192,13 @@ export function Dashboard({
 
               <th style={thStyle}>Status</th>
               <th style={thStyle}>Observações</th>
-              <th style={thAcoesStyle}>Ações</th>
+              
+              {/* SÓ MOSTRA O CABEÇALHO SE FOR ADMIN */}
+              {isAdmin && <th style={thAcoesStyle}>Ações</th>}
             </tr>
           </thead>
           <tbody>
-            {loading ? ( <tr><td colSpan={25} style={{ textAlign: 'center', padding: '32px' }}>A carregar...</td></tr> ) : entregasFiltradas.length === 0 ? ( <tr><td colSpan={25} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma entrega encontrada.</td></tr> ) : entregasFiltradas.map((entrega) => {
+            {loading ? ( <tr><td colSpan={isAdmin ? 25 : 24} style={{ textAlign: 'center', padding: '32px' }}>A carregar...</td></tr> ) : entregasFiltradas.length === 0 ? ( <tr><td colSpan={isAdmin ? 25 : 24} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma entrega encontrada.</td></tr> ) : entregasFiltradas.map((entrega) => {
               
               const isFreteConfirmado = entrega.frete_confirmado;
               const freteColor = isFreteConfirmado ? '#166534' : 'inherit';
@@ -339,12 +265,15 @@ export function Dashboard({
                     {entrega.observacoes || '-'}
                   </td>
                   
-                  <td style={tdAcoesStyle}>
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                      <button onClick={() => abrirModalEdicao(entrega)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }} title="Editar Entrega"><Edit size={18} /></button>
-                      <button onClick={() => handleDeleteEntrega(entrega.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '4px' }} title="Excluir Entrega"><Trash2 size={18} /></button>
-                    </div>
-                  </td>
+                  {/* SÓ MOSTRA OS BOTÕES SE FOR ADMIN */}
+                  {isAdmin && (
+                    <td style={tdAcoesStyle}>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                        <button onClick={() => abrirModalEdicao(entrega)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }} title="Editar Entrega"><Edit size={18} /></button>
+                        <button onClick={() => handleDeleteEntrega(entrega.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '4px' }} title="Excluir Entrega"><Trash2 size={18} /></button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               );
             })}

@@ -14,6 +14,8 @@ import { ModalCliente } from './modals/ModalCliente';
 import { Ctes } from './pages/Ctes';
 import { Auditoria } from './pages/Auditoria';
 import { Analise } from './pages/Analise';
+import { Financeiro } from './pages/Financeiro';
+import { Logistica } from './pages/Logistica';
 
 import './index.css';
 
@@ -34,6 +36,7 @@ export default function App() {
   const [metas, setMetas] = useState<any[]>([]);
   const [produtos, setProdutos] = useState<any[]>([]);
 
+  // ESTADOS DE FILTROS GERAIS
   const [searchTerm, setSearchTerm] = useState('');
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
@@ -42,6 +45,7 @@ export default function App() {
   const [filtroModal, setFiltroModal] = useState('');
   const [filtroStatus, setFiltroStatus] = useState<string[]>([]);
   
+  // ESTADOS DE CHECKBOXES
   const [filtroFreteVazio, setFiltroFreteVazio] = useState(false);
   const [filtroFreteConfirmado, setFiltroFreteConfirmado] = useState(false);
   const [filtroComAgendamento, setFiltroComAgendamento] = useState(false);
@@ -50,6 +54,7 @@ export default function App() {
   const [filtroComFreteReal, setFiltroComFreteReal] = useState(false);
   const [filtroSemDataEntrega, setFiltroSemDataEntrega] = useState(false);
   
+  // ESTADOS RANGES
   const [filtroUf, setFiltroUf] = useState('');
   const [filtroValorNfMin, setFiltroValorNfMin] = useState(''); 
   const [filtroValorNfMax, setFiltroValorNfMax] = useState('');
@@ -72,14 +77,16 @@ export default function App() {
   const [isMetaModalOpen, setIsMetaModalOpen] = useState(false);
   const [metaFormData, setMetaFormData] = useState({ cliente_id: '', transportadora_id: '', meta_percentual: '' });
 
-  // ESTADOS DO PERFIL DE EQUIPE
   const [isPerfilModalOpen, setIsPerfilModalOpen] = useState(false);
-  const [editingPerfilId, setEditingPerfilId] = useState<string | null>(null); // NOVO ESTADO
+  const [editingPerfilId, setEditingPerfilId] = useState<string | null>(null);
   const [perfilFormData, setPerfilFormData] = useState({ nome: '', email: '', cargo: '', nivel_acesso: 'Operador' });
 
   const [calcProdutoId, setCalcProdutoId] = useState('');
   const [calcQuantidade, setCalcQuantidade] = useState('');
 
+  // ==========================================
+  // SEGURANÇA: IDENTIFICAR SE É ADMINISTRADOR
+  // ==========================================
   const perfilLogado = perfis.find(p => p.email === session?.user?.email);
   const isAdmin = perfis.length === 0 || perfilLogado?.nivel_acesso === 'Administrador';
 
@@ -167,10 +174,7 @@ export default function App() {
   function abrirModalEdicaoCliente(cliente: any) { setEditingClienteId(cliente.id); setClienteFormData({ nome: cliente.nome, cnpj_cpf: cliente.cnpj_cpf || '', razao_social: cliente.razao_social || '', nome_fantasia: cliente.nome_fantasia || '', cidade: cliente.cidade || '', uf: cliente.uf || '', telefone: cliente.telefone || '', email: cliente.email || '', exige_agendamento: cliente.exige_agendamento || false }); setIsClienteModalOpen(true); }
   
   function abrirModalNovaMeta() { setMetaFormData({ cliente_id: '', transportadora_id: '', meta_percentual: '' }); setIsMetaModalOpen(true); }
-  
-  // ==========================================
-  // FUNÇÕES DE EQUIPE
-  // ==========================================
+
   function abrirModalNovoPerfil() { 
     setEditingPerfilId(null);
     setPerfilFormData({ nome: '', email: '', cargo: '', nivel_acesso: 'Operador' }); 
@@ -371,13 +375,8 @@ export default function App() {
     setFiltroFreteVazio(false); setFiltroFreteConfirmado(false); 
     setFiltroComAgendamento(false); setFiltroSemAgendamento(false);
     setFiltroComFreteCotado(false); setFiltroComFreteReal(false); 
-    
-    setFiltroUf('');
-    setFiltroSemDataEntrega(false);
-    setFiltroValorNfMin(''); 
-    setFiltroValorNfMax('');
-    setFiltroPercFreteMin('');
-    setFiltroPercFreteMax('');
+    setFiltroUf(''); setFiltroSemDataEntrega(false); setFiltroValorNfMin(''); 
+    setFiltroValorNfMax(''); setFiltroPercFreteMin(''); setFiltroPercFreteMax('');
   }
 
   const entregasFiltradas = entregas.filter(entrega => {
@@ -456,6 +455,8 @@ export default function App() {
           } />
 
           <Route path="analise" element={<Analise entregas={entregas} setFiltroStatus={setFiltroStatus} limparFiltros={limparFiltros} />} />
+          <Route path="financeiro" element={<Financeiro entregas={entregas} />} />
+          <Route path="logistica" element={<Logistica entregas={entregas} />} />
           
           <Route path="calculadora" element={
             <div style={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100%' }}>
@@ -490,7 +491,7 @@ export default function App() {
             </div>
           } />
 
-          {/* ROTAS PROTEGIDAS: SÓ ADMIN ENTRA NAS PÁGINAS DE GESTÃO E AGORA PASSAMOS AS FUNÇÕES DE EDIÇÃO DE PERFIL */}
+          {/* ROTAS PROTEGIDAS */}
           <Route path="equipe" element={isAdmin ? <Equipe perfis={perfis} abrirModalNovoPerfil={abrirModalNovoPerfil} abrirModalEdicaoPerfil={abrirModalEdicaoPerfil} handleDeletePerfil={handleDeletePerfil} /> : <Navigate to="/dashboard" />} />
           <Route path="clientes" element={isAdmin ? <Clientes clientes={clientes} metas={metas} abrirModalNovoCliente={abrirModalNovoCliente} abrirModalNovaMeta={abrirModalNovaMeta} abrirModalEdicaoCliente={abrirModalEdicaoCliente} handleDeleteCliente={handleDeleteCliente} onUpdate={carregarDadosDoBanco} /> : <Navigate to="/dashboard" />} />
           <Route path="transportadoras" element={isAdmin ? <Transportadoras transportadoras={transportadoras} entregas={entregas} onUpdate={buscarDominios} /> : <Navigate to="/dashboard" />} />
@@ -525,7 +526,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL DE PERFIL (CRIAR E EDITAR) */}
       {isPerfilModalOpen && isAdmin && (
         <div className="modal-overlay">
           <div className="modal-content">

@@ -1,10 +1,10 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, UserSquare2, Truck, RefreshCcw, Calculator, LogOut, FileText, ShieldAlert, PieChart } from 'lucide-react';
+import { LayoutDashboard, Users, UserSquare2, Truck, RefreshCcw, Calculator, LogOut, FileText, ShieldAlert, PieChart, DollarSign, Map } from 'lucide-react';
 
 interface SidebarProps {
   handleLogout: () => void;
-  onNavigate?: () => void;
-  isAdmin: boolean; // <-- LÊ A PERMISSÃO
+  onNavigate?: () => void; 
+  isAdmin: boolean; 
 }
 
 export function Sidebar({ handleLogout, onNavigate, isAdmin }: SidebarProps) {
@@ -32,6 +32,18 @@ export function Sidebar({ handleLogout, onNavigate, isAdmin }: SidebarProps) {
             </NavLink>
           </li>
 
+          <li>
+            <NavLink to="/financeiro" onClick={onNavigate} className={getNavClass}>
+              <DollarSign size={20} /> Gestão Financeira
+            </NavLink>
+          </li>
+
+          <li>
+            <NavLink to="/logistica" onClick={onNavigate} className={getNavClass}>
+              <Map size={20} /> Visão Logística & SLA
+            </NavLink>
+          </li>
+
           {/* SÓ MOSTRA O MENU EQUIPE SE FOR ADMIN */}
           {isAdmin && (
             <li>
@@ -41,31 +53,43 @@ export function Sidebar({ handleLogout, onNavigate, isAdmin }: SidebarProps) {
             </li>
           )}
 
-          <li>
-            <NavLink to="/clientes" onClick={onNavigate} className={getNavClass}>
-              <UserSquare2 size={20} /> Clientes & Metas
-            </NavLink>
-          </li>
-          <li>
-            <NavLink to="/transportadoras" onClick={onNavigate} className={getNavClass}>
-              <Truck size={20} /> Transportadoras
-            </NavLink>
-          </li>
-          <li>
-            <NavLink to="/devolucoes" onClick={onNavigate} className={getNavClass}>
-              <RefreshCcw size={20} /> Devoluções
-            </NavLink>
-          </li>
+          {isAdmin && (
+            <li>
+              <NavLink to="/clientes" onClick={onNavigate} className={getNavClass}>
+                <UserSquare2 size={20} /> Clientes & Metas
+              </NavLink>
+            </li>
+          )}
+          
+          {isAdmin && (
+            <li>
+              <NavLink to="/transportadoras" onClick={onNavigate} className={getNavClass}>
+                <Truck size={20} /> Transportadoras
+              </NavLink>
+            </li>
+          )}
+          
+          {isAdmin && (
+            <li>
+              <NavLink to="/devolucoes" onClick={onNavigate} className={getNavClass}>
+                <RefreshCcw size={20} /> Devoluções
+              </NavLink>
+            </li>
+          )}
+
           <li>
             <NavLink to="/calculadora" onClick={onNavigate} className={getNavClass}>
               <Calculator size={20} /> Calculadora
             </NavLink>
           </li>
-          <li>
-            <NavLink to="/ctes" onClick={onNavigate} className={getNavClass}>
-              <FileText size={20} /> Registro de CTE
-            </NavLink>
-          </li>
+          
+          {isAdmin && (
+            <li>
+              <NavLink to="/ctes" onClick={onNavigate} className={getNavClass}>
+                <FileText size={20} /> Registro de CTE
+              </NavLink>
+            </li>
+          )}
 
           {/* SÓ MOSTRA A AUDITORIA SE FOR ADMIN */}
           {isAdmin && (

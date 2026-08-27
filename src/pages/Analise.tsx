@@ -1,7 +1,9 @@
-import React, { useState, useMemo } from 'react';
-import { PieChart, TrendingDown, Clock, Truck, DollarSign, Activity, Calendar, Percent, Award } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
+import { PieChart, TrendingDown, Clock, Truck, DollarSign, Activity, Calendar, Percent, Award, Download } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, ComposedChart, Line } from 'recharts';
 import { useNavigate } from 'react-router-dom';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 interface AnaliseProps {
   entregas: any[];
@@ -11,11 +13,13 @@ interface AnaliseProps {
 
 export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnaliseProps) {
   const navigate = useNavigate();
+  const painelRef = useRef<HTMLDivElement>(null);
   
   const [periodoFiltro, setPeriodoFiltro] = useState('tudo');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [mesSelecionado, setMesSelecionado] = useState('');
+  const [gerandoPdf, setGerandoPdf] = useState(false);
 
   const mesesDisponiveis = useMemo(() => {
     const meses = new Set<string>();
@@ -120,7 +124,6 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
       }
     });
 
-    // MUDANÇA AQUI: de .slice(0, 5) para .slice(0, 10)
     const topTransportadoras = Object.values(transportadorasMap).sort((a, b) => b.Custo - a.Custo).slice(0, 10);
     
     const topTransportadorasEficiencia = Object.values(transportadorasMap)
@@ -132,9 +135,9 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
         faturamento: t.Faturamento
       }))
       .sort((a, b) => a.percentual - b.percentual) 
-      .slice(0, 10); // MUDANÇA AQUI
+      .slice(0, 10);
 
-    const topClientes = Object.values(clientesMap).sort((a, b) => b.Valor - a.Valor).slice(0, 10); // MUDANÇA AQUI
+    const topClientes = Object.values(clientesMap).sort((a, b) => b.Valor - a.Valor).slice(0, 10);
     
     const analisePorEstado = Object.entries(estadosStatsMap).map(([uf, vals]) => {
       const lucro = vals.faturamento - vals.custo;
@@ -169,6 +172,43 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
     navigate('/dashboard');
   };
 
+  // ========================================================
+  // FUNÇÃO MÁGICA: EXPORTAR PARA PDF (WYSIWYG - O que vê é o que tem)
+  // ========================================================
+  const exportarPDF = async () => {
+    if (!painelRef.current) return;
+    setGerandoPdf(true);
+    
+    try {
+      // Tira a "fotografia" da div que contém todos os gráficos
+      const canvas = await html2canvas(painelRef.current, {
+        scale: 2, // Maior qualidade (retina)
+        useCORS: true, 
+        backgroundColor: '#f8fafc' // Cor de fundo para não ficar transparente
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Cria o PDF. Calculamos a altura dinamicamente para que seja uma página única longa (estilo infográfico)
+      // Largura A4 é 210mm. Altura será proporcional à altura do painel.
+      const pdfWidth = 210;
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      const pdf = new jsPDF('p', 'mm', [pdfWidth, pdfHeight]);
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      
+      // Nome do ficheiro dinâmico
+      const nomeArquivo = `Relatorio_BI_MunilaLog_${mesSelecionado || 'Geral'}.pdf`;
+      pdf.save(nomeArquivo);
+      
+    } catch (error) {
+      console.error("Erro ao gerar o PDF:", error);
+      alert("Houve um problema ao gerar o PDF. Tente novamente.");
+    } finally {
+      setGerandoPdf(false);
+    }
+  };
+
   const cardStyle: React.CSSProperties = { backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' };
 
   if (!stats && entregas.length === 0) return <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>A carregar dados para o BI...</div>;
@@ -176,6 +216,7 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '32px' }}>
       
+      {/* CABEÇALHO, FILTROS E BOTÃO DE PDF */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h2 style={{ fontSize: '1.75rem', color: '#0f172a', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -222,15 +263,37 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
               <option value="personalizado">Personalizado...</option>
             </select>
           </div>
+
+          {/* O NOVO BOTÃO DE EXPORTAR PDF */}
+          <button 
+            onClick={exportarPDF} 
+            disabled={gerandoPdf || !stats}
+            style={{ 
+              display: 'flex', alignItems: 'center', gap: '8px', height: '38px', padding: '0 16px', 
+              backgroundColor: gerandoPdf ? '#94a3b8' : '#0f172a', color: 'white', borderRadius: '8px', 
+              border: 'none', fontWeight: 'bold', cursor: gerandoPdf ? 'not-allowed' : 'pointer',
+              transition: 'background-color 0.2s', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+            }}
+          >
+            <Download size={18} />
+            {gerandoPdf ? 'Gerando PDF...' : 'Exportar PDF'}
+          </button>
         </div>
       </div>
 
+      {/* ÁREA ENVOLVIDA PELA REF PARA SAIR NO PDF */}
       {!stats ? (
         <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', backgroundColor: 'white', borderRadius: '12px' }}>
           Nenhum dado financeiro ou de entrega encontrado para o período selecionado.
         </div>
       ) : (
-        <>
+        <div ref={painelRef} style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '12px', marginTop: '-16px' }}>
+          
+          {/* TÍTULO DO RELATÓRIO NO PDF (Escondido na tela normal, mas útil no PDF se quiser) */}
+          <div style={{ display: 'none' }}> 
+            <h2>Relatório de Operação Logística - MunilaLog</h2>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
             <div style={cardStyle}>
               <p style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>Faturamento (Período)</p>
@@ -293,7 +356,6 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '16px' }}>
-            {/* MUDANÇA AQUI: height para 450px e título atualizado */}
             <div style={{ ...cardStyle, height: '450px', display: 'flex', flexDirection: 'column' }}>
               <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <DollarSign size={20} color="#10b981"/> Top 10 Clientes (Maior Receita)
@@ -317,7 +379,6 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
               </div>
             </div>
 
-            {/* MUDANÇA AQUI: height para 450px e título atualizado */}
             <div style={{ ...cardStyle, height: '450px', display: 'flex', flexDirection: 'column' }}>
               <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Truck size={20} color="#8b5cf6"/> Top 10 Transportadoras (Maior Custo)
@@ -341,7 +402,6 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
               </div>
             </div>
 
-            {/* MUDANÇA AQUI: height para 450px e título atualizado */}
             <div style={{ ...cardStyle, height: '450px', display: 'flex', flexDirection: 'column' }}>
               <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Award size={20} color="#f59e0b"/> Top 10 Transportadoras (Mais Eficientes)
@@ -434,7 +494,7 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
               <p style={{ margin: '8px 0 0 0', color: '#64748b', fontSize: '0.9rem' }}>Dias desde o pedido até à entrega no cliente.</p>
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

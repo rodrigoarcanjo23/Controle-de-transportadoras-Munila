@@ -79,6 +79,8 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
           <h3>{isEditing ? 'Editar Entrega' : 'Cadastrar Nova Entrega'}</h3>
           <button type="button" className="close-btn" onClick={onClose}><X size={24} /></button>
         </div>
+        
+        {/* Adicionado o form com validação nativa */}
         <form onSubmit={onSubmit}>
           <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             
@@ -120,7 +122,11 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               </select>
             </div>
 
-            <div className="form-group"><label>Cidade de Destino</label><input type="text" className="form-input" value={formData.cidade_destino} onChange={(e) => setFormData({...formData, cidade_destino: e.target.value})} /></div>
+            <div className="form-group">
+              <label>Cidade de Destino <span style={{ color: '#ef4444' }}>*</span></label>
+              <input type="text" className="form-input" required value={formData.cidade_destino} onChange={(e) => setFormData({...formData, cidade_destino: e.target.value})} />
+            </div>
+
             <div className="form-group"><label>UF Destino</label>
               <select className="form-select" value={formData.uf_destino} onChange={(e) => setFormData({...formData, uf_destino: e.target.value})}>
                 <option value="">Selecione...</option>
@@ -129,14 +135,21 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
             </div>
 
             <div className="form-group" style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px dashed #cbd5e1' }}>
-              <label style={{ color: 'var(--munila-blue)', fontWeight: 'bold' }}>Data de Entrada do Pedido</label>
-              <input type="date" className="form-input" value={formData.data_entrada_pedido} onChange={(e) => setFormData({...formData, data_entrada_pedido: e.target.value})} />
+              <label style={{ color: 'var(--munila-blue)', fontWeight: 'bold' }}>Data de Entrada do Pedido <span style={{ color: '#ef4444' }}>*</span></label>
+              <input type="date" className="form-input" required value={formData.data_entrada_pedido} onChange={(e) => setFormData({...formData, data_entrada_pedido: e.target.value})} />
             </div>
 
-            <div className="form-group"><label>Data Faturamento</label><input type="date" className="form-input" value={formData.data_faturamento} onChange={(e) => setFormData({...formData, data_faturamento: e.target.value})} /></div>
+            <div className="form-group">
+              <label>Data Faturamento <span style={{ color: '#ef4444' }}>*</span></label>
+              <input type="date" className="form-input" required value={formData.data_faturamento} onChange={(e) => setFormData({...formData, data_faturamento: e.target.value})} />
+            </div>
             
             <div className="form-group"><label>Data Coleta</label><input type="date" className="form-input" value={formData.data_coleta} onChange={(e) => setFormData({...formData, data_coleta: e.target.value})} /></div>
-            <div className="form-group"><label>Valor da NF (R$)</label><input type="number" step="0.01" className="form-input" value={formData.valor_nf} onChange={(e) => setFormData({...formData, valor_nf: e.target.value})} /></div>
+            
+            <div className="form-group">
+              <label>Valor da NF (R$) <span style={{ color: '#ef4444' }}>*</span></label>
+              <input type="number" step="0.01" className="form-input" required value={formData.valor_nf} onChange={(e) => setFormData({...formData, valor_nf: e.target.value})} />
+            </div>
             
             <div className="form-group">
               <label>Frete Cotado (R$)</label>
@@ -170,12 +183,12 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
 
             <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <input type="checkbox" id="tem_agendamento" checked={formData.tem_agendamento} onChange={(e) => setFormData({...formData, tem_agendamento: e.target.checked})} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-              <label htmlFor="tem_agendamento" style={{ margin: 0, cursor: 'pointer', fontWeight: 'bold', color: 'var(--munila-blue)' }}>Possui Agendamento?</label>
+              <label htmlFor="tem_agendamento" style={{ margin: 0, cursor: 'pointer', fontWeight: 'bold', color: 'var(--munila-blue)' }}>Possui Agendamento? <span style={{ color: '#ef4444' }}>*</span></label>
             </div>
 
             <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <input type="checkbox" id="frete_confirmado" checked={formData.frete_confirmado} onChange={(e) => setFormData({...formData, frete_confirmado: e.target.checked})} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#16a34a' }} />
-              <label htmlFor="frete_confirmado" style={{ margin: 0, cursor: 'pointer', fontWeight: 'bold', color: '#166534' }}>Frete Confirmado/Auditado?</label>
+              <label htmlFor="frete_confirmado" style={{ margin: 0, cursor: 'pointer', fontWeight: 'bold', color: '#166534' }}>Frete Confirmado/Auditado? <span style={{ color: '#ef4444' }}>*</span></label>
             </div>
 
             <div className="form-group"><label>Data Previsão</label><input type="date" className="form-input" value={formData.data_previsao} onChange={(e) => setFormData({...formData, data_previsao: e.target.value})} /></div>
@@ -200,8 +213,9 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               </select>
             </div>
 
-            <div className="form-group"><label>Status da Entrega</label>
-              <select className="form-select" value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})}>
+            <div className="form-group">
+              <label>Status da Entrega <span style={{ color: '#ef4444' }}>*</span></label>
+              <select className="form-select" required value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})}>
                 <option value="Pendente">Pendente</option>
                 <option value="Pendente agendamento">Pendente agendamento</option>
                 <option value="Aguardando coleta">Aguardando coleta</option>
@@ -210,13 +224,10 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
                 <option value="Em Transporte">Em Transporte</option>
                 <option value="Entregue">Entregue</option>
                 <option value="Atrasado">Atrasado</option>
-                
-                {/* === NOVOS STATUS ADICIONADOS AQUI === */}
                 <option value="Problema">Problema</option>
                 <option value="Reagendado">Reagendado</option>
                 <option value="Em devolução">Em devolução</option>
                 <option value="Devolvido">Devolvido</option>
-                
                 <option value="Devolução">Devolução</option>
                 <option value="Frete Conferido">Frete Conferido</option>
               </select>

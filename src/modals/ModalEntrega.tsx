@@ -128,7 +128,6 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
               </select>
             </div>
 
-            {/* ADICIONADO AQUI: DATA DE ENTRADA DO PEDIDO */}
             <div className="form-group" style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px dashed #cbd5e1' }}>
               <label style={{ color: 'var(--munila-blue)', fontWeight: 'bold' }}>Data de Entrada do Pedido</label>
               <input type="date" className="form-input" value={formData.data_entrada_pedido} onChange={(e) => setFormData({...formData, data_entrada_pedido: e.target.value})} />
@@ -211,6 +210,13 @@ export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData,
                 <option value="Em Transporte">Em Transporte</option>
                 <option value="Entregue">Entregue</option>
                 <option value="Atrasado">Atrasado</option>
+                
+                {/* === NOVOS STATUS ADICIONADOS AQUI === */}
+                <option value="Problema">Problema</option>
+                <option value="Reagendado">Reagendado</option>
+                <option value="Em devolução">Em devolução</option>
+                <option value="Devolvido">Devolvido</option>
+                
                 <option value="Devolução">Devolução</option>
                 <option value="Frete Conferido">Frete Conferido</option>
               </select>

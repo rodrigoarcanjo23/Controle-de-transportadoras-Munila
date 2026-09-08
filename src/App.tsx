@@ -365,6 +365,13 @@ export default function App() {
       case 'Coletada pelo representante.': return { backgroundColor: '#f3e8ff', color: '#6b21a8' };
       case 'Lançada': return { backgroundColor: '#cffafe', color: '#0369a1' }; 
       case 'Emitida': return { backgroundColor: '#ccfbf1', color: '#0f766e' }; 
+      
+      // === NOVOS STATUS ADICIONADOS AQUI ===
+      case 'Problema': return { backgroundColor: '#fee2e2', color: '#991b1b' }; 
+      case 'Reagendado': return { backgroundColor: '#fef3c7', color: '#92400e' }; 
+      case 'Em devolução': return { backgroundColor: '#ffedd5', color: '#c2410c' }; 
+      case 'Devolvido': return { backgroundColor: '#e2e8f0', color: '#475569' }; 
+
       default: return { backgroundColor: '#f1f5f9', color: '#334155' };
     }
   };

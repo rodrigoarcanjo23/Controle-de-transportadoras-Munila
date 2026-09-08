@@ -38,9 +38,11 @@ export function Header(props: any) {
     }
   };
 
+  // === OS 4 NOVOS STATUS FORAM ADICIONADOS AQUI ===
   const statusOptions = [
     'Pendente', 'Pendente agendamento', 'Aguardando coleta', 'Solicitado Agendamento', 
-    'Agendado', 'Em Transporte', 'Entregue', 'Atrasado', 'Devolução', 'Frete Conferido'
+    'Agendado', 'Em Transporte', 'Entregue', 'Atrasado', 'Problema', 'Reagendado', 
+    'Em devolução', 'Devolvido', 'Devolução', 'Frete Conferido'
   ];
 
   return (

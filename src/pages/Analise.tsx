@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { PieChart, TrendingDown, Clock, Truck, DollarSign, Activity, Calendar, Percent, Award, Download } from 'lucide-react';
+import { PieChart, TrendingDown, Clock, Truck, DollarSign, Activity, Calendar, Percent, Award, Download, MapPin } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, ComposedChart, Line } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import html2canvas from 'html2canvas';
@@ -11,6 +11,15 @@ interface AnaliseProps {
   limparFiltros: () => void;
 }
 
+// === DICIONÁRIO DE REGIÕES ===
+const mapaRegioes: Record<string, string[]> = {
+  'Norte': ['AC', 'AP', 'AM', 'PA', 'RO', 'RR', 'TO'],
+  'Nordeste': ['AL', 'BA', 'CE', 'MA', 'PB', 'PE', 'PI', 'RN', 'SE'],
+  'Centro-Oeste': ['DF', 'GO', 'MT', 'MS'],
+  'Sudeste': ['ES', 'MG', 'RJ', 'SP'],
+  'Sul': ['PR', 'RS', 'SC']
+};
+
 export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnaliseProps) {
   const navigate = useNavigate();
   const painelRef = useRef<HTMLDivElement>(null);
@@ -19,6 +28,7 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [mesSelecionado, setMesSelecionado] = useState('');
+  const [regiaoSelecionada, setRegiaoSelecionada] = useState(''); // <-- NOVO ESTADO DE REGIÃO
   const [gerandoPdf, setGerandoPdf] = useState(false);
 
   const mesesDisponiveis = useMemo(() => {
@@ -38,8 +48,18 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
 
   const entregasFiltradas = useMemo(() => {
     return entregas.filter(e => {
+      // 1. Regra básica: precisa ter faturamento para entrar no BI financeiro
       if (!e.data_faturamento) return false;
 
+      // 2. NOVA REGRA: Filtro de Região (Corta logo aqui se não pertencer à região)
+      if (regiaoSelecionada) {
+        const ufDestino = e.uf_destino || e.clientes?.uf || '';
+        if (!mapaRegioes[regiaoSelecionada]?.includes(ufDestino)) {
+          return false;
+        }
+      }
+
+      // 3. Filtros de Data
       if (periodoFiltro === 'mes') {
         if (!mesSelecionado) return true; 
         return e.data_faturamento.substring(0, 7) === mesSelecionado;
@@ -63,7 +83,7 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
 
       return d >= dataLimite;
     });
-  }, [entregas, periodoFiltro, dataInicio, dataFim, mesSelecionado]);
+  }, [entregas, periodoFiltro, dataInicio, dataFim, mesSelecionado, regiaoSelecionada]);
 
   const stats = useMemo(() => {
     const total = entregasFiltradas.length;
@@ -172,33 +192,26 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
     navigate('/dashboard');
   };
 
-  // ========================================================
-  // FUNÇÃO MÁGICA: EXPORTAR PARA PDF (WYSIWYG - O que vê é o que tem)
-  // ========================================================
   const exportarPDF = async () => {
     if (!painelRef.current) return;
     setGerandoPdf(true);
     
     try {
-      // Tira a "fotografia" da div que contém todos os gráficos
       const canvas = await html2canvas(painelRef.current, {
-        scale: 2, // Maior qualidade (retina)
+        scale: 2, 
         useCORS: true, 
-        backgroundColor: '#f8fafc' // Cor de fundo para não ficar transparente
+        backgroundColor: '#f8fafc' 
       });
       
       const imgData = canvas.toDataURL('image/png');
-      
-      // Cria o PDF. Calculamos a altura dinamicamente para que seja uma página única longa (estilo infográfico)
-      // Largura A4 é 210mm. Altura será proporcional à altura do painel.
       const pdfWidth = 210;
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       const pdf = new jsPDF('p', 'mm', [pdfWidth, pdfHeight]);
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       
-      // Nome do ficheiro dinâmico
-      const nomeArquivo = `Relatorio_BI_MunilaLog_${mesSelecionado || 'Geral'}.pdf`;
+      const regiaoNome = regiaoSelecionada || 'Geral';
+      const nomeArquivo = `Relatorio_BI_${regiaoNome}_MunilaLog.pdf`;
       pdf.save(nomeArquivo);
       
     } catch (error) {
@@ -216,7 +229,6 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '32px' }}>
       
-      {/* CABEÇALHO, FILTROS E BOTÃO DE PDF */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h2 style={{ fontSize: '1.75rem', color: '#0f172a', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -227,6 +239,25 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           
+          {/* NOVO FILTRO DE REGIÃO AQUI */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', padding: '6px', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+            <MapPin size={18} color="#0284c7" style={{ marginLeft: '8px' }}/>
+            <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600, marginRight: '4px' }}>Região:</span>
+            <select 
+              className="form-select" 
+              style={{ border: 'none', backgroundColor: '#f8fafc', fontWeight: 'bold', color: '#0f172a', minWidth: '130px' }}
+              value={regiaoSelecionada}
+              onChange={(e) => setRegiaoSelecionada(e.target.value)}
+            >
+              <option value="">Todas (Brasil)</option>
+              <option value="Norte">Norte</option>
+              <option value="Nordeste">Nordeste</option>
+              <option value="Centro-Oeste">Centro-Oeste</option>
+              <option value="Sudeste">Sudeste</option>
+              <option value="Sul">Sul</option>
+            </select>
+          </div>
+
           {periodoFiltro === 'personalizado' && (
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: '#f0fdf4', padding: '6px 12px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
               <input type="date" className="form-input" style={{ padding: '4px 8px', height: '32px', fontSize: '0.85rem' }} value={dataInicio} onChange={e => setDataInicio(e.target.value)} />
@@ -264,7 +295,6 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
             </select>
           </div>
 
-          {/* O NOVO BOTÃO DE EXPORTAR PDF */}
           <button 
             onClick={exportarPDF} 
             disabled={gerandoPdf || !stats}
@@ -281,17 +311,15 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
         </div>
       </div>
 
-      {/* ÁREA ENVOLVIDA PELA REF PARA SAIR NO PDF */}
       {!stats ? (
         <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', backgroundColor: 'white', borderRadius: '12px' }}>
-          Nenhum dado financeiro ou de entrega encontrado para o período selecionado.
+          Nenhum dado financeiro ou de entrega encontrado para os filtros selecionados.
         </div>
       ) : (
         <div ref={painelRef} style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '12px', marginTop: '-16px' }}>
           
-          {/* TÍTULO DO RELATÓRIO NO PDF (Escondido na tela normal, mas útil no PDF se quiser) */}
           <div style={{ display: 'none' }}> 
-            <h2>Relatório de Operação Logística - MunilaLog</h2>
+            <h2>Relatório de Operação Logística - MunilaLog {regiaoSelecionada && `(${regiaoSelecionada})`}</h2>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
@@ -427,44 +455,48 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
             </div>
           </div>
 
-          <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column' }}>
-            <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Percent size={20} color="#ef4444"/> Comparativo Geral: Receita vs Custo Logístico por Estado (%)
-            </h3>
-            <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '16px' }}>
-              Proporção do frete comparado ao faturamento em todas as regiões de operação.
-            </p>
-            
-            <div style={{ width: '100%', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '12px' }}>
-              <div style={{ minWidth: `${Math.max(800, stats.analisePorEstado.length * 60)}px`, height: '350px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={stats.analisePorEstado} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    
-                    <XAxis dataKey="uf" scale="band" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 'bold' }} dy={10} />
-                    
-                    <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} />
-                    
-                    <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#ef4444', fontSize: 12, fontWeight: 'bold' }} tickFormatter={(val) => `${val}%`} />
-                    
-                    <Tooltip 
-                      formatter={(value: any, name: any) => {
-                        if (name === '% do Frete') return [`${value}%`, name];
-                        return [`R$ ${Number(value).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, name];
-                      }}
-                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
-                    />
-                    <Legend verticalAlign="top" height={36} />
-                    
-                    <Bar isAnimationActive={false} yAxisId="left" dataKey="faturamento" name="Faturamento (R$)" fill="#0284c7" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    <Bar isAnimationActive={false} yAxisId="left" dataKey="custo" name="Custo Frete (R$)" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    
-                    <Line isAnimationActive={false} yAxisId="right" type="monotone" dataKey="percentual" name="% do Frete" stroke="#ef4444" strokeWidth={3} dot={{ r: 5, fill: '#ef4444' }} activeDot={{ r: 8 }} />
-                  </ComposedChart>
-                </ResponsiveContainer>
+          {/* SÓ MOSTRA O COMPARATIVO SE A PESQUISA NÃO FOR DE UMA REGIÃO ESPECÍFICA */}
+          {/* Se pesquisar pelo Nordeste, não faz sentido mostrar o gráfico de estados de todo o Brasil */}
+          {!regiaoSelecionada && (
+            <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column' }}>
+              <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Percent size={20} color="#ef4444"/> Comparativo Geral: Receita vs Custo Logístico por Estado (%)
+              </h3>
+              <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '16px' }}>
+                Proporção do frete comparado ao faturamento em todas as regiões de operação.
+              </p>
+              
+              <div style={{ width: '100%', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '12px' }}>
+                <div style={{ minWidth: `${Math.max(800, stats.analisePorEstado.length * 60)}px`, height: '350px' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={stats.analisePorEstado} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      
+                      <XAxis dataKey="uf" scale="band" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 'bold' }} dy={10} />
+                      
+                      <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} />
+                      
+                      <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#ef4444', fontSize: 12, fontWeight: 'bold' }} tickFormatter={(val) => `${val}%`} />
+                      
+                      <Tooltip 
+                        formatter={(value: any, name: any) => {
+                          if (name === '% do Frete') return [`${value}%`, name];
+                          return [`R$ ${Number(value).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, name];
+                        }}
+                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
+                      />
+                      <Legend verticalAlign="top" height={36} />
+                      
+                      <Bar isAnimationActive={false} yAxisId="left" dataKey="faturamento" name="Faturamento (R$)" fill="#0284c7" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                      <Bar isAnimationActive={false} yAxisId="left" dataKey="custo" name="Custo Frete (R$)" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                      
+                      <Line isAnimationActive={false} yAxisId="right" type="monotone" dataKey="percentual" name="% do Frete" stroke="#ef4444" strokeWidth={3} dot={{ r: 5, fill: '#ef4444' }} activeDot={{ r: 8 }} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div style={cardStyle}>
@@ -480,7 +512,7 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
                   <span style={{ color: '#b45309', fontWeight: 800 }}>{stats.emAndamento}</span>
                 </div>
 
-                <div onClick={() => handleStatusClick(['Atrasado'])} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', backgroundColor: '#fee2e2', borderRadius: '8px', border: '1px solid #fecaca', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fca5a5'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'} title="Clique para analisar entregas atrasadas">
+                <div onClick={() => handleStatusClick(['Atrasado', 'Problema', 'Em devolução'])} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', backgroundColor: '#fee2e2', borderRadius: '8px', border: '1px solid #fecaca', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fca5a5'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'} title="Clique para analisar entregas atrasadas">
                   <span style={{ color: '#991b1b', fontWeight: 600 }}>Atrasadas ou Críticas</span>
                   <span style={{ color: '#b91c1c', fontWeight: 800 }}>{stats.atrasadas}</span>
                 </div>

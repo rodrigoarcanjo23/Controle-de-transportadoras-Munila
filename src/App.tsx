@@ -54,7 +54,8 @@ export default function App() {
   const [filtroComFreteReal, setFiltroComFreteReal] = useState(false);
   const [filtroSemDataEntrega, setFiltroSemDataEntrega] = useState(false);
   
-  // ESTADOS RANGES
+  // ESTADOS RANGES & LOCALIZAÇÃO
+  const [filtroRegiao, setFiltroRegiao] = useState(''); // <-- NOVO FILTRO DE REGIÃO
   const [filtroUf, setFiltroUf] = useState('');
   const [filtroValorNfMin, setFiltroValorNfMin] = useState(''); 
   const [filtroValorNfMax, setFiltroValorNfMax] = useState('');
@@ -84,9 +85,6 @@ export default function App() {
   const [calcProdutoId, setCalcProdutoId] = useState('');
   const [calcQuantidade, setCalcQuantidade] = useState('');
 
-  // ==========================================
-  // SEGURANÇA: IDENTIFICAR SE É ADMINISTRADOR
-  // ==========================================
   const perfilLogado = perfis.find(p => p.email === session?.user?.email);
   const isAdmin = perfis.length === 0 || perfilLogado?.nivel_acesso === 'Administrador';
 
@@ -366,7 +364,6 @@ export default function App() {
       case 'Lançada': return { backgroundColor: '#cffafe', color: '#0369a1' }; 
       case 'Emitida': return { backgroundColor: '#ccfbf1', color: '#0f766e' }; 
       
-      // === NOVOS STATUS ADICIONADOS AQUI ===
       case 'Problema': return { backgroundColor: '#fee2e2', color: '#991b1b' }; 
       case 'Reagendado': return { backgroundColor: '#fef3c7', color: '#92400e' }; 
       case 'Em devolução': return { backgroundColor: '#ffedd5', color: '#c2410c' }; 
@@ -382,9 +379,19 @@ export default function App() {
     setFiltroFreteVazio(false); setFiltroFreteConfirmado(false); 
     setFiltroComAgendamento(false); setFiltroSemAgendamento(false);
     setFiltroComFreteCotado(false); setFiltroComFreteReal(false); 
+    setFiltroRegiao(''); // LIMPAMOS A REGIÃO AQUI TAMBÉM
     setFiltroUf(''); setFiltroSemDataEntrega(false); setFiltroValorNfMin(''); 
     setFiltroValorNfMax(''); setFiltroPercFreteMin(''); setFiltroPercFreteMax('');
   }
+
+  // === DICIONÁRIO DE REGIÕES ===
+  const mapaRegioes: Record<string, string[]> = {
+    'Norte': ['AC', 'AP', 'AM', 'PA', 'RO', 'RR', 'TO'],
+    'Nordeste': ['AL', 'BA', 'CE', 'MA', 'PB', 'PE', 'PI', 'RN', 'SE'],
+    'Centro-Oeste': ['DF', 'GO', 'MT', 'MS'],
+    'Sudeste': ['ES', 'MG', 'RJ', 'SP'],
+    'Sul': ['PR', 'RS', 'SC']
+  };
 
   const entregasFiltradas = entregas.filter(entrega => {
     const termo = searchTerm.toLowerCase();
@@ -410,6 +417,10 @@ export default function App() {
 
     const ufDestino = entrega.uf_destino || entrega.clientes?.uf || '';
     const passaUf = filtroUf ? ufDestino === filtroUf : true;
+    
+    // === NOVA LÓGICA DO FILTRO DE REGIÃO ===
+    const passaRegiao = filtroRegiao ? (mapaRegioes[filtroRegiao]?.includes(ufDestino)) : true;
+
     const passaSemData = filtroSemDataEntrega ? !entrega.data_entrega_agendamento : true;
 
     const valNf = Number(entrega.valor_nf) || 0;
@@ -422,7 +433,8 @@ export default function App() {
     const passaPercMin = filtroPercFreteMin ? percFrete >= Number(filtroPercFreteMin) : true;
     const passaPercMax = filtroPercFreteMax ? percFrete <= Number(filtroPercFreteMax) : true;
 
-    return passaTexto && passaData && passaTransp && passaModal && passaStatus && passaFreteVazio && passaFreteConfirmado && passaComAgendamento && passaSemAgendamento && passaComFreteCotado && passaComFreteReal && passaUf && passaSemData && passaValNfMin && passaValNfMax && passaPercMin && passaPercMax;
+    // Adicionámos o passaRegiao na linha de baixo
+    return passaTexto && passaData && passaTransp && passaModal && passaStatus && passaFreteVazio && passaFreteConfirmado && passaComAgendamento && passaSemAgendamento && passaComFreteCotado && passaComFreteReal && passaRegiao && passaUf && passaSemData && passaValNfMin && passaValNfMax && passaPercMin && passaPercMax;
   }).sort((a, b) => new Date(b.data_faturamento || b.created_at || 0).getTime() - new Date(a.data_faturamento || a.created_at || 0).getTime());
 
   const freteTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_frete_real) || Number(curr.valor_frete) || 0), 0);
@@ -450,7 +462,9 @@ export default function App() {
               filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus} filtroFreteVazio={filtroFreteVazio} setFiltroFreteVazio={setFiltroFreteVazio}
               filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado} filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento}
               filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento} filtroComFreteCotado={filtroComFreteCotado} setFiltroComFreteCotado={setFiltroComFreteCotado}
-              filtroComFreteReal={filtroComFreteReal} setFiltroComFreteReal={setFiltroComFreteReal} filtroUf={filtroUf} setFiltroUf={setFiltroUf}
+              filtroComFreteReal={filtroComFreteReal} setFiltroComFreteReal={setFiltroComFreteReal} 
+              filtroRegiao={filtroRegiao} setFiltroRegiao={setFiltroRegiao} /* <-- PASSANDO A REGIÃO AQUI */
+              filtroUf={filtroUf} setFiltroUf={setFiltroUf}
               filtroSemDataEntrega={filtroSemDataEntrega} setFiltroSemDataEntrega={setFiltroSemDataEntrega} filtroValorNfMin={filtroValorNfMin} setFiltroValorNfMin={setFiltroValorNfMin}
               filtroValorNfMax={filtroValorNfMax} setFiltroValorNfMax={setFiltroValorNfMax} filtroPercFreteMin={filtroPercFreteMin} setFiltroPercFreteMin={setFiltroPercFreteMin}
               filtroPercFreteMax={filtroPercFreteMax} setFiltroPercFreteMax={setFiltroPercFreteMax} transportadoras={transportadoras} limparFiltros={limparFiltros} 

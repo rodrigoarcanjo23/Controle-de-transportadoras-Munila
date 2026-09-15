@@ -16,6 +16,7 @@ export function Header(props: any) {
     filtroComFreteCotado, setFiltroComFreteCotado,
     filtroComFreteReal, setFiltroComFreteReal,
     
+    filtroRegiao, setFiltroRegiao, // <-- RECEBIDO AQUI
     filtroUf, setFiltroUf,
     filtroSemDataEntrega, setFiltroSemDataEntrega,
     filtroValorNfMin, setFiltroValorNfMin,
@@ -25,7 +26,7 @@ export function Header(props: any) {
 
     transportadoras, limparFiltros,
     exportarParaExcel, abrirModalNovaEntrega,
-    isAdmin // <-- RECEBEMOS A PERMISSÃO AQUI
+    isAdmin
   } = props;
 
   const estadosBR = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
@@ -38,7 +39,6 @@ export function Header(props: any) {
     }
   };
 
-  // === OS 4 NOVOS STATUS FORAM ADICIONADOS AQUI ===
   const statusOptions = [
     'Pendente', 'Pendente agendamento', 'Aguardando coleta', 'Solicitado Agendamento', 
     'Agendado', 'Em Transporte', 'Entregue', 'Atrasado', 'Problema', 'Reagendado', 
@@ -84,7 +84,6 @@ export function Header(props: any) {
             <Download size={18} /> Exportar
           </button>
 
-          {/* SÓ MOSTRA BOTÃO DE CRIAR SE FOR ADMIN */}
           {isAdmin && (
             <button 
               type="button" 
@@ -130,13 +129,34 @@ export function Header(props: any) {
                 <option value="SEDEX">Sedex</option>
               </select>
             </div>
+
+            {/* === NOVO CAMPO: REGIÃO DO BRASIL === */}
+            <div className="form-group" style={{ flex: '1 1 130px', margin: 0 }}>
+              <label>Região</label>
+              <select className="form-select" value={filtroRegiao} onChange={e => { 
+                setFiltroRegiao(e.target.value); 
+                setFiltroUf(''); // Limpa o estado quando escolhe uma nova região
+              }}>
+                <option value="">Todas</option>
+                <option value="Norte">Norte</option>
+                <option value="Nordeste">Nordeste</option>
+                <option value="Centro-Oeste">Centro-Oeste</option>
+                <option value="Sudeste">Sudeste</option>
+                <option value="Sul">Sul</option>
+              </select>
+            </div>
+
             <div className="form-group" style={{ flex: '1 1 100px', margin: 0 }}>
               <label>Estado (UF)</label>
-              <select className="form-select" value={filtroUf} onChange={e => setFiltroUf(e.target.value)}>
+              <select className="form-select" value={filtroUf} onChange={e => {
+                setFiltroUf(e.target.value);
+                setFiltroRegiao(''); // Limpa a região quando escolhe um estado específico
+              }}>
                 <option value="">Todos</option>
                 {estadosBR.map(uf => <option key={uf} value={uf}>{uf}</option>)}
               </select>
             </div>
+
           </div>
 
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-start' }}>

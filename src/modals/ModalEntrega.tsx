@@ -1,252 +1,238 @@
-import React, { useState, useEffect } from 'react';
-import { X, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { supabase } from '../lib/supabase'; 
+import { useEffect, useState, type FormEvent } from 'react';
+import { CircleCheck, Loader2, TriangleAlert } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { registrarLog, SELECT_ENTREGA, mensagemErro } from '../lib/db';
+import { MODAIS, STATUS_ENTREGA, UFS } from '../lib/constants';
+import { maskDecimal, parseDecimalBR, toInputDecimal } from '../lib/format';
+import { Modal, ModalActions } from '../components/ui/Modal';
+import { Check, Field } from '../components/ui/basics';
+import { ClienteCombobox } from '../components/ui/ClienteCombobox';
+import { useAppData } from '../state/context';
+import { useFeedback } from '../feedback/context';
+import type { Entrega } from '../types';
 
-interface ModalEntregaProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (e: React.FormEvent) => void;
-  formData: any;
-  setFormData: (data: any) => void;
-  isEditing: boolean;
-  clientes: any[];
-  transportadoras: any[];
+type Form = {
+  nota_fiscal: string; cliente_id: string; transportadora_id: string; cidade_destino: string; uf_destino: string;
+  modal_frete: string; data_entrada_pedido: string; data_faturamento: string; data_coleta: string; valor_nf: string;
+  valor_frete: string; valor_frete_real: string; volume: string; peso_kg: string; tem_agendamento: boolean;
+  data_previsao: string; data_entrega_agendamento: string; observacoes: string; status: string; frete_confirmado: boolean;
+};
+
+const VAZIO: Form = {
+  nota_fiscal: '', cliente_id: '', transportadora_id: '', cidade_destino: '', uf_destino: '', modal_frete: '',
+  data_entrada_pedido: '', data_faturamento: '', data_coleta: '', valor_nf: '', valor_frete: '', valor_frete_real: '',
+  volume: '', peso_kg: '', tem_agendamento: false, data_previsao: '', data_entrega_agendamento: '', observacoes: '',
+  status: 'Pendente', frete_confirmado: false,
+};
+
+function paraForm(e: Partial<Entrega>): Form {
+  return {
+    nota_fiscal: e.nota_fiscal ?? '', cliente_id: e.cliente_id ?? '', transportadora_id: e.transportadora_id ?? '',
+    cidade_destino: e.cidade_destino ?? '', uf_destino: e.uf_destino ?? '', modal_frete: e.modal_frete ?? '',
+    data_entrada_pedido: e.data_entrada_pedido ?? '', data_faturamento: e.data_faturamento ?? '', data_coleta: e.data_coleta ?? '',
+    valor_nf: toInputDecimal(e.valor_nf), valor_frete: toInputDecimal(e.valor_frete), valor_frete_real: toInputDecimal(e.valor_frete_real),
+    volume: e.volume?.toString() ?? '', peso_kg: toInputDecimal(e.peso_kg), tem_agendamento: !!e.tem_agendamento,
+    data_previsao: e.data_previsao ?? '', data_entrega_agendamento: e.data_entrega_agendamento ?? '', observacoes: e.observacoes ?? '',
+    status: e.status ?? 'Pendente', frete_confirmado: !!e.frete_confirmado,
+  };
 }
 
-export function ModalEntrega({ isOpen, onClose, onSubmit, formData, setFormData, isEditing, clientes, transportadoras }: ModalEntregaProps) {
-  const [buscaCliente, setBuscaCliente] = useState('');
-  const [mostrarDropdownCliente, setMostrarDropdownCliente] = useState(false);
+type NfStatus = 'idle' | 'checking' | 'available' | 'duplicate';
 
-  const [initialNf, setInitialNf] = useState('');
-  const [nfStatus, setNfStatus] = useState<'idle' | 'checking' | 'available' | 'duplicate'>('idle');
-  const [clienteDuplicado, setClienteDuplicado] = useState<string>('');
+/**
+ * Cadastro/edição de entrega. `entrega` = edição; `modelo` = nova entrega
+ * pré-preenchida (função "Duplicar").
+ */
+export function ModalEntrega({ entrega, modelo, onClose }: { entrega?: Entrega; modelo?: Partial<Entrega>; onClose: () => void }) {
+  const { clientes, transportadoras, setEntregas, isAdmin } = useAppData();
+  const { toast } = useFeedback();
+  const editando = !!entrega;
+  const [form, setForm] = useState<Form>(() => (entrega ? paraForm(entrega) : modelo ? paraForm(modelo) : VAZIO));
+  const [checagem, setChecagem] = useState<{ nf: string; status: NfStatus; dono: string } | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const nfInicial = entrega?.nota_fiscal ?? '';
+
+  const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
+
+  // Verificação de NF duplicada enquanto digita (mesma regra de antes).
+  const nfAtual = form.nota_fiscal.trim();
+  const nfIgualOriginal = editando && nfAtual.toLowerCase() === nfInicial.trim().toLowerCase();
+  const nfStatus: NfStatus = !nfAtual ? 'idle' : nfIgualOriginal ? 'available' : checagem?.nf === nfAtual ? checagem.status : 'checking';
+  const nfDono = checagem?.dono ?? '';
 
   useEffect(() => {
-    if (isOpen) {
-      if (formData.cliente_id) {
-        const clienteEncontrado = clientes.find(c => c.id === formData.cliente_id);
-        setBuscaCliente(clienteEncontrado ? clienteEncontrado.nome : '');
-      } else {
-        setBuscaCliente('');
-      }
-      setInitialNf(formData.nota_fiscal || '');
-      setNfStatus('idle');
-    }
-  }, [isOpen, formData.cliente_id, clientes]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const nfLimpa = String(formData.nota_fiscal || '').trim();
-    if (!nfLimpa) { setNfStatus('idle'); return; }
-
-    if (isEditing && nfLimpa.toLowerCase() === String(initialNf).trim().toLowerCase()) {
-      setNfStatus('available');
-      return;
-    }
-
-    setNfStatus('checking');
-
-    const timeoutId = setTimeout(async () => {
+    if (!nfAtual || nfIgualOriginal) return;
+    const t = setTimeout(async () => {
       try {
-        const { data, error } = await supabase.from('entregas').select('clientes (nome)').ilike('nota_fiscal', nfLimpa).limit(1);
-
+        const { data, error } = await supabase.from('entregas').select('clientes (nome)').ilike('nota_fiscal', nfAtual).limit(1);
         if (!error && data && data.length > 0) {
-          setNfStatus('duplicate');
-          setClienteDuplicado((data[0].clientes as any)?.nome || 'Cliente Desconhecido');
-        } else {
-          setNfStatus('available');
-        }
-      } catch (error) { console.error(error); setNfStatus('idle'); }
-    }, 600);
+          setChecagem({ nf: nfAtual, status: 'duplicate', dono: (data[0].clientes as { nome?: string } | null)?.nome || 'Cliente desconhecido' });
+        } else setChecagem({ nf: nfAtual, status: 'available', dono: '' });
+      } catch { setChecagem({ nf: nfAtual, status: 'idle', dono: '' }); }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [nfAtual, nfIgualOriginal]);
 
-    return () => clearTimeout(timeoutId);
-  }, [formData.nota_fiscal, isOpen, isEditing, initialNf]);
+  async function salvar(e: FormEvent) {
+    e.preventDefault();
+    if (!isAdmin) { toast({ kind: 'error', title: 'Acesso restrito', text: 'Apenas administradores podem criar ou editar entregas.' }); return; }
+    const nf = form.nota_fiscal.trim();
+    if (!nf) { toast({ kind: 'warning', title: 'Informe o número da Nota Fiscal.' }); return; }
+    if (!form.cliente_id) { toast({ kind: 'warning', title: 'Selecione um cliente da lista.' }); return; }
 
-  if (!isOpen) return null;
+    setSalvando(true);
+    try {
+      let q = supabase.from('entregas').select('id, clientes (nome)').ilike('nota_fiscal', nf);
+      if (entrega) q = q.neq('id', entrega.id);
+      const { data: existentes } = await q;
+      if (existentes && existentes.length > 0) {
+        const dono = (existentes[0].clientes as { nome?: string } | null)?.nome || 'Desconhecido';
+        toast({ kind: 'error', title: 'Duplicidade bloqueada', text: `A NF "${nf}" já está cadastrada para o cliente ${dono}.` });
+        return;
+      }
 
-  const clientesFiltradosDropdown = clientes.filter(c => 
-    c.nome.toLowerCase().includes(buscaCliente.toLowerCase()) || 
-    (c.cnpj_cpf && c.cnpj_cpf.includes(buscaCliente))
-  );
+      const payload = {
+        nota_fiscal: nf, cliente_id: form.cliente_id, transportadora_id: form.transportadora_id || null,
+        cidade_destino: form.cidade_destino || null, uf_destino: form.uf_destino || null, modal_frete: form.modal_frete || null,
+        data_entrada_pedido: form.data_entrada_pedido || null, data_faturamento: form.data_faturamento || null, data_coleta: form.data_coleta || null,
+        valor_nf: parseDecimalBR(form.valor_nf) ?? 0, valor_frete: parseDecimalBR(form.valor_frete) || null,
+        valor_frete_real: parseDecimalBR(form.valor_frete_real) || null, volume: parseInt(form.volume) || null,
+        peso_kg: parseDecimalBR(form.peso_kg) || null, tem_agendamento: form.tem_agendamento, data_previsao: form.data_previsao || null,
+        data_entrega_agendamento: form.data_entrega_agendamento || null, observacoes: form.observacoes, status: form.status,
+        frete_confirmado: form.frete_confirmado,
+      };
 
-  const estadosBR = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
+      if (entrega) {
+        const { data, error } = await supabase.from('entregas').update(payload).eq('id', entrega.id).select(SELECT_ENTREGA);
+        if (error) throw error;
+        if (data?.[0]) setEntregas((list) => list.map((x) => (x.id === entrega.id ? (data[0] as Entrega) : x)));
+        await registrarLog('EDITOU', 'ENTREGAS', `Editou os dados da Entrega (NF: ${nf})`);
+        toast({ kind: 'success', title: `Entrega NF ${nf} atualizada` });
+      } else {
+        const { data, error } = await supabase.from('entregas').insert([payload]).select(SELECT_ENTREGA);
+        if (error) throw error;
+        if (data?.[0]) setEntregas((list) => [data[0] as Entrega, ...list]);
+        await registrarLog('CRIOU', 'ENTREGAS', `Registrou nova Entrega (NF: ${nf})`);
+        toast({ kind: 'success', title: `Entrega NF ${nf} cadastrada` });
+      }
+      onClose();
+    } catch (err) {
+      toast({ kind: 'error', title: 'Erro ao salvar a entrega', text: mensagemErro(err) });
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  const nfHint = {
+    idle: undefined,
+    checking: <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><Loader2 size={12} className="spin" /> Verificando disponibilidade…</span>,
+    available: <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><CircleCheck size={12} /> Nota Fiscal livre</span>,
+    duplicate: <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><TriangleAlert size={12} /> NF já cadastrada (Cliente: {nfDono})</span>,
+  }[nfStatus];
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }}>
-        <div className="modal-header">
-          <h3>{isEditing ? 'Editar Entrega' : 'Cadastrar Nova Entrega'}</h3>
-          <button type="button" className="close-btn" onClick={onClose}><X size={24} /></button>
+    <Modal size="lg" onClose={onClose} onSubmit={salvar}
+      title={editando ? `Editar entrega · NF ${nfInicial}` : modelo ? 'Nova entrega (duplicada)' : 'Nova entrega'}
+      subtitle="Campos com * são obrigatórios"
+      footer={<ModalActions onCancel={onClose} submitting={salvando} disabled={nfStatus === 'duplicate' || nfStatus === 'checking'}
+        submitLabel={editando ? 'Atualizar entrega' : 'Salvar entrega'} />}>
+      <div className="form-grid" style={{ ['--cols' as string]: 4 }}>
+        <div className="form-section-title">Cliente e destino</div>
+        <Field label="Cliente" required className="span-2">
+          <ClienteCombobox clientes={clientes} value={form.cliente_id} required
+            onSelect={(c) => setForm((f) => ({
+              ...f,
+              cliente_id: c?.id ?? '',
+              ...(c ? {
+                tem_agendamento: !!c.exige_agendamento,
+                // sugere o destino a partir do cadastro do cliente, se ainda vazio
+                cidade_destino: f.cidade_destino || c.cidade || '',
+                uf_destino: f.uf_destino || c.uf || '',
+              } : {}),
+            }))} />
+        </Field>
+        <Field label="Nota Fiscal" required className="span-2" hint={nfHint} hintKind={nfStatus === 'available' ? 'ok' : nfStatus === 'duplicate' ? 'error' : undefined}>
+          <input className={`input ${nfStatus === 'duplicate' ? 'input--error' : nfStatus === 'available' ? 'input--ok' : ''}`} required
+            value={form.nota_fiscal} onChange={(e) => set('nota_fiscal', e.target.value)} inputMode="numeric" />
+        </Field>
+        <Field label="Cidade de destino" required className="span-2">
+          <input className="input" required value={form.cidade_destino} onChange={(e) => set('cidade_destino', e.target.value)} />
+        </Field>
+        <Field label="UF destino">
+          <select className="select" value={form.uf_destino} onChange={(e) => set('uf_destino', e.target.value)}>
+            <option value="">Selecione…</option>
+            {UFS.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+          </select>
+        </Field>
+        <Field label="Status" required>
+          <select className="select" required value={form.status} onChange={(e) => set('status', e.target.value)}>
+            {STATUS_ENTREGA.map((s) => <option key={s} value={s}>{s}</option>)}
+            {!STATUS_ENTREGA.includes(form.status as never) && <option value={form.status}>{form.status}</option>}
+          </select>
+        </Field>
+
+        <div className="form-section-title">Transporte</div>
+        <Field label="Transportadora" className="span-2">
+          <select className="select" value={form.transportadora_id} onChange={(e) => {
+            const t = transportadoras.find((x) => x.id === e.target.value);
+            setForm((f) => ({ ...f, transportadora_id: e.target.value, modal_frete: t?.modal_padrao || '' }));
+          }}>
+            <option value="">Selecione…</option>
+            {transportadoras.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+          </select>
+        </Field>
+        <Field label="Modal de frete" className="span-2">
+          <select className="select" value={form.modal_frete} onChange={(e) => set('modal_frete', e.target.value)}>
+            <option value="">Padrão da transportadora</option>
+            {MODAIS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
+        </Field>
+
+        <div className="form-section-title">Datas</div>
+        <Field label="Entrada do pedido" required>
+          <input type="date" className="input" required value={form.data_entrada_pedido} onChange={(e) => set('data_entrada_pedido', e.target.value)} />
+        </Field>
+        <Field label="Faturamento" required>
+          <input type="date" className="input" required value={form.data_faturamento} onChange={(e) => set('data_faturamento', e.target.value)} />
+        </Field>
+        <Field label="Coleta">
+          <input type="date" className="input" value={form.data_coleta} onChange={(e) => set('data_coleta', e.target.value)} />
+        </Field>
+        <Field label="Previsão">
+          <input type="date" className="input" value={form.data_previsao} onChange={(e) => set('data_previsao', e.target.value)} />
+        </Field>
+        <Field label="Data de entrega" className="span-2" hint="Ao informar, o status muda para “Entregue”.">
+          <input type="date" className="input" value={form.data_entrega_agendamento} onChange={(e) => {
+            const d = e.target.value;
+            setForm((f) => ({ ...f, data_entrega_agendamento: d, status: d ? 'Entregue' : f.status }));
+          }} />
+        </Field>
+
+        <div className="form-section-title">Valores e carga</div>
+        <Field label="Valor da NF (R$)" required>
+          <input className="input num" required inputMode="decimal" placeholder="0,00" value={form.valor_nf} onChange={(e) => set('valor_nf', maskDecimal(e.target.value))} />
+        </Field>
+        <Field label="Frete cotado (R$)">
+          <input className="input num" inputMode="decimal" placeholder="0,00" value={form.valor_frete} onChange={(e) => set('valor_frete', maskDecimal(e.target.value))} />
+        </Field>
+        <Field label="Frete real — CTE (R$)" hint="Preenchido automaticamente pelo CTE">
+          <input className="input num input--highlight" inputMode="decimal" placeholder="0,00" value={form.valor_frete_real} onChange={(e) => set('valor_frete_real', maskDecimal(e.target.value))} />
+        </Field>
+        <Field label="Volume (caixas)">
+          <input type="number" min="0" className="input num" inputMode="numeric" value={form.volume} onChange={(e) => set('volume', e.target.value)} />
+        </Field>
+        <Field label="Peso (kg)" required>
+          <input className="input num" required inputMode="decimal" placeholder="Ex: 15,50" value={form.peso_kg} onChange={(e) => set('peso_kg', maskDecimal(e.target.value))} />
+        </Field>
+        <div className="span-all" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+          <Check id="tem_agendamento" checked={form.tem_agendamento} onChange={(v) => set('tem_agendamento', v)}>Possui agendamento</Check>
+          <Check id="frete_confirmado" checked={form.frete_confirmado} onChange={(v) => set('frete_confirmado', v)}>Frete confirmado / auditado</Check>
         </div>
-        
-        {/* Adicionado o form com validação nativa */}
-        <form onSubmit={onSubmit}>
-          <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            
-            <div className="form-group" style={{ position: 'relative', gridColumn: '1 / -1' }}>
-              <label>Cliente</label>
-              <input type="text" className="form-input" placeholder="Digite o nome ou CNPJ..." required={!formData.cliente_id} value={buscaCliente} onChange={(e) => { setBuscaCliente(e.target.value); setMostrarDropdownCliente(true); setFormData({...formData, cliente_id: ''}); }} onFocus={() => setMostrarDropdownCliente(true)} onBlur={() => setTimeout(() => setMostrarDropdownCliente(false), 200)} />
-              {mostrarDropdownCliente && (
-                <ul style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, backgroundColor: 'white', border: '1px solid var(--border-color)', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto', margin: '4px 0 0 0', padding: 0, listStyle: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                  {clientesFiltradosDropdown.map(c => (
-                    <li key={c.id} style={{ padding: '10px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: '0.85rem', color: 'var(--text-main)' }} onMouseDown={(e) => { e.preventDefault(); setBuscaCliente(c.nome); setFormData({ ...formData, cliente_id: c.id, tem_agendamento: c.exige_agendamento || false }); setMostrarDropdownCliente(false); }} onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8fafc')} onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}>
-                      <div style={{ fontWeight: 'bold' }}>{c.nome}</div>
-                      {c.cnpj_cpf && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.cnpj_cpf}</div>}
-                    </li>
-                  ))}
-                  {clientesFiltradosDropdown.length === 0 && ( <li style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nenhum cliente encontrado</li> )}
-                </ul>
-              )}
-            </div>
 
-            <div className="form-group" style={{ display: 'flex', flexDirection: 'column' }}>
-              <label>Nota Fiscal <span style={{ color: '#ef4444' }}>*</span></label>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <input type="text" className="form-input" required value={formData.nota_fiscal} onChange={(e) => setFormData({...formData, nota_fiscal: e.target.value})} style={{ width: '100%', paddingRight: '36px', borderColor: nfStatus === 'duplicate' ? '#ef4444' : nfStatus === 'available' ? '#22c55e' : 'var(--border-color)', backgroundColor: nfStatus === 'duplicate' ? '#fef2f2' : nfStatus === 'available' ? '#f0fdf4' : 'white', transition: 'all 0.3s ease' }} />
-                <div style={{ position: 'absolute', right: '10px', display: 'flex', alignItems: 'center' }}>
-                  {nfStatus === 'duplicate' && <AlertTriangle size={18} color="#ef4444" />}
-                  {nfStatus === 'available' && <CheckCircle2 size={18} color="#22c55e" />}
-                </div>
-              </div>
-              {nfStatus === 'checking' && ( <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 'bold', marginTop: '4px' }}> ⏳ Verificando disponibilidade... </span> )}
-              {nfStatus === 'duplicate' && ( <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 'bold', marginTop: '4px' }}> ⚠️ NF já cadastrada (Cliente: {clienteDuplicado}) </span> )}
-              {nfStatus === 'available' && ( <span style={{ fontSize: '0.75rem', color: '#22c55e', fontWeight: 'bold', marginTop: '4px' }}> ✅ Nota Fiscal livre </span> )}
-            </div>
-            
-            <div className="form-group">
-              <label>Transportadora</label>
-              <select className="form-select" value={formData.transportadora_id} onChange={(e) => { const selectedId = e.target.value; const transportadoraSelecionada = transportadoras.find(t => t.id === selectedId); setFormData({ ...formData, transportadora_id: selectedId, modal_frete: transportadoraSelecionada?.modal_padrao || '' }); }}>
-                <option value="">Selecione...</option>
-                {transportadoras.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Cidade de Destino <span style={{ color: '#ef4444' }}>*</span></label>
-              <input type="text" className="form-input" required value={formData.cidade_destino} onChange={(e) => setFormData({...formData, cidade_destino: e.target.value})} />
-            </div>
-
-            <div className="form-group"><label>UF Destino</label>
-              <select className="form-select" value={formData.uf_destino} onChange={(e) => setFormData({...formData, uf_destino: e.target.value})}>
-                <option value="">Selecione...</option>
-                {estadosBR.map(uf => <option key={uf} value={uf}>{uf}</option>)}
-              </select>
-            </div>
-
-            <div className="form-group" style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '6px', border: '1px dashed #cbd5e1' }}>
-              <label style={{ color: 'var(--munila-blue)', fontWeight: 'bold' }}>Data de Entrada do Pedido <span style={{ color: '#ef4444' }}>*</span></label>
-              <input type="date" className="form-input" required value={formData.data_entrada_pedido} onChange={(e) => setFormData({...formData, data_entrada_pedido: e.target.value})} />
-            </div>
-
-            <div className="form-group">
-              <label>Data Faturamento <span style={{ color: '#ef4444' }}>*</span></label>
-              <input type="date" className="form-input" required value={formData.data_faturamento} onChange={(e) => setFormData({...formData, data_faturamento: e.target.value})} />
-            </div>
-            
-            <div className="form-group"><label>Data Coleta</label><input type="date" className="form-input" value={formData.data_coleta} onChange={(e) => setFormData({...formData, data_coleta: e.target.value})} /></div>
-            
-            <div className="form-group">
-              <label>Valor da NF (R$) <span style={{ color: '#ef4444' }}>*</span></label>
-              <input type="number" step="0.01" className="form-input" required value={formData.valor_nf} onChange={(e) => setFormData({...formData, valor_nf: e.target.value})} />
-            </div>
-            
-            <div className="form-group">
-              <label>Frete Cotado (R$)</label>
-              <input type="text" className="form-input" placeholder="0,00" value={formData.valor_frete} onChange={(e) => {
-                let valor = e.target.value.replace(/[^\d,]/g, '');
-                if (valor.split(',').length > 2) valor = valor.split(',')[0] + ',' + valor.split(',').slice(1).join('');
-                setFormData({...formData, valor_frete: valor});
-              }} />
-            </div>
-
-            <div className="form-group">
-              <label style={{ color: '#166534', fontWeight: 'bold' }}>Frete Real (CTE) (R$)</label>
-              <input type="text" className="form-input" style={{ backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }} placeholder="Auto-preenchido pelo CTE..." value={formData.valor_frete_real} onChange={(e) => {
-                let valor = e.target.value.replace(/[^\d,]/g, '');
-                if (valor.split(',').length > 2) valor = valor.split(',')[0] + ',' + valor.split(',').slice(1).join('');
-                setFormData({...formData, valor_frete_real: valor});
-              }} />
-            </div>
-
-            <div className="form-group"><label>Volume (Caixas)</label><input type="number" className="form-input" value={formData.volume} onChange={(e) => setFormData({...formData, volume: e.target.value})} /></div>
-            
-            <div className="form-group">
-              <label>Peso (Kg) <span style={{ color: '#ef4444' }}>*</span></label>
-              <input type="text" className="form-input" placeholder="Ex: 15,50" required value={formData.peso_kg} onChange={(e) => {
-                  let valor = e.target.value.replace(/[^\d,]/g, '');
-                  if (valor.split(',').length > 2) valor = valor.split(',')[0] + ',' + valor.split(',').slice(1).join('');
-                  setFormData({...formData, peso_kg: valor});
-                }} 
-              />
-            </div>
-
-            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <input type="checkbox" id="tem_agendamento" checked={formData.tem_agendamento} onChange={(e) => setFormData({...formData, tem_agendamento: e.target.checked})} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-              <label htmlFor="tem_agendamento" style={{ margin: 0, cursor: 'pointer', fontWeight: 'bold', color: 'var(--munila-blue)' }}>Possui Agendamento? <span style={{ color: '#ef4444' }}>*</span></label>
-            </div>
-
-            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <input type="checkbox" id="frete_confirmado" checked={formData.frete_confirmado} onChange={(e) => setFormData({...formData, frete_confirmado: e.target.checked})} style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#16a34a' }} />
-              <label htmlFor="frete_confirmado" style={{ margin: 0, cursor: 'pointer', fontWeight: 'bold', color: '#166534' }}>Frete Confirmado/Auditado? <span style={{ color: '#ef4444' }}>*</span></label>
-            </div>
-
-            <div className="form-group"><label>Data Previsão</label><input type="date" className="form-input" value={formData.data_previsao} onChange={(e) => setFormData({...formData, data_previsao: e.target.value})} /></div>
-            
-            <div className="form-group">
-              <label>Data Entrega</label>
-              <input type="date" className="form-input" value={formData.data_entrega_agendamento} onChange={(e) => {
-                  const novaData = e.target.value;
-                  setFormData({ ...formData, data_entrega_agendamento: novaData, status: novaData ? 'Entregue' : formData.status });
-                }} 
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Modal de Frete</label>
-              <select className="form-select" value={formData.modal_frete} onChange={(e) => setFormData({...formData, modal_frete: e.target.value})}>
-                <option value="">Padrão da Transportadora</option>
-                <option value="AÉREO">Aéreo</option>
-                <option value="RODOVIÁRIO">Rodoviário</option>
-                <option value="PAC">PAC</option>
-                <option value="SEDEX">Sedex</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Status da Entrega <span style={{ color: '#ef4444' }}>*</span></label>
-              <select className="form-select" required value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})}>
-                <option value="Pendente">Pendente</option>
-                <option value="Pendente agendamento">Pendente agendamento</option>
-                <option value="Aguardando coleta">Aguardando coleta</option>
-                <option value="Solicitado Agendamento">Solicitado Agendamento</option>
-                <option value="Agendado">Agendado</option>
-                <option value="Em Transporte">Em Transporte</option>
-                <option value="Entregue">Entregue</option>
-                <option value="Atrasado">Atrasado</option>
-                <option value="Problema">Problema</option>
-                <option value="Reagendado">Reagendado</option>
-                <option value="Em devolução">Em devolução</option>
-                <option value="Devolvido">Devolvido</option>
-                <option value="Devolução">Devolução</option>
-                <option value="Frete Conferido">Frete Conferido</option>
-              </select>
-            </div>
-
-          </div>
-
-          <div className="modal-body" style={{ paddingTop: 0 }}>
-            <div className="form-group"><label>Observações</label><textarea className="form-input" rows={2} value={formData.observacoes} onChange={(e) => setFormData({...formData, observacoes: e.target.value})} /></div>
-          </div>
-
-          <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="btn-primary" disabled={nfStatus === 'duplicate' || nfStatus === 'checking'} style={{ opacity: (nfStatus === 'duplicate' || nfStatus === 'checking') ? 0.6 : 1, cursor: (nfStatus === 'duplicate' || nfStatus === 'checking') ? 'not-allowed' : 'pointer' }}>
-              {isEditing ? 'Atualizar Entrega' : 'Salvar Entrega'}
-            </button>
-          </div>
-        </form>
+        <Field label="Observações" className="span-all">
+          <textarea className="textarea" rows={2} value={form.observacoes} onChange={(e) => set('observacoes', e.target.value)} />
+        </Field>
       </div>
-    </div>
+    </Modal>
   );
 }

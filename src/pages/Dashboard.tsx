@@ -1,288 +1,295 @@
-import React from 'react';
-import { Edit, Trash2, Target, Package, Scale, FileText, ArrowRightLeft, Hash } from 'lucide-react';
-import { Header } from '../components/Header';
+import { useMemo, useRef, useState } from 'react';
+import {
+  ArrowRightLeft, ChartColumn, Columns3, Copy, Download, FileText, Hash, Package, Pencil, Plus, RotateCw,
+  Rows3, Scale, SlidersHorizontal, Target, Trash2, LayoutDashboard, SearchX,
+} from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { registrarLog, mensagemErro } from '../lib/db';
+import { STATUS_ENTREGA, toneOf } from '../lib/constants';
+import {
+  diffDias, fmtDias, formatDate, formatDecimal, formatInt, formatMoney, formatPercent, freteEfetivo,
+  hasValue, percentFreteEntrega, percentual, toNumber,
+} from '../lib/format';
+import { FILTROS_VAZIOS, cidadeDestino, filtrarEntregas, filtrosAtivos, modalDe, ufDestino } from '../lib/filtrosEntrega';
+import { downloadCsv, csvNum } from '../lib/csv';
+import { loadPrefRaw, savePref } from '../lib/storage';
+import { useAppData } from '../state/context';
+import { useFeedback } from '../feedback/context';
+import { useHotkey } from '../hooks/useHotkey';
+import { Badge, EmptyState, KpiCard, PageHeader, SearchInput, StatusBadge } from '../components/ui/basics';
+import { DataTable, type Column } from '../components/ui/DataTable';
+import { Dropdown } from '../components/ui/Dropdown';
+import { ModalEntrega } from '../modals/ModalEntrega';
+import { FiltrosPanel } from './dashboard/FiltrosPanel';
+import type { Entrega } from '../types';
 
-interface DashboardProps {
-  searchTerm: string; setSearchTerm: (value: string) => void; mostrarFiltros: boolean; setMostrarFiltros: (value: boolean) => void;
-  filtroDataInicio: string; setFiltroDataInicio: (value: string) => void; filtroDataFim: string; setFiltroDataFim: (value: string) => void;
-  filtroTransportadora: string; setFiltroTransportadora: (value: string) => void; filtroModal: string; setFiltroModal: (value: string) => void;
-  filtroStatus: string[]; setFiltroStatus: (value: string[]) => void; filtroFreteVazio: boolean; setFiltroFreteVazio: (value: boolean) => void;
-  filtroFreteConfirmado: boolean; setFiltroFreteConfirmado: (value: boolean) => void; filtroComAgendamento: boolean; setFiltroComAgendamento: (value: boolean) => void;
-  filtroSemAgendamento: boolean; setFiltroSemAgendamento: (value: boolean) => void; filtroComFreteCotado: boolean; setFiltroComFreteCotado: (value: boolean) => void;
-  filtroComFreteReal: boolean; setFiltroComFreteReal: (value: boolean) => void; 
-  filtroRegiao: string; setFiltroRegiao: (value: string) => void; // <-- ADICIONADO AQUI
-  filtroUf: string; setFiltroUf: (value: string) => void;
-  filtroSemDataEntrega: boolean; setFiltroSemDataEntrega: (value: boolean) => void; filtroValorNfMin: string; setFiltroValorNfMin: (value: string) => void;
-  filtroValorNfMax: string; setFiltroValorNfMax: (value: string) => void; filtroPercFreteMin: string; setFiltroPercFreteMin: (value: string) => void;
-  filtroPercFreteMax: string; setFiltroPercFreteMax: (value: string) => void; transportadoras: any[]; limparFiltros: () => void;
-  abrirModalNovaEntrega: () => void; freteMedio: string; volumeTotal: number; pesoTotal: number; loading: boolean; entregasFiltradas: any[];
-  formatarData: (dataStr: string) => string; calcularPorcentagemFrete: (frete: number, nf: number) => string; calcularDiferencaDias: (dataDe: string, dataAte: string) => string;
-  calcularGapPedidoEntrega: (entrada: string, entrega: string) => string; getStatusColor: (status: string) => React.CSSProperties;
-  abrirModalEdicao: (entrega: any) => void; handleDeleteEntrega: (id: string) => void;
-  isAdmin: boolean;
-}
+const OCULTAS_PADRAO: string[] = [];
 
-export function Dashboard({
-  searchTerm, setSearchTerm, mostrarFiltros, setMostrarFiltros, filtroDataInicio, setFiltroDataInicio, filtroDataFim, setFiltroDataFim, filtroTransportadora, setFiltroTransportadora, filtroModal, setFiltroModal, filtroStatus, setFiltroStatus, filtroFreteVazio, setFiltroFreteVazio, filtroFreteConfirmado, setFiltroFreteConfirmado, filtroComAgendamento, setFiltroComAgendamento, filtroSemAgendamento, setFiltroSemAgendamento, filtroComFreteCotado, setFiltroComFreteCotado, filtroComFreteReal, setFiltroComFreteReal, filtroRegiao, setFiltroRegiao, filtroUf, setFiltroUf, filtroSemDataEntrega, setFiltroSemDataEntrega, filtroValorNfMin, setFiltroValorNfMin, filtroValorNfMax, setFiltroValorNfMax, filtroPercFreteMin, setFiltroPercFreteMin, filtroPercFreteMax, setFiltroPercFreteMax, transportadoras, limparFiltros, abrirModalNovaEntrega, freteMedio, volumeTotal, pesoTotal, loading, entregasFiltradas, formatarData, calcularPorcentagemFrete, calcularDiferencaDias, calcularGapPedidoEntrega, getStatusColor, abrirModalEdicao, handleDeleteEntrega, isAdmin 
-}: DashboardProps) {
+export default function Dashboard() {
+  const { entregas, transportadoras, loading, isAdmin, filtros, setFiltros, setEntregas, recarregarEntregas, atualizadoEm } = useAppData();
+  const { toast, confirm } = useFeedback();
+  const buscaRef = useRef<HTMLInputElement>(null);
 
-  const valorTotalNf = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
-  const totalFreteCotado = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_frete) || 0), 0);
-  const totalFreteReal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_frete_real) || 0), 0);
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const [modal, setModal] = useState<{ entrega?: Entrega; modelo?: Partial<Entrega> } | null>(null);
+  const [ocultas, setOcultas] = useState<string[]>(() => loadPrefRaw('colunasOcultas', OCULTAS_PADRAO));
+  const [compacto, setCompacto] = useState<boolean>(() => loadPrefRaw('tabelaCompacta', false));
+  const [verKpis, setVerKpis] = useState<boolean>(() => loadPrefRaw('verIndicadores', true));
+  const [atualizando, setAtualizando] = useState(false);
 
-  const exportarParaExcel = () => {
-    if (entregasFiltradas.length === 0) { alert("Não há dados para exportar."); return; }
-    
-    const cabecalho = [
-      "Entrada Pedido", "Data Fat.", "Coleta", "Cliente", "Cidade", "UF", "Volume (Cx)", "Peso (Kg)", 
-      "Nº NF", "Valor NF", "Transportadora", "Modal", "Frete Cotado (R$)", "Frete Real (R$)", "% Frete Real", 
-      "Agendamento", "Previsão", "Dt Entrega", 
-      "Dias Pedido -> Fat", "Dias Pedido -> Coleta", "Dias Coleta -> Entrega", "GAP Total (Dias)", 
-      "Status", "Frete Confirmado", "Observações"
-    ].join(";");
-    
-    const linhas = entregasFiltradas.map(e => {
-      const cidadeFormatada = e.cidade_destino || e.clientes?.cidade || '-';
-      const ufFormatada = e.uf_destino || e.clientes?.uf || '-';
-      const modalFormatado = e.modal_frete || e.transportadoras?.modal_padrao || '-';
-      
-      const temReal = e.valor_frete_real !== null && e.valor_frete_real !== undefined && e.valor_frete_real !== '';
-      const calcFrete = temReal ? e.valor_frete_real : e.valor_frete;
+  useHotkey('/', () => buscaRef.current?.focus());
+  useHotkey('n', () => setModal({}), isAdmin);
 
-      const dPedFat = calcularDiferencaDias(e.data_entrada_pedido, e.data_faturamento).replace(' d', '');
-      const dPedCol = calcularDiferencaDias(e.data_entrada_pedido, e.data_coleta).replace(' d', '');
-      const dColEnt = calcularDiferencaDias(e.data_coleta, e.data_entrega_agendamento).replace(' d', '');
-      const gapTotal = calcularGapPedidoEntrega(e.data_entrada_pedido, e.data_entrega_agendamento).replace(' dias', '');
+  const filtradas = useMemo(() => filtrarEntregas(entregas, filtros), [entregas, filtros]);
+  const chips = filtrosAtivos(filtros, transportadoras);
 
-      return [
-        formatarData(e.data_entrada_pedido), formatarData(e.data_faturamento), formatarData(e.data_coleta), e.clientes?.nome || '-', cidadeFormatada, ufFormatada,
-        e.volume || e.volume_peso || '-', e.peso_kg?.toString().replace('.', ',') || '-', e.nota_fiscal, 
-        e.valor_nf?.toString().replace('.', ',') || '0,00', e.transportadoras?.nome || '-', modalFormatado,
-        e.valor_frete?.toString().replace('.', ',') || '0,00', 
-        e.valor_frete_real?.toString().replace('.', ',') || '0,00', 
-        calcularPorcentagemFrete(calcFrete, e.valor_nf), 
-        e.tem_agendamento ? 'SIM' : 'NÃO',
-        formatarData(e.data_previsao), formatarData(e.data_entrega_agendamento),
-        dPedFat, dPedCol, dColEnt, gapTotal,
-        e.status, e.frete_confirmado ? 'SIM' : 'NÃO', e.observacoes || '-'
-      ].join(";");
-    });
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + cabecalho + "\n" + linhas.join("\n");
-    const link = document.createElement("a");
-    link.setAttribute("href", encodeURI(csvContent));
-    link.setAttribute("download", `MunilaLog_Exportacao_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.csv`);
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  const kpis = useMemo(() => {
+    let nf = 0, cot = 0, real = 0, efetivo = 0, vol = 0, peso = 0;
+    for (const e of filtradas) {
+      nf += toNumber(e.valor_nf); cot += toNumber(e.valor_frete); real += toNumber(e.valor_frete_real);
+      efetivo += freteEfetivo(e); vol += toNumber(e.volume); peso += toNumber(e.peso_kg);
+    }
+    return { nf, cot, real, medio: percentual(efetivo, nf), vol, peso };
+  }, [filtradas]);
+
+  const toggleColuna = (key: string) => {
+    const next = ocultas.includes(key) ? ocultas.filter((k) => k !== key) : [...ocultas, key];
+    setOcultas(next); savePref('colunasOcultas', next);
   };
 
-  const thStyle: React.CSSProperties = { position: 'sticky', top: 0, backgroundColor: '#f8fafc', zIndex: 10, borderBottom: '2px solid #e2e8f0', padding: '12px 14px', color: '#475569', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', whiteSpace: 'nowrap' };
-  const thAcoesStyle: React.CSSProperties = { ...thStyle, right: 0, zIndex: 11, textAlign: 'center', borderLeft: '1px solid #e2e8f0' };
-  const tdStyle: React.CSSProperties = { padding: '10px 14px', borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap', fontSize: '0.85rem', color: '#334155' };
-  const tdAcoesStyle: React.CSSProperties = { ...tdStyle, textAlign: 'center', position: 'sticky', right: 0, backgroundColor: 'white', zIndex: 1, borderLeft: '1px solid #e2e8f0' };
+  async function excluir(e: Entrega) {
+    if (!isAdmin) return;
+    const ok = await confirm({ title: `Excluir a entrega NF ${e.nota_fiscal}?`, text: 'Esta ação não pode ser desfeita.', confirmLabel: 'Excluir', danger: true });
+    if (!ok) return;
+    const { error } = await supabase.from('entregas').delete().eq('id', e.id);
+    if (error) { toast({ kind: 'error', title: 'Não foi possível excluir', text: mensagemErro(error) }); return; }
+    setEntregas((l) => l.filter((x) => x.id !== e.id));
+    await registrarLog('APAGOU', 'ENTREGAS', `Apagou a Entrega com Nota Fiscal: ${e.nota_fiscal}`);
+    toast({ kind: 'success', title: `Entrega NF ${e.nota_fiscal} excluída` });
+  }
+
+  /** Troca rápida de status direto na tabela. */
+  async function mudarStatus(e: Entrega, status: string) {
+    const anterior = e.status;
+    setEntregas((l) => l.map((x) => (x.id === e.id ? { ...x, status } : x)));
+    const { error } = await supabase.from('entregas').update({ status }).eq('id', e.id);
+    if (error) {
+      setEntregas((l) => l.map((x) => (x.id === e.id ? { ...x, status: anterior } : x)));
+      toast({ kind: 'error', title: 'Status não alterado', text: mensagemErro(error) });
+      return;
+    }
+    await registrarLog('EDITOU', 'ENTREGAS', `Alterou o status da NF ${e.nota_fiscal}: ${anterior} → ${status}`);
+    toast({ kind: 'success', title: `NF ${e.nota_fiscal}: ${status}` });
+  }
+
+  function duplicar(e: Entrega) {
+    const { id: _id, nota_fiscal: _nf, created_at: _c, clientes: _cl, transportadoras: _t, ...resto } = e;
+    void _id; void _nf; void _c; void _cl; void _t;
+    setModal({ modelo: { ...resto, valor_frete_real: null, frete_confirmado: false, data_entrega_agendamento: null, data_coleta: null, status: 'Pendente' } });
+  }
+
+  async function atualizar() {
+    setAtualizando(true);
+    await recarregarEntregas();
+    setAtualizando(false);
+    toast({ kind: 'success', title: 'Dados atualizados' });
+  }
+
+  function exportar() {
+    if (!filtradas.length) { toast({ kind: 'warning', title: 'Não há dados para exportar.' }); return; }
+    const cab = ['Entrada Pedido', 'Data Fat.', 'Coleta', 'Cliente', 'Cidade', 'UF', 'Volume (Cx)', 'Peso (Kg)', 'Nº NF', 'Valor NF',
+      'Transportadora', 'Modal', 'Frete Cotado (R$)', 'Frete Real (R$)', '% Frete Real', 'Agendamento', 'Previsão', 'Dt Entrega',
+      'Dias Pedido -> Fat', 'Dias Pedido -> Coleta', 'Dias Coleta -> Entrega', 'GAP Total (Dias)', 'Status', 'Frete Confirmado', 'Observações'];
+    const linhas = filtradas.map((e) => {
+      const gap = diffDias(e.data_entrada_pedido, e.data_entrega_agendamento);
+      return [
+        formatDate(e.data_entrada_pedido), formatDate(e.data_faturamento), formatDate(e.data_coleta), e.clientes?.nome || '-',
+        cidadeDestino(e) || '-', ufDestino(e) || '-', e.volume || e.volume_peso || '-', csvNum(e.peso_kg, '-'), e.nota_fiscal,
+        csvNum(e.valor_nf), e.transportadoras?.nome || '-', modalDe(e) || '-', csvNum(e.valor_frete), csvNum(e.valor_frete_real),
+        formatPercent(percentFreteEntrega(e)), e.tem_agendamento ? 'SIM' : 'NÃO', formatDate(e.data_previsao), formatDate(e.data_entrega_agendamento),
+        diffDias(e.data_entrada_pedido, e.data_faturamento) ?? '-', diffDias(e.data_entrada_pedido, e.data_coleta) ?? '-',
+        diffDias(e.data_coleta, e.data_entrega_agendamento) ?? '-', gap === null ? '-' : Math.abs(gap),
+        e.status, e.frete_confirmado ? 'SIM' : 'NÃO', e.observacoes || '-',
+      ];
+    });
+    downloadCsv('MunilaLog_Exportacao', cab, linhas);
+    toast({ kind: 'success', title: `${linhas.length} entregas exportadas` });
+  }
+
+  const colunas: Column<Entrega>[] = [
+    {
+      // coluna fixa à esquerda: mantém a referência (NF + cliente) enquanto rola para o lado
+      key: 'nf', header: 'NF / Cliente', label: 'NF / Cliente', mobile: 'title', hideable: false,
+      sortValue: (e) => Number(String(e.nota_fiscal).split(/\D/)[0]) || e.nota_fiscal,
+      render: (e) => (
+        <div className="cell-id">
+          <span className="cell-id__nf">NF {e.nota_fiscal}</span>
+          <span className="cell-id__sub" title={e.clientes?.nome ?? ''}>{e.clientes?.nome || '-'}</span>
+        </div>
+      ),
+    },
+    { key: 'entrada', header: 'Entrada pedido', label: 'Entrada pedido', render: (e) => formatDate(e.data_entrada_pedido), sortValue: (e) => e.data_entrada_pedido, className: 'hl-green strong', thClassName: 'hl-green' },
+    { key: 'fat', header: 'Data fat.', label: 'Faturamento', render: (e) => formatDate(e.data_faturamento), sortValue: (e) => e.data_faturamento },
+    { key: 'coleta', header: 'Coleta', render: (e) => formatDate(e.data_coleta), sortValue: (e) => e.data_coleta, mobile: 'hide' },
+    { key: 'cidade', header: 'Cidade', render: (e) => cidadeDestino(e) || '-', sortValue: (e) => cidadeDestino(e), label: 'Destino' },
+    { key: 'uf', header: 'UF', render: (e) => ufDestino(e) || '-', sortValue: (e) => ufDestino(e), className: 'strong' },
+    { key: 'volume', header: 'Volume', render: (e) => (e.volume ? `${e.volume} cx` : '-'), sortValue: (e) => toNumber(e.volume), align: 'right', className: 'num', mobile: 'hide' },
+    { key: 'peso', header: 'Peso (kg)', render: (e) => (e.peso_kg ? `${formatDecimal(e.peso_kg)} kg` : '-'), sortValue: (e) => toNumber(e.peso_kg), align: 'right', className: 'num', mobile: 'hide' },
+    { key: 'valorNf', header: 'Valor NF', render: (e) => formatMoney(e.valor_nf), sortValue: (e) => toNumber(e.valor_nf), align: 'right', className: 'num' },
+    { key: 'transp', header: 'Transportadora', render: (e) => e.transportadoras?.nome || '-', sortValue: (e) => e.transportadoras?.nome },
+    { key: 'modal', header: 'Modal', render: (e) => modalDe(e) || '-', mobile: 'hide' },
+    { key: 'cotado', header: 'Frete cotado', render: (e) => <span className="muted">{formatMoney(e.valor_frete)}</span>, sortValue: (e) => toNumber(e.valor_frete), align: 'right', className: 'num' },
+    {
+      key: 'real', header: 'Frete real', render: (e) => (hasValue(e.valor_frete_real) ? <>{formatMoney(e.valor_frete_real)}{e.frete_confirmado && ' ✓'}</> : '-'),
+      sortValue: (e) => toNumber(e.valor_frete_real), align: 'right', className: (e) => (e.frete_confirmado ? 'num cell-ok' : 'num'), thClassName: 'hl-green',
+    },
+    {
+      key: 'perc', header: '% Frete', render: (e) => formatPercent(percentFreteEntrega(e)), sortValue: (e) => percentFreteEntrega(e), align: 'right',
+      className: (e) => (e.frete_confirmado ? 'num cell-ok' : 'num strong text-brand'),
+    },
+    { key: 'agend', header: 'Agendamento', label: 'Agendamento', render: (e) => (e.tem_agendamento ? <Badge tone="green" square>SIM</Badge> : <Badge tone="slate" square>NÃO</Badge>), align: 'center', mobile: 'hide' },
+    { key: 'prev', header: 'Previsão', render: (e) => formatDate(e.data_previsao), sortValue: (e) => e.data_previsao },
+    { key: 'entrega', header: 'Dt entrega', label: 'Entrega', render: (e) => formatDate(e.data_entrega_agendamento), sortValue: (e) => e.data_entrega_agendamento },
+    { key: 'pedFat', header: 'Ped → Fat', title: 'Dias da entrada do pedido até o faturamento', render: (e) => fmtDias(diffDias(e.data_entrada_pedido, e.data_faturamento)), sortValue: (e) => diffDias(e.data_entrada_pedido, e.data_faturamento), align: 'center', className: 'hl-blue num', thClassName: 'hl-blue', mobile: 'hide' },
+    { key: 'pedCol', header: 'Ped → Col', title: 'Dias da entrada do pedido até a coleta', render: (e) => fmtDias(diffDias(e.data_entrada_pedido, e.data_coleta)), sortValue: (e) => diffDias(e.data_entrada_pedido, e.data_coleta), align: 'center', className: 'hl-blue num', thClassName: 'hl-blue', mobile: 'hide' },
+    { key: 'colEnt', header: 'Col → Ent', title: 'Dias da coleta até a entrega final', render: (e) => fmtDias(diffDias(e.data_coleta, e.data_entrega_agendamento)), sortValue: (e) => diffDias(e.data_coleta, e.data_entrega_agendamento), align: 'center', className: 'hl-blue num', thClassName: 'hl-blue', mobile: 'hide' },
+    {
+      key: 'gap', header: 'GAP total', label: 'GAP total', title: 'Tempo total da entrada do pedido até a entrega',
+      render: (e) => { const d = diffDias(e.data_entrada_pedido, e.data_entrega_agendamento); return d === null ? '-' : `${Math.abs(d)} dias`; },
+      sortValue: (e) => { const d = diffDias(e.data_entrada_pedido, e.data_entrega_agendamento); return d === null ? null : Math.abs(d); },
+      align: 'center', className: 'hl-orange num', thClassName: 'hl-orange',
+    },
+    {
+      key: 'status', header: 'Status', mobile: 'badge', hideable: false, sortValue: (e) => e.status,
+      render: (e) => (isAdmin ? (
+        <select className={`status-select tone-${toneOf(e.status)}`} value={e.status} onChange={(ev) => mudarStatus(e, ev.target.value)}
+          onClick={(ev) => ev.stopPropagation()} title="Alterar status" aria-label={`Status da NF ${e.nota_fiscal}`}>
+          {STATUS_ENTREGA.map((s) => <option key={s} value={s}>{s}</option>)}
+          {!STATUS_ENTREGA.includes(e.status as never) && <option value={e.status}>{e.status}</option>}
+        </select>
+      ) : <StatusBadge status={e.status} />),
+    },
+    { key: 'obs', header: 'Observações', render: (e) => <span title={e.observacoes || ''}>{e.observacoes || '-'}</span>, className: 'ellipsis muted', mobile: 'full' },
+  ];
+
+  const hideable = colunas.filter((c) => c.hideable !== false);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, width: '100%', height: '100%', minHeight: 0, overflow: 'hidden' }}>
-      
-      <div style={{ flexShrink: 0 }}>
-        <Header 
-          searchTerm={searchTerm} setSearchTerm={setSearchTerm} mostrarFiltros={mostrarFiltros} setMostrarFiltros={setMostrarFiltros} filtroDataInicio={filtroDataInicio} setFiltroDataInicio={setFiltroDataInicio} filtroDataFim={filtroDataFim} setFiltroDataFim={setFiltroDataFim} filtroTransportadora={filtroTransportadora} setFiltroTransportadora={setFiltroTransportadora} filtroModal={filtroModal} setFiltroModal={setFiltroModal} filtroStatus={filtroStatus} setFiltroStatus={setFiltroStatus} filtroFreteVazio={filtroFreteVazio} setFiltroFreteVazio={setFiltroFreteVazio} filtroFreteConfirmado={filtroFreteConfirmado} setFiltroFreteConfirmado={setFiltroFreteConfirmado} filtroComAgendamento={filtroComAgendamento} setFiltroComAgendamento={setFiltroComAgendamento} filtroSemAgendamento={filtroSemAgendamento} setFiltroSemAgendamento={setFiltroSemAgendamento} filtroComFreteCotado={filtroComFreteCotado} setFiltroComFreteCotado={setFiltroComFreteCotado} filtroComFreteReal={filtroComFreteReal} setFiltroComFreteReal={setFiltroComFreteReal} 
-          filtroRegiao={filtroRegiao} setFiltroRegiao={setFiltroRegiao} /* PASSANDO PARA O HEADER AQUI */
-          filtroUf={filtroUf} setFiltroUf={setFiltroUf} filtroSemDataEntrega={filtroSemDataEntrega} setFiltroSemDataEntrega={setFiltroSemDataEntrega} filtroValorNfMin={filtroValorNfMin} setFiltroValorNfMin={setFiltroValorNfMin} filtroValorNfMax={filtroValorNfMax} setFiltroValorNfMax={setFiltroValorNfMax} filtroPercFreteMin={filtroPercFreteMin} setFiltroPercFreteMin={setFiltroPercFreteMin} filtroPercFreteMax={filtroPercFreteMax} setFiltroPercFreteMax={setFiltroPercFreteMax} transportadoras={transportadoras} limparFiltros={limparFiltros} exportarParaExcel={exportarParaExcel} abrirModalNovaEntrega={abrirModalNovaEntrega}
-          isAdmin={isAdmin} 
+    <div className="page page--fill">
+      <PageHeader
+        icon={<LayoutDashboard size={22} />}
+        title="Acompanhamento Logístico"
+        subtitle={atualizadoEm ? `Gerenciamento de entregas · atualizado às ${atualizadoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'Gerenciamento de entregas'}
+        actions={
+          <>
+            <button className="btn" onClick={atualizar} disabled={atualizando} title="Recarregar entregas">
+              <RotateCw size={16} className={atualizando ? 'spin' : ''} /><span className="hide-mobile">Atualizar</span>
+            </button>
+            <button className="btn btn-success-outline" onClick={exportar}><Download size={16} /> Exportar</button>
+            {isAdmin && (
+              <button className="btn btn-primary" onClick={() => setModal({})} title="Nova entrega (atalho: N)">
+                <Plus size={16} /> Nova entrega
+              </button>
+            )}
+          </>
+        }
+      />
+
+      <div className="toolbar no-print">
+        <SearchInput className="toolbar__search" inputRef={buscaRef} value={filtros.busca} shortcut="/"
+          onChange={(v) => setFiltros((f) => ({ ...f, busca: v }))} placeholder="Buscar NF, cliente, cidade, transportadora…" />
+        <button className={`btn ${mostrarFiltros ? 'btn-primary' : ''}`} onClick={() => setMostrarFiltros((v) => !v)} aria-expanded={mostrarFiltros}>
+          <SlidersHorizontal size={16} /> Filtros {chips.length > 0 && <span className="count" style={mostrarFiltros ? { background: '#fff', color: 'var(--brand)' } : undefined}>{chips.length}</span>}
+        </button>
+        <div className="toolbar__spacer hide-mobile" />
+        <button className={`btn hide-mobile ${!verKpis ? 'btn-primary' : ''}`} onClick={() => { setVerKpis(!verKpis); savePref('verIndicadores', !verKpis); }}
+          title={verKpis ? 'Ocultar os indicadores para ver mais linhas da tabela' : 'Mostrar os indicadores'}>
+          <ChartColumn size={16} /> {verKpis ? 'Ocultar indicadores' : 'Mostrar indicadores'}
+        </button>
+        <button className="btn hide-mobile" onClick={() => { setCompacto(!compacto); savePref('tabelaCompacta', !compacto); }} title="Alternar densidade da tabela">
+          <Rows3 size={16} /> {compacto ? 'Confortável' : 'Compacta'}
+        </button>
+        <Dropdown trigger={(open, toggle) => (
+          <button className={`btn hide-mobile ${open ? 'btn-primary' : ''}`} onClick={toggle}><Columns3 size={16} /> Colunas{ocultas.length > 0 && <span className="count">{hideable.length - ocultas.length}</span>}</button>
+        )}>
+          <div className="dropdown__head">
+            Colunas visíveis
+            <button className="btn btn-sm btn-ghost" onClick={() => { setOcultas([]); savePref('colunasOcultas', []); }}>Mostrar todas</button>
+          </div>
+          {hideable.map((c) => (
+            <label key={c.key} className="dropdown__item">
+              <input type="checkbox" checked={!ocultas.includes(c.key)} onChange={() => toggleColuna(c.key)} />
+              {c.label ?? c.header}
+            </label>
+          ))}
+        </Dropdown>
+      </div>
+
+      {mostrarFiltros && <FiltrosPanel filtros={filtros} setFiltros={setFiltros} transportadoras={transportadoras} />}
+
+      {chips.length > 0 && (
+        <div className="chips no-print" aria-label="Filtros ativos">
+          {chips.map((c) => (
+            <span key={c.id} className="chip chip--removable">
+              {c.label}
+              <button onClick={() => setFiltros((f) => ({ ...f, ...c.clear }))} aria-label={`Remover filtro ${c.label}`}>×</button>
+            </span>
+          ))}
+          <button className="chip" onClick={() => setFiltros((f) => ({ ...FILTROS_VAZIOS, busca: f.busca }))}>
+            Limpar tudo
+          </button>
+        </div>
+      )}
+
+      {verKpis && <div className="kpi-grid">
+        <KpiCard label="Número de carga" icon={<Hash size={16} />} tone="indigo" value={formatInt(filtradas.length)} unit=" NFs" hint="Notas encontradas" />
+        <KpiCard label="Valor total NFs" icon={<FileText size={16} />} tone="blue" value={formatMoney(kpis.nf)} hint="Soma do período filtrado" />
+        <KpiCard label="Comparativo frete" icon={<ArrowRightLeft size={16} />} tone="purple">
+          <div className="kpi__rows">
+            <div className="kpi__row"><span>Cotado</span><strong>{formatMoney(kpis.cot)}</strong></div>
+            <div className="kpi__row"><span title="Frete real (CTE)">Real</span><strong className="text-green">{formatMoney(kpis.real)}</strong></div>
+          </div>
+        </KpiCard>
+        <KpiCard label="% Frete médio" icon={<Target size={16} />} tone="brand" value={formatPercent(kpis.medio)} valueClass="text-brand" hint="Frete ÷ valor das NFs" />
+        <KpiCard label="Volume total" icon={<Package size={16} />} tone="purple" value={formatInt(kpis.vol)} unit=" cx" />
+        <KpiCard label="Peso total" icon={<Scale size={16} />} tone="amber" value={formatDecimal(kpis.peso)} unit=" kg" />
+      </div>}
+
+      <div className="card table-card">
+        <DataTable
+          rows={filtradas}
+          columns={colunas}
+          rowKey={(e) => e.id}
+          hidden={ocultas}
+          loading={loading}
+          compact={compacto}
+          fill
+          minWidth={2000}
+          stickyFirst
+          navGroups={[
+            { label: 'Datas do pedido', keys: ['entrada', 'fat', 'coleta'] },
+            { label: 'Destino & carga', keys: ['cidade', 'uf', 'volume', 'peso'] },
+            { label: 'Valores & frete', keys: ['valorNf', 'transp', 'modal', 'cotado', 'real', 'perc'] },
+            { label: 'Prazos', keys: ['agend', 'prev', 'entrega', 'pedFat', 'pedCol', 'colEnt', 'gap'] },
+            { label: 'Status & obs.', keys: ['status', 'obs'] },
+          ]}
+          onRowClick={isAdmin ? (e) => setModal({ entrega: e }) : undefined}
+          empty={
+            <EmptyState icon={<SearchX size={36} />} title="Nenhuma entrega encontrada"
+              text={chips.length || filtros.busca ? 'Tente remover alguns filtros ou ajustar a busca.' : 'Cadastre a primeira entrega para começar.'}
+              action={(chips.length > 0 || filtros.busca) ? <button className="btn" onClick={() => setFiltros(FILTROS_VAZIOS)}>Limpar busca e filtros</button> : undefined} />
+          }
+          actions={isAdmin ? (e) => (
+            <>
+              <button className="icon-btn icon-btn--sm" onClick={() => setModal({ entrega: e })} title="Editar (ou duplo clique na linha)"><Pencil size={16} /></button>
+              <button className="icon-btn icon-btn--sm" onClick={() => duplicar(e)} title="Duplicar para nova NF"><Copy size={16} /></button>
+              <button className="icon-btn icon-btn--sm icon-btn--danger" onClick={() => excluir(e)} title="Excluir"><Trash2 size={16} /></button>
+            </>
+          ) : undefined}
         />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px', flexShrink: 0 }}>
-        
-        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Número de Carga</p>
-            <Hash size={16} color="#6366f1" />
-          </div>
-          <h3 style={{ fontSize: '1.25rem', color: 'var(--text-main)', marginBottom: '6px', fontWeight: 700 }}>
-            {entregasFiltradas.length} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>NFs</span>
-          </h3>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Notas encontradas</p>
-        </div>
-
-        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Valor Total NFs</p>
-            <FileText size={16} color="#0284c7" />
-          </div>
-          <h3 style={{ fontSize: '1.25rem', color: 'var(--text-main)', marginBottom: '6px', fontWeight: 700 }}>
-            R$ {valorTotalNf.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </h3>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Soma do período selecionado</p>
-        </div>
-
-        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Comparativo Frete</p>
-            <ArrowRightLeft size={16} color="#8b5cf6" />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
-            <div>
-              <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '2px' }}>Cotado</p>
-              <h3 style={{ fontSize: '1.05rem', color: 'var(--text-main)', fontWeight: 700 }}>
-                R$ {totalFreteCotado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </h3>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '2px' }}>Real (CTE)</p>
-              <h3 style={{ fontSize: '1.05rem', color: '#16a34a', fontWeight: 700 }}>
-                R$ {totalFreteReal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </h3>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>% Frete Médio</p>
-            <Target size={16} color="var(--munila-blue)" />
-          </div>
-          <h3 style={{ fontSize: '1.25rem', color: 'var(--munila-blue)', fontWeight: 700 }}>{freteMedio}%</h3>
-        </div>
-
-        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Volume Total</p>
-            <Package size={16} color="#8b5cf6" />
-          </div>
-          <h3 style={{ fontSize: '1.25rem', color: 'var(--text-main)', fontWeight: 700 }}>
-            {volumeTotal.toLocaleString('pt-BR')} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>Cx</span>
-          </h3>
-        </div>
-
-        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Peso Total</p>
-            <Scale size={16} color="#eab308" />
-          </div>
-          <h3 style={{ fontSize: '1.25rem', color: 'var(--text-main)', fontWeight: 700 }}>
-            {pesoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>Kg</span>
-          </h3>
-        </div>
-      </div>
-
-      <div className="table-container" style={{ flex: 1, minHeight: 0, overflow: 'auto', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'white', position: 'relative' }}>
-        <table style={{ width: '100%', minWidth: '2000px', borderCollapse: 'separate', borderSpacing: 0 }}>
-          <thead>
-            <tr>
-              <th style={{...thStyle, backgroundColor: '#f0fdf4', color: '#166534'}}>Entrada Pedido</th>
-              <th style={thStyle}>Data Fat.</th>
-              <th style={thStyle}>Coleta</th>
-              <th style={thStyle}>Cliente</th>
-              <th style={thStyle}>Cidade</th>
-              <th style={thStyle}>UF</th>
-              <th style={thStyle}>Volume</th>
-              <th style={thStyle}>Peso (Kg)</th>
-              <th style={thStyle}>Nº NF</th>
-              <th style={thStyle}>Valor NF</th>
-              <th style={thStyle}>Transportadora</th>
-              <th style={thStyle}>Modal</th>
-              <th style={thStyle}>Frete Cotado</th>
-              <th style={{...thStyle, backgroundColor: '#f0fdf4', color: '#166534'}}>Frete Real</th>
-              <th style={thStyle}>% Frete</th>
-              <th style={thStyle}>Agendamento?</th>
-              <th style={thStyle}>Previsão</th>
-              <th style={thStyle}>Dt Entrega</th>
-              
-              <th style={{...thStyle, backgroundColor: '#eff6ff', color: '#1d4ed8', textAlign: 'center'}} title="Dias decorridos da Entrada do Pedido até o Faturamento">Ped ➔ Fat</th>
-              <th style={{...thStyle, backgroundColor: '#eff6ff', color: '#1d4ed8', textAlign: 'center'}} title="Dias decorridos da Entrada do Pedido até a Coleta">Ped ➔ Col</th>
-              <th style={{...thStyle, backgroundColor: '#eff6ff', color: '#1d4ed8', textAlign: 'center'}} title="Dias decorridos da Coleta até a Entrega Final">Col ➔ Ent</th>
-              <th style={{...thStyle, backgroundColor: '#fff7ed', color: '#c2410c', textAlign: 'center'}} title="Tempo total da Entrada do Pedido até a Entrega">GAP Total</th>
-
-              <th style={thStyle}>Status</th>
-              <th style={thStyle}>Observações</th>
-              
-              {/* SÓ MOSTRA O CABEÇALHO SE FOR ADMIN */}
-              {isAdmin && <th style={thAcoesStyle}>Ações</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? ( <tr><td colSpan={isAdmin ? 25 : 24} style={{ textAlign: 'center', padding: '32px' }}>A carregar...</td></tr> ) : entregasFiltradas.length === 0 ? ( <tr><td colSpan={isAdmin ? 25 : 24} style={{ textAlign: 'center', padding: '32px' }}>Nenhuma entrega encontrada.</td></tr> ) : entregasFiltradas.map((entrega) => {
-              
-              const isFreteConfirmado = entrega.frete_confirmado;
-              const freteColor = isFreteConfirmado ? '#166534' : 'inherit';
-              const freteBg = isFreteConfirmado ? '#dcfce7' : 'transparent';
-
-              const hasFreteReal = entrega.valor_frete_real !== null && entrega.valor_frete_real !== undefined && entrega.valor_frete_real !== '';
-              const valorFreteCalculo = hasFreteReal ? entrega.valor_frete_real : entrega.valor_frete;
-
-              const diasPedFat = calcularDiferencaDias(entrega.data_entrada_pedido, entrega.data_faturamento);
-              const diasPedCol = calcularDiferencaDias(entrega.data_entrada_pedido, entrega.data_coleta);
-              const diasColEnt = calcularDiferencaDias(entrega.data_coleta, entrega.data_entrega_agendamento);
-              const gapTotal = calcularGapPedidoEntrega(entrega.data_entrada_pedido, entrega.data_entrega_agendamento);
-
-              return (
-                <tr key={entrega.id} className="trow-hover">
-                  <td style={{ ...tdStyle, backgroundColor: '#f0fdf4', fontWeight: 'bold' }}>{formatarData(entrega.data_entrada_pedido)}</td>
-                  <td style={tdStyle}>{formatarData(entrega.data_faturamento)}</td>
-                  <td style={tdStyle}>{formatarData(entrega.data_coleta)}</td>
-                  <td style={tdStyle}>{entrega.clientes?.nome || '-'}</td>
-                  <td style={{ ...tdStyle, fontWeight: 'bold' }}>{entrega.cidade_destino || entrega.clientes?.cidade || '-'}</td>
-                  <td style={{ ...tdStyle, fontWeight: 'bold' }}>{entrega.uf_destino || entrega.clientes?.uf || '-'}</td>
-                  <td style={{ ...tdStyle, fontWeight: 'bold' }}>{entrega.volume ? `${entrega.volume} Cx` : '-'}</td>
-                  <td style={{ ...tdStyle, fontWeight: 'bold' }}>{entrega.peso_kg ? `${entrega.peso_kg.toString().replace('.', ',')} Kg` : '-'}</td>
-                  <td style={{ ...tdStyle, fontWeight: 'bold' }}>{entrega.nota_fiscal}</td>
-                  <td style={tdStyle}>R$ {Number(entrega.valor_nf).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                  <td style={tdStyle}>{entrega.transportadoras?.nome || '-'}</td>
-                  <td style={tdStyle}>{entrega.modal_frete || entrega.transportadoras?.modal_padrao || '-'}</td>
-
-                  <td style={{ ...tdStyle, color: 'var(--text-muted)' }}>
-                    R$ {Number(entrega.valor_frete).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </td>
-                  
-                  <td style={{ ...tdStyle, backgroundColor: freteBg, color: freteColor, fontWeight: isFreteConfirmado ? 'bold' : 'normal' }}>
-                    {hasFreteReal ? `R$ ${Number(entrega.valor_frete_real).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'} {isFreteConfirmado && '✅'}
-                  </td>
-                  
-                  <td style={{ ...tdStyle, backgroundColor: freteBg, fontWeight: 'bold', color: isFreteConfirmado ? freteColor : '#0095DA' }}>
-                    {calcularPorcentagemFrete(valorFreteCalculo, entrega.valor_nf)}
-                  </td>
-                  
-                  <td style={{ ...tdStyle, textAlign: 'center' }}>
-                    {entrega.tem_agendamento ? <span style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.70rem' }}>SIM</span> : <span style={{ backgroundColor: '#f1f5f9', color: '#64748b', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '0.70rem' }}>NÃO</span>}
-                  </td>
-
-                  <td style={tdStyle}>{formatarData(entrega.data_previsao)}</td>
-                  <td style={tdStyle}>{formatarData(entrega.data_entrega_agendamento)}</td>
-                  
-                  <td style={{ ...tdStyle, backgroundColor: '#f8fafc', color: '#1e40af', fontWeight: 'bold', textAlign: 'center' }}>
-                    {diasPedFat}
-                  </td>
-                  <td style={{ ...tdStyle, backgroundColor: '#f8fafc', color: '#1e40af', fontWeight: 'bold', textAlign: 'center' }}>
-                    {diasPedCol}
-                  </td>
-                  <td style={{ ...tdStyle, backgroundColor: '#f8fafc', color: '#1e40af', fontWeight: 'bold', textAlign: 'center' }}>
-                    {diasColEnt}
-                  </td>
-                  <td style={{ ...tdStyle, backgroundColor: '#fff7ed', color: '#c2410c', fontWeight: 'bold', textAlign: 'center' }}>
-                    {gapTotal}
-                  </td>
-
-                  <td style={tdStyle}><span className="status-badge" style={getStatusColor(entrega.status)}>{entrega.status}</span></td>
-                  
-                  <td style={{ ...tdStyle, maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={entrega.observacoes || ''}>
-                    {entrega.observacoes || '-'}
-                  </td>
-                  
-                  {/* SÓ MOSTRA OS BOTÕES SE FOR ADMIN */}
-                  {isAdmin && (
-                    <td style={tdAcoesStyle}>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                        <button onClick={() => abrirModalEdicao(entrega)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }} title="Editar Entrega"><Edit size={18} /></button>
-                        <button onClick={() => handleDeleteEntrega(entrega.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '4px' }} title="Excluir Entrega"><Trash2 size={18} /></button>
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      {modal && <ModalEntrega entrega={modal.entrega} modelo={modal.modelo} onClose={() => setModal(null)} />}
     </div>
   );
 }

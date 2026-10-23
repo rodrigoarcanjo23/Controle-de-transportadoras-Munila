@@ -1,181 +1,160 @@
-import React, { useState, useRef } from 'react';
-import { Edit, Trash2, Search, Upload } from 'lucide-react';
+import { useRef, useState, type FormEvent } from 'react';
+import { Mail, Pencil, Phone, Plus, Target, Trash2, Upload, UserSquare2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { registrarLog, mensagemErro, SELECT_META } from '../lib/db';
+import { matchesSearch } from '../lib/format';
+import { splitCsvLine } from '../lib/csv';
+import { lerArquivoTexto } from '../lib/xml';
+import { useAppData } from '../state/context';
+import { useFeedback } from '../feedback/context';
+import { Badge, Field, PageHeader, SearchInput } from '../components/ui/basics';
+import { DataTable, type Column } from '../components/ui/DataTable';
+import { Modal, ModalActions } from '../components/ui/Modal';
+import { ModalCliente } from '../modals/ModalCliente';
+import type { Cliente } from '../types';
 
-interface ClientesProps {
-  clientes: any[];
-  metas: any[];
-  abrirModalNovoCliente: () => void;
-  abrirModalNovaMeta: () => void;
-  abrirModalEdicaoCliente: (c: any) => void;
-  handleDeleteCliente: (id: string) => void;
-  onUpdate?: () => void; // Gatilho para atualizar a lista após o import
-}
+export default function Clientes() {
+  const { clientes, setClientes, metas, setMetas, transportadoras, recarregarCadastros, loading } = useAppData();
+  const { toast, confirm } = useFeedback();
+  const [busca, setBusca] = useState('');
+  const [modalCliente, setModalCliente] = useState<{ cliente?: Cliente } | null>(null);
+  const [modalMeta, setModalMeta] = useState(false);
+  const [meta, setMeta] = useState({ cliente_id: '', transportadora_id: '', meta_percentual: '' });
+  const [salvandoMeta, setSalvandoMeta] = useState(false);
+  const [importando, setImportando] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-export function Clientes({ clientes, metas, abrirModalNovoCliente, abrirModalNovaMeta, abrirModalEdicaoCliente, handleDeleteCliente, onUpdate }: ClientesProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [importLoading, setImportLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const filtrados = clientes.filter((c) => matchesSearch(busca, c.nome, c.cnpj_cpf, c.razao_social, c.cidade));
 
-  // Filtro de busca inteligente (Nome e CNPJ)
-  const clientesFiltrados = clientes.filter(c => 
-    (c.nome?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || 
-    (c.cnpj_cpf?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-  );
+  async function excluir(c: Cliente) {
+    const ok = await confirm({ title: `Excluir o cliente ${c.nome}?`, text: 'Esta ação não pode ser desfeita.', danger: true, confirmLabel: 'Excluir' });
+    if (!ok) return;
+    const { error } = await supabase.from('clientes').delete().eq('id', c.id);
+    if (error) { toast({ kind: 'error', title: 'Não foi possível excluir', text: mensagemErro(error) }); return; }
+    setClientes((l) => l.filter((x) => x.id !== c.id));
+    await registrarLog('APAGOU', 'CLIENTES', `Apagou o Cliente: ${c.nome}`);
+    toast({ kind: 'success', title: 'Cliente excluído' });
+  }
 
-  // Lógica de Importação CSV
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  async function salvarMeta(e: FormEvent) {
+    e.preventDefault();
+    setSalvandoMeta(true);
+    try {
+      const { data, error } = await supabase.from('metas_frete')
+        .insert([{ cliente_id: meta.cliente_id, transportadora_id: meta.transportadora_id, meta_percentual: parseFloat(meta.meta_percentual.replace(',', '.')) }])
+        .select(SELECT_META);
+      if (error) throw error;
+      if (data?.[0]) setMetas((l) => [...l, data[0]]);
+      await registrarLog('CRIOU', 'CLIENTES', `Criou nova meta de frete de ${meta.meta_percentual}%`);
+      toast({ kind: 'success', title: 'Meta cadastrada' });
+      setModalMeta(false);
+    } catch (err) {
+      toast({ kind: 'error', title: 'Erro ao cadastrar meta', text: mensagemErro(err) });
+    } finally { setSalvandoMeta(false); }
+  }
 
-    setImportLoading(true);
-    const reader = new FileReader();
-    
-    reader.onload = async (e) => {
-      try {
-        const text = e.target?.result as string;
-        const linhas = text.split('\n');
-        const payloads = [];
+  async function importarCsv(file: File) {
+    setImportando(true);
+    try {
+      const texto = await lerArquivoTexto(file);
+      const linhas = texto.split(/\r?\n/);
+      const sep: ',' | ';' = (linhas[0]?.split(';').length ?? 0) > (linhas[0]?.split(',').length ?? 0) ? ';' : ',';
+      const payloads = linhas.slice(1).map((l) => l.trim()).filter(Boolean).map((l) => {
+        const [nome, cnpj = '', razao = '', fantasia = '', cidade = '', uf = '', tel = '', email = ''] = splitCsvLine(l, sep);
+        return nome ? {
+          nome: nome.toUpperCase(), cnpj_cpf: cnpj, razao_social: razao.toUpperCase(), nome_fantasia: fantasia.toUpperCase(),
+          cidade: cidade ? cidade.toUpperCase() : null, uf: uf ? uf.toUpperCase() : null, telefone: tel || null, email: email ? email.toLowerCase() : null,
+        } : null;
+      }).filter((x): x is NonNullable<typeof x> => x !== null);
 
-        // Ignora a linha 0 (cabeçalho) e percorre o resto
-        for (let i = 1; i < linhas.length; i++) {
-          const linha = linhas[i].trim();
-          if (!linha) continue;
+      if (!payloads.length) { toast({ kind: 'warning', title: 'Nenhum cliente válido encontrado na planilha.' }); return; }
+      const ok = await confirm({ title: `Importar ${payloads.length} clientes?`, text: 'Colunas esperadas: Nome, CNPJ, Razão social, Nome fantasia, Cidade, UF, Telefone, E-mail (a 1ª linha é o cabeçalho).', confirmLabel: 'Importar' });
+      if (!ok) return;
+      const { error } = await supabase.from('clientes').insert(payloads);
+      if (error) throw error;
+      toast({ kind: 'success', title: 'Importação concluída', text: `${payloads.length} clientes foram importados.` });
+      await recarregarCadastros();
+    } catch (err) {
+      toast({ kind: 'error', title: 'Erro ao importar CSV', text: mensagemErro(err, 'Verifique a formatação do arquivo.') });
+    } finally {
+      setImportando(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
 
-          // Separa as vírgulas corretamente, ignorando vírgulas dentro de aspas duplas
-          const colunas = linha.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(c => c.replace(/^"|"$/g, '').trim());
-          
-          const nomeCSV = colunas[0];
-          const cnpjCSV = colunas[1] || '';
-          const razaoCSV = colunas[2] || '';
-          const fantasiaCSV = colunas[3] || '';
-          const cidadeCSV = colunas[4] || '';
-          const ufCSV = colunas[5] || '';
-          const telefoneCSV = colunas[6] || '';
-          const emailCSV = colunas[7] || '';
-
-          if (!nomeCSV) continue; // Pula a linha se o Nome estiver em branco
-
-          payloads.push({
-            nome: nomeCSV.toUpperCase(),
-            cnpj_cpf: cnpjCSV,
-            razao_social: razaoCSV.toUpperCase(),
-            nome_fantasia: fantasiaCSV.toUpperCase(),
-            cidade: cidadeCSV ? cidadeCSV.toUpperCase() : null,
-            uf: ufCSV ? ufCSV.toUpperCase() : null,
-            telefone: telefoneCSV || null,
-            email: emailCSV ? emailCSV.toLowerCase() : null
-          });
-        }
-
-        if (payloads.length > 0) {
-          const { error } = await supabase.from('clientes').insert(payloads);
-          if (error) throw error;
-          
-          alert(`✅ Sucesso!\n\n${payloads.length} clientes foram importados.`);
-          if (onUpdate) onUpdate(); // Atualiza a tela automaticamente
-        } else {
-          alert("Nenhum cliente válido encontrado na planilha.");
-        }
-      } catch (error) {
-        console.error(error);
-        alert("Erro ao importar CSV de clientes. Verifique a formatação do arquivo.");
-      } finally {
-        setImportLoading(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-      }
-    };
-    reader.readAsText(file, 'UTF-8');
-  };
-
-  const thStyle: React.CSSProperties = { padding: '16px', borderBottom: '2px solid var(--border-color)', backgroundColor: '#f8fafc', position: 'sticky', top: 0, color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase' };
-  const tdStyle: React.CSSProperties = { padding: '16px', borderBottom: '1px solid #f1f5f9' };
+  const cols: Column<Cliente>[] = [
+    {
+      key: 'nome', header: 'Nome / razão social', mobile: 'title', sortValue: (c) => c.nome,
+      render: (c) => <div><div className="strong" style={{ color: 'var(--text)' }}>{c.nome}</div>{c.razao_social && <div className="muted" style={{ fontSize: '0.75rem' }}>{c.razao_social}</div>}</div>,
+    },
+    { key: 'cnpj', header: 'CNPJ / CPF', render: (c) => c.cnpj_cpf || '-', mobile: 'subtitle', className: 'num' },
+    { key: 'local', header: 'Localização', render: (c) => (c.cidade ? `${c.cidade} - ${c.uf ?? ''}` : '-'), sortValue: (c) => c.cidade },
+    {
+      key: 'contato', header: 'Contato',
+      render: (c) => (c.telefone || c.email ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: '0.8rem' }}>
+          {c.telefone && <a href={`tel:${c.telefone}`} style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}><Phone size={13} /> {c.telefone}</a>}
+          {c.email && <a href={`mailto:${c.email}`} style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}><Mail size={13} /> {c.email}</a>}
+        </div>) : '-'),
+    },
+    { key: 'agend', header: 'Agendamento', render: (c) => (c.exige_agendamento ? <Badge tone="purple" square>Exige</Badge> : <span className="muted">—</span>), align: 'center' },
+    {
+      key: 'metas', header: 'Metas ativas', mobile: 'full', className: 'wrap',
+      render: (c) => {
+        const ms = metas.filter((m) => m.cliente_id === c.id);
+        return ms.length ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{ms.map((m) => <Badge key={m.id} tone="blue" square>{m.transportadoras?.nome}: {m.meta_percentual}%</Badge>)}</div> : <span className="muted">Nenhuma meta</span>;
+      },
+    },
+  ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100%' }}>
-      <header className="header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-          <div><h2>Gestão de Clientes e Metas</h2><p>Controle da carteira e teto de frete autorizado</p></div>
-          
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button className="btn-secondary" onClick={abrirModalNovaMeta}>+ Nova Meta de Frete</button>
-            
-            {/* BOTÃO MÁGICO DO CSV AQUI */}
-            <input type="file" accept=".csv" ref={fileInputRef} onChange={handleFileUpload} style={{ display: 'none' }} />
-            <button 
-              className="btn-secondary" 
-              onClick={() => fileInputRef.current?.click()} 
-              disabled={importLoading} 
-              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-            >
-              <Upload size={18} /> {importLoading ? 'A importar...' : 'Importar CSV'}
-            </button>
+    <div className="page">
+      <PageHeader icon={<UserSquare2 size={22} />} title="Clientes e Metas" subtitle={`Carteira de clientes e teto de frete autorizado · ${clientes.length} clientes`}
+        actions={
+          <>
+            <input type="file" accept=".csv,text/csv" ref={fileRef} hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) importarCsv(f); }} />
+            <button className="btn" onClick={() => fileRef.current?.click()} disabled={importando}><Upload size={16} /> {importando ? 'Importando…' : 'Importar CSV'}</button>
+            <button className="btn" onClick={() => { setMeta({ cliente_id: '', transportadora_id: '', meta_percentual: '' }); setModalMeta(true); }}><Target size={16} /> Nova meta</button>
+            <button className="btn btn-primary" onClick={() => setModalCliente({})}><Plus size={16} /> Novo cliente</button>
+          </>
+        } />
 
-            <button className="btn-primary" onClick={abrirModalNovoCliente}>+ Novo Cliente</button>
-          </div>
-        </div>
+      <div className="toolbar"><SearchInput className="toolbar__search" value={busca} onChange={setBusca} placeholder="Buscar por nome, CNPJ, razão social ou cidade…" /></div>
 
-        <div style={{ width: '100%', maxWidth: '400px', position: 'relative' }}>
-          <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '11px' }} />
-          <input type="text" className="form-input" placeholder="Buscar por Nome, CNPJ..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ paddingLeft: '36px', width: '100%' }} />
-        </div>
-      </header>
-
-      <div className="table-container" style={{ flex: 1, overflow: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'left' }}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Nome / Razão Social</th>
-              <th style={thStyle}>CNPJ / CPF</th>
-              <th style={thStyle}>Localização</th>
-              <th style={thStyle}>Contato</th>
-              <th style={thStyle}>Metas Ativas</th>
-              <th style={{ ...thStyle, textAlign: 'center' }}>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {clientesFiltrados.length === 0 ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '32px' }}>Nenhum cliente encontrado.</td></tr>
-            ) : (
-              clientesFiltrados.map((cliente) => {
-                const metasDoCliente = metas.filter(m => m.cliente_id === cliente.id);
-                return (
-                  <tr key={cliente.id} className="trow-hover">
-                    <td style={tdStyle}>
-                      <div style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{cliente.nome}</div>
-                      {cliente.razao_social && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{cliente.razao_social}</div>}
-                    </td>
-                    <td style={{ ...tdStyle, fontWeight: '500' }}>{cliente.cnpj_cpf || '-'}</td>
-                    <td style={tdStyle}>{cliente.cidade ? `${cliente.cidade} - ${cliente.uf}` : '-'}</td>
-                    <td style={tdStyle}>
-                      {cliente.telefone && <div style={{ fontSize: '0.8rem' }}>📞 {cliente.telefone}</div>}
-                      {cliente.email && <div style={{ fontSize: '0.8rem' }}>📧 {cliente.email}</div>}
-                      {!cliente.telefone && !cliente.email && '-'}
-                    </td>
-                    <td style={tdStyle}>
-                      {metasDoCliente.length === 0 ? <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nenhuma meta</span> : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          {metasDoCliente.map(m => (
-                            <span key={m.id} style={{ backgroundColor: '#e0f2fe', color: '#0369a1', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', display: 'inline-block', width: 'fit-content' }}>
-                              {m.transportadoras?.nome}: {m.meta_percentual}%
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: 'center' }}>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                        <button onClick={() => abrirModalEdicaoCliente(cliente)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }} title="Editar Cliente"><Edit size={18} /></button>
-                        <button onClick={() => handleDeleteCliente(cliente.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }} title="Excluir Cliente"><Trash2 size={18} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+      <div className="card table-card">
+        <DataTable rows={filtrados} columns={cols} rowKey={(c) => c.id} loading={loading} fill onRowClick={(c) => setModalCliente({ cliente: c })}
+          actions={(c) => (
+            <>
+              <button className="icon-btn icon-btn--sm" onClick={() => setModalCliente({ cliente: c })} title="Editar"><Pencil size={16} /></button>
+              <button className="icon-btn icon-btn--sm icon-btn--danger" onClick={() => excluir(c)} title="Excluir"><Trash2 size={16} /></button>
+            </>
+          )} />
       </div>
+
+      {modalCliente && <ModalCliente cliente={modalCliente.cliente} onClose={() => setModalCliente(null)} />}
+
+      {modalMeta && (
+        <Modal size="sm" title="Nova meta de frete" subtitle="Percentual máximo de frete autorizado por cliente e transportadora" onClose={() => setModalMeta(false)} onSubmit={salvarMeta}
+          footer={<ModalActions onCancel={() => setModalMeta(false)} submitting={salvandoMeta} submitLabel="Salvar meta" />}>
+          <div className="form-grid" style={{ ['--cols' as string]: 1 }}>
+            <Field label="Cliente" required>
+              <select className="select" required value={meta.cliente_id} onChange={(e) => setMeta({ ...meta, cliente_id: e.target.value })}>
+                <option value="">Selecione o cliente…</option>
+                {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Field>
+            <Field label="Transportadora" required>
+              <select className="select" required value={meta.transportadora_id} onChange={(e) => setMeta({ ...meta, transportadora_id: e.target.value })}>
+                <option value="">Selecione a transportadora…</option>
+                {transportadoras.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+              </select>
+            </Field>
+            <Field label="Meta de frete autorizada (%)" required>
+              <input className="input num" required inputMode="decimal" placeholder="Ex: 5,50" value={meta.meta_percentual} onChange={(e) => setMeta({ ...meta, meta_percentual: e.target.value.replace(/[^\d.,]/g, '') })} />
+            </Field>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

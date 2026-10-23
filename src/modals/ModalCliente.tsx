@@ -1,90 +1,89 @@
-import React from 'react';
-import { X } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
+import { supabase } from '../lib/supabase';
+import { registrarLog, mensagemErro } from '../lib/db';
+import { UFS } from '../lib/constants';
+import { formatCnpj } from '../lib/format';
+import { useAppData } from '../state/context';
+import { useFeedback } from '../feedback/context';
+import { Modal, ModalActions } from '../components/ui/Modal';
+import { Check, Field } from '../components/ui/basics';
+import type { Cliente } from '../types';
 
-interface ModalClienteProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (e: React.FormEvent) => void;
-  formData: any;
-  setFormData: (data: any) => void;
-  isEditing: boolean;
-}
+export function ModalCliente({ cliente, onClose }: { cliente?: Cliente | null; onClose: () => void }) {
+  const { setClientes } = useAppData();
+  const { toast } = useFeedback();
+  const [salvando, setSalvando] = useState(false);
+  const [f, setF] = useState({
+    nome: cliente?.nome ?? '', cnpj_cpf: cliente?.cnpj_cpf ?? '', razao_social: cliente?.razao_social ?? '',
+    nome_fantasia: cliente?.nome_fantasia ?? '', cidade: cliente?.cidade ?? '', uf: cliente?.uf ?? '',
+    telefone: cliente?.telefone ?? '', email: cliente?.email ?? '', exige_agendamento: !!cliente?.exige_agendamento,
+  });
+  const set = (k: keyof typeof f, v: string | boolean) => setF((x) => ({ ...x, [k]: v }));
 
-export function ModalCliente({ isOpen, onClose, onSubmit, formData, setFormData, isEditing }: ModalClienteProps) {
-  if (!isOpen) return null;
-
-  const estadosBR = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
+  async function salvar(e: FormEvent) {
+    e.preventDefault();
+    setSalvando(true);
+    const payload = {
+      nome: f.nome.toUpperCase(), cnpj_cpf: f.cnpj_cpf, razao_social: f.razao_social.toUpperCase(),
+      nome_fantasia: f.nome_fantasia.toUpperCase(), cidade: f.cidade.toUpperCase(), uf: f.uf.toUpperCase(),
+      telefone: f.telefone, email: f.email.toLowerCase(), exige_agendamento: f.exige_agendamento,
+    };
+    try {
+      if (cliente) {
+        const { data, error } = await supabase.from('clientes').update(payload).eq('id', cliente.id).select('*');
+        if (error) throw error;
+        if (data?.[0]) setClientes((l) => l.map((c) => (c.id === cliente.id ? data[0] : c)));
+        await registrarLog('EDITOU', 'CLIENTES', `Editou os dados do Cliente: ${payload.nome}`);
+      } else {
+        const { data, error } = await supabase.from('clientes').insert([payload]).select('*');
+        if (error) throw error;
+        if (data?.[0]) setClientes((l) => [...l, data[0]].sort((a, b) => a.nome.localeCompare(b.nome)));
+        await registrarLog('CRIOU', 'CLIENTES', `Registrou um novo Cliente: ${payload.nome}`);
+      }
+      toast({ kind: 'success', title: cliente ? 'Cliente atualizado' : 'Cliente cadastrado', text: payload.nome });
+      onClose();
+    } catch (err) {
+      toast({ kind: 'error', title: 'Erro ao salvar cliente', text: mensagemErro(err) });
+    } finally { setSalvando(false); }
+  }
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '600px' }}>
-        <div className="modal-header">
-          <h3>{isEditing ? 'Editar Cliente' : 'Cadastrar Novo Cliente'}</h3>
-          <button type="button" className="close-btn" onClick={onClose}><X size={24} /></button>
+    <Modal title={cliente ? 'Editar cliente' : 'Novo cliente'} onClose={onClose} onSubmit={salvar}
+      footer={<ModalActions onCancel={onClose} submitting={salvando} submitLabel={cliente ? 'Atualizar cliente' : 'Salvar cliente'} />}>
+      <div className="form-grid">
+        <Field label="Nome principal (identificação no sistema)" required className="span-all">
+          <input className="input" required placeholder="Ex: Farmácia São João" value={f.nome} onChange={(e) => set('nome', e.target.value)} />
+        </Field>
+        <Field label="CNPJ / CPF">
+          <input className="input" placeholder="00.000.000/0000-00" value={f.cnpj_cpf} onChange={(e) => set('cnpj_cpf', e.target.value)} onBlur={(e) => set('cnpj_cpf', formatCnpj(e.target.value))} />
+        </Field>
+        <Field label="Nome fantasia">
+          <input className="input" value={f.nome_fantasia} onChange={(e) => set('nome_fantasia', e.target.value)} />
+        </Field>
+        <Field label="Razão social" className="span-all">
+          <input className="input" placeholder="Razão Social LTDA" value={f.razao_social} onChange={(e) => set('razao_social', e.target.value)} />
+        </Field>
+        <Field label="Cidade">
+          <input className="input" placeholder="Ex: Fortaleza" value={f.cidade} onChange={(e) => set('cidade', e.target.value)} />
+        </Field>
+        <Field label="UF">
+          <select className="select" value={f.uf} onChange={(e) => set('uf', e.target.value)}>
+            <option value="">Selecione…</option>
+            {UFS.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+          </select>
+        </Field>
+        <Field label="Telefone / WhatsApp">
+          <input className="input" type="tel" placeholder="(00) 00000-0000" value={f.telefone} onChange={(e) => set('telefone', e.target.value)} />
+        </Field>
+        <Field label="E-mail">
+          <input className="input" type="email" placeholder="contato@cliente.com" value={f.email} onChange={(e) => set('email', e.target.value)} />
+        </Field>
+        <div className="span-all">
+          <Check id="exige_agendamento" checked={f.exige_agendamento} onChange={(v) => set('exige_agendamento', v)}>
+            Este cliente exige agendamento de entrega (marca automaticamente nas novas entregas)
+          </Check>
         </div>
-        <form onSubmit={onSubmit}>
-          <div className="modal-body">
-            <div className="form-group">
-              <label>Nome Principal (Identificação no sistema)</label>
-              <input type="text" className="form-input" placeholder="Ex: Farmácia São João" required value={formData.nome} onChange={(e) => setFormData({...formData, nome: e.target.value})} />
-            </div>
-            <div className="form-group">
-              <label>CNPJ / CPF</label>
-              <input type="text" className="form-input" placeholder="00.000.000/0000-00" value={formData.cnpj_cpf} onChange={(e) => setFormData({...formData, cnpj_cpf: e.target.value})} />
-            </div>
-            <div className="form-group">
-              <label>Razão Social</label>
-              <input type="text" className="form-input" placeholder="Razão Social LTDA" value={formData.razao_social} onChange={(e) => setFormData({...formData, razao_social: e.target.value})} />
-            </div>
-            <div className="form-group">
-              <label>Nome Fantasia</label>
-              <input type="text" className="form-input" placeholder="Nome Fantasia" value={formData.nome_fantasia} onChange={(e) => setFormData({...formData, nome_fantasia: e.target.value})} />
-            </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
-              <div className="form-group">
-                <label>Cidade (Opcional)</label>
-                <input type="text" className="form-input" placeholder="Ex: Fortaleza" value={formData.cidade} onChange={(e) => setFormData({...formData, cidade: e.target.value})} />
-              </div>
-              <div className="form-group">
-                <label>UF (Opcional)</label>
-                <select className="form-select" value={formData.uf} onChange={(e) => setFormData({...formData, uf: e.target.value})}>
-                  <option value="">Selecione...</option>
-                  {estadosBR.map(uf => <option key={uf} value={uf}>{uf}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Telefone / WhatsApp</label>
-              <input type="text" className="form-input" placeholder="(00) 00000-0000" value={formData.telefone} onChange={(e) => setFormData({...formData, telefone: e.target.value})} />
-            </div>
-            <div className="form-group">
-              <label>E-mail</label>
-              <input type="email" className="form-input" placeholder="contato@cliente.com" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
-            </div>
-
-            {/* NOVO CAMPO: AUTOMAÇÃO DE AGENDAMENTO */}
-            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', padding: '12px', backgroundColor: '#f1f5f9', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-              <input 
-                type="checkbox" 
-                id="exige_agendamento_cliente" 
-                checked={formData.exige_agendamento} 
-                onChange={(e) => setFormData({...formData, exige_agendamento: e.target.checked})} 
-                style={{ width: '18px', height: '18px', cursor: 'pointer' }} 
-              />
-              <label htmlFor="exige_agendamento_cliente" style={{ margin: 0, cursor: 'pointer', fontWeight: 'bold', color: 'var(--munila-blue)' }}>
-                Este cliente exige agendamento de entrega padrão?
-              </label>
-            </div>
-
-          </div>
-          <div className="modal-footer">
-            <button type="button" className="btn-secondary" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="btn-primary">{isEditing ? 'Atualizar Cliente' : 'Salvar Cliente'}</button>
-          </div>
-        </form>
       </div>
-    </div>
+    </Modal>
   );
 }

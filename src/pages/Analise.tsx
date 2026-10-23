@@ -1,496 +1,269 @@
-import React, { useState, useMemo, useRef } from 'react';
-import { PieChart, TrendingDown, Clock, Truck, DollarSign, Activity, Calendar, Percent, Award, Download, MapPin } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, ComposedChart, Line } from 'recharts';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+import { Activity, Award, Calendar, ChartPie, Clock, DollarSign, Download, MapPin, Percent, TrendingUp, Truck } from 'lucide-react';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useAppData } from '../state/context';
+import { useFeedback } from '../feedback/context';
+import { useChartTheme } from '../hooks/useChartTheme';
+import { FILTROS_VAZIOS, ufDestino } from '../lib/filtrosEntrega';
+import { GRUPO_CRITICO, GRUPO_EM_ANDAMENTO, REGIOES } from '../lib/constants';
+import { diffDias, formatMoney, formatMoneyShort, formatPercent, percentual, toNumber } from '../lib/format';
+import { EmptyState, KpiCard, PageHeader } from '../components/ui/basics';
+import { PageLoader } from '../components/layout/PageLoader';
 
-interface AnaliseProps {
-  entregas: any[];
-  setFiltroStatus: (status: string[]) => void;
-  limparFiltros: () => void;
-}
-
-// === DICIONÁRIO DE REGIÕES ===
-const mapaRegioes: Record<string, string[]> = {
-  'Norte': ['AC', 'AP', 'AM', 'PA', 'RO', 'RR', 'TO'],
-  'Nordeste': ['AL', 'BA', 'CE', 'MA', 'PB', 'PE', 'PI', 'RN', 'SE'],
-  'Centro-Oeste': ['DF', 'GO', 'MT', 'MS'],
-  'Sudeste': ['ES', 'MG', 'RJ', 'SP'],
-  'Sul': ['PR', 'RS', 'SC']
+const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+const fmtMes = (yyyyMM: string) => { const [a, m] = yyyyMM.split('-'); return `${MESES[parseInt(m) - 1]}/${a}`; };
+/** Custo usado no BI: frete real quando > 0, senão o cotado (regra original do BI). */
+const custoBI = (e: { valor_frete_real?: unknown; valor_frete?: unknown }) => {
+  const real = toNumber(e.valor_frete_real as never);
+  return real > 0 ? real : toNumber(e.valor_frete as never);
 };
 
-export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnaliseProps) {
+export default function Analise() {
+  const { entregas, loading, setFiltros } = useAppData();
+  const { toast } = useFeedback();
   const navigate = useNavigate();
+  const c = useChartTheme();
   const painelRef = useRef<HTMLDivElement>(null);
-  
-  const [periodoFiltro, setPeriodoFiltro] = useState('tudo');
+
+  const [periodo, setPeriodo] = useState('tudo');
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
-  const [mesSelecionado, setMesSelecionado] = useState('');
-  const [regiaoSelecionada, setRegiaoSelecionada] = useState(''); // <-- NOVO ESTADO DE REGIÃO
+  const [mes, setMes] = useState('');
+  const [regiao, setRegiao] = useState('');
   const [gerandoPdf, setGerandoPdf] = useState(false);
 
-  const mesesDisponiveis = useMemo(() => {
-    const meses = new Set<string>();
-    entregas.forEach(e => {
-      if (e.data_faturamento) meses.add(e.data_faturamento.substring(0, 7));
-    });
-    return Array.from(meses).sort().reverse();
+  const meses = useMemo(() => {
+    const s = new Set<string>();
+    entregas.forEach((e) => { if (e.data_faturamento) s.add(e.data_faturamento.substring(0, 7)); });
+    return Array.from(s).sort().reverse();
   }, [entregas]);
 
-  const formatarMesAno = (yyyyMM: string) => {
-    if (!yyyyMM) return '';
-    const [ano, mes] = yyyyMM.split('-');
-    const mesesStr = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    return `${mesesStr[parseInt(mes) - 1]}/${ano}`;
-  };
-
-  const entregasFiltradas = useMemo(() => {
-    return entregas.filter(e => {
-      // 1. Regra básica: precisa ter faturamento para entrar no BI financeiro
-      if (!e.data_faturamento) return false;
-
-      // 2. NOVA REGRA: Filtro de Região (Corta logo aqui se não pertencer à região)
-      if (regiaoSelecionada) {
-        const ufDestino = e.uf_destino || e.clientes?.uf || '';
-        if (!mapaRegioes[regiaoSelecionada]?.includes(ufDestino)) {
-          return false;
-        }
-      }
-
-      // 3. Filtros de Data
-      if (periodoFiltro === 'mes') {
-        if (!mesSelecionado) return true; 
-        return e.data_faturamento.substring(0, 7) === mesSelecionado;
-      }
-
-      if (periodoFiltro === 'personalizado') {
-        if (dataInicio && e.data_faturamento < dataInicio) return false;
-        if (dataFim && e.data_faturamento > dataFim) return false;
-        return true;
-      }
-
-      if (periodoFiltro === 'tudo') return true;
-      
-      const d = new Date(e.data_faturamento + 'T12:00:00');
-      const dataLimite = new Date();
-      dataLimite.setHours(0, 0, 0, 0);
-
-      if (periodoFiltro === '30dias') dataLimite.setDate(dataLimite.getDate() - 30);
-      if (periodoFiltro === '90dias') dataLimite.setDate(dataLimite.getDate() - 90);
-      if (periodoFiltro === 'esteAno') dataLimite.setMonth(0, 1);
-
-      return d >= dataLimite;
-    });
-  }, [entregas, periodoFiltro, dataInicio, dataFim, mesSelecionado, regiaoSelecionada]);
+  const filtradas = useMemo(() => entregas.filter((e) => {
+    if (!e.data_faturamento) return false;
+    if (regiao && !REGIOES[regiao]?.includes(ufDestino(e))) return false;
+    if (periodo === 'mes') return !mes || e.data_faturamento.substring(0, 7) === mes;
+    if (periodo === 'personalizado') {
+      if (dataInicio && e.data_faturamento < dataInicio) return false;
+      if (dataFim && e.data_faturamento > dataFim) return false;
+      return true;
+    }
+    if (periodo === 'tudo') return true;
+    const d = new Date(e.data_faturamento + 'T12:00:00');
+    const lim = new Date(); lim.setHours(0, 0, 0, 0);
+    if (periodo === '30dias') lim.setDate(lim.getDate() - 30);
+    if (periodo === '90dias') lim.setDate(lim.getDate() - 90);
+    if (periodo === 'esteAno') lim.setMonth(0, 1);
+    return d >= lim;
+  }), [entregas, periodo, dataInicio, dataFim, mes, regiao]);
 
   const stats = useMemo(() => {
-    const total = entregasFiltradas.length;
-    if (total === 0) return null;
+    const total = filtradas.length;
+    if (!total) return null;
+    const entregues = filtradas.filter((e) => e.status === 'Entregue').length;
+    const atrasadas = filtradas.filter((e) => e.status === 'Atrasado').length;
+    const emAndamento = filtradas.filter((e) => !['Entregue', 'Atrasado', 'Devolução', 'Recusa'].includes(e.status)).length;
 
-    const entregues = entregasFiltradas.filter(e => e.status === 'Entregue').length;
-    const atrasadas = entregasFiltradas.filter(e => e.status === 'Atrasado').length;
-    const emAndamento = entregasFiltradas.filter(e => !['Entregue', 'Atrasado', 'Devolução', 'Recusa'].includes(e.status)).length;
+    const transp: Record<string, { name: string; Quantidade: number; Custo: number; Faturamento: number }> = {};
+    const cli: Record<string, { name: string; Valor: number; Notas: number }> = {};
+    const tl: Record<string, { iso: string; name: string; Faturamento: number; Frete: number }> = {};
+    const est: Record<string, { faturamento: number; custo: number }> = {};
+    let fat = 0, custo = 0, gap = 0, nGap = 0;
 
-    const percentEntregue = ((entregues / total) * 100).toFixed(1);
-    const percentAtraso = ((atrasadas / total) * 100).toFixed(1);
-
-    const faturamentoTotal = entregasFiltradas.reduce((acc, curr) => acc + (Number(curr.valor_nf) || 0), 0);
-    const custoLogistico = entregasFiltradas.reduce((acc, curr) => {
-      const real = Number(curr.valor_frete_real);
-      const cotado = Number(curr.valor_frete);
-      return acc + (real > 0 ? real : (cotado || 0));
-    }, 0);
-    const freteMedio = faturamentoTotal > 0 ? ((custoLogistico / faturamentoTotal) * 100).toFixed(2) : '0.00';
-
-    const transportadorasMap: Record<string, { name: string, Quantidade: number, Custo: number, Faturamento: number }> = {};
-    const clientesMap: Record<string, { name: string, Valor: number, Notas: number }> = {};
-    const timelineMap: Record<string, { name: string, Faturamento: number, Frete: number, dateObj: Date }> = {};
-    const estadosStatsMap: Record<string, { faturamento: number, custo: number }> = {};
-
-    entregasFiltradas.forEach(e => {
-      const nomeTransp = e.transportadoras?.nome || 'Não Informada';
-      if (!transportadorasMap[nomeTransp]) transportadorasMap[nomeTransp] = { name: nomeTransp, Quantidade: 0, Custo: 0, Faturamento: 0 };
-      transportadorasMap[nomeTransp].Quantidade += 1;
-      
-      const real = Number(e.valor_frete_real);
-      const custoFinalItem = real > 0 ? real : (Number(e.valor_frete) || 0);
-      const faturamentoItem = Number(e.valor_nf) || 0;
-      
-      transportadorasMap[nomeTransp].Custo += custoFinalItem;
-      transportadorasMap[nomeTransp].Faturamento += faturamentoItem;
-
-      const nomeCliente = e.clientes?.nome || 'Cliente Desconhecido';
-      if (!clientesMap[nomeCliente]) clientesMap[nomeCliente] = { name: nomeCliente, Valor: 0, Notas: 0 };
-      clientesMap[nomeCliente].Valor += faturamentoItem;
-      clientesMap[nomeCliente].Notas += 1;
-
-      const uf = e.uf_destino || e.clientes?.uf || 'ND';
-      if (!estadosStatsMap[uf]) estadosStatsMap[uf] = { faturamento: 0, custo: 0 };
-      estadosStatsMap[uf].faturamento += faturamentoItem;
-      estadosStatsMap[uf].custo += custoFinalItem;
-
-      if (e.data_faturamento) {
-        const isoDate = e.data_faturamento; 
-        const d = new Date(isoDate + 'T12:00:00');
-        const diaMes = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-        
-        if (!timelineMap[isoDate]) {
-          timelineMap[isoDate] = { name: diaMes, Faturamento: 0, Frete: 0, dateObj: d };
-        }
-        timelineMap[isoDate].Faturamento += faturamentoItem;
-        timelineMap[isoDate].Frete += custoFinalItem;
-      }
-    });
-
-    const topTransportadoras = Object.values(transportadorasMap).sort((a, b) => b.Custo - a.Custo).slice(0, 10);
-    
-    const topTransportadorasEficiencia = Object.values(transportadorasMap)
-      .filter(t => t.Faturamento > 0 && t.Custo > 0)
-      .map(t => ({
-        name: t.name,
-        percentual: parseFloat(((t.Custo / t.Faturamento) * 100).toFixed(2)),
-        custo: t.Custo,
-        faturamento: t.Faturamento
-      }))
-      .sort((a, b) => a.percentual - b.percentual) 
-      .slice(0, 10);
-
-    const topClientes = Object.values(clientesMap).sort((a, b) => b.Valor - a.Valor).slice(0, 10);
-    
-    const analisePorEstado = Object.entries(estadosStatsMap).map(([uf, vals]) => {
-      const lucro = vals.faturamento - vals.custo;
-      const percentual = vals.faturamento > 0 ? (vals.custo / vals.faturamento) * 100 : 0;
-      return { 
-        uf, 
-        faturamento: vals.faturamento, 
-        custo: vals.custo, 
-        lucro, 
-        percentual: parseFloat(percentual.toFixed(2)) 
-      };
-    }).sort((a, b) => b.faturamento - a.faturamento);
-
-    const timelineData = Object.values(timelineMap).sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
-
-    let gapTotal = 0, qtdGap = 0;
-    const diferencaDias = (d1: string, d2: string) => Math.ceil((new Date(d2).getTime() - new Date(d1).getTime()) / (1000 * 60 * 60 * 24));
-    entregasFiltradas.forEach(e => {
-      if (e.data_entrada_pedido && e.data_entrega_agendamento) { gapTotal += diferencaDias(e.data_entrada_pedido, e.data_entrega_agendamento); qtdGap++; }
-    });
+    for (const e of filtradas) {
+      const v = toNumber(e.valor_nf); const k = custoBI(e);
+      fat += v; custo += k;
+      const tn = e.transportadoras?.nome || 'Não informada';
+      (transp[tn] ??= { name: tn, Quantidade: 0, Custo: 0, Faturamento: 0 });
+      transp[tn].Quantidade++; transp[tn].Custo += k; transp[tn].Faturamento += v;
+      const cn = e.clientes?.nome || 'Cliente desconhecido';
+      (cli[cn] ??= { name: cn, Valor: 0, Notas: 0 });
+      cli[cn].Valor += v; cli[cn].Notas++;
+      const uf = ufDestino(e) || 'ND';
+      (est[uf] ??= { faturamento: 0, custo: 0 });
+      est[uf].faturamento += v; est[uf].custo += k;
+      const iso = e.data_faturamento!;
+      (tl[iso] ??= { iso, name: `${iso.slice(8, 10)}/${iso.slice(5, 7)}`, Faturamento: 0, Frete: 0 });
+      tl[iso].Faturamento += v; tl[iso].Frete += k;
+      const g = diffDias(e.data_entrada_pedido, e.data_entrega_agendamento);
+      if (g !== null) { gap += g; nGap++; }
+    }
 
     return {
-      total, entregues, atrasadas, emAndamento, percentEntregue, percentAtraso,
-      faturamentoTotal, custoLogistico, freteMedio, topTransportadoras, topTransportadorasEficiencia, topClientes, timelineData, analisePorEstado,
-      mediaGap: qtdGap ? (gapTotal / qtdGap).toFixed(1) : '-'
+      total, entregues, atrasadas, emAndamento,
+      percentEntregue: percentual(entregues, total),
+      faturamento: fat, custo, freteMedio: percentual(custo, fat),
+      topTransp: Object.values(transp).sort((a, b) => b.Custo - a.Custo).slice(0, 10),
+      eficiencia: Object.values(transp).filter((t) => t.Faturamento > 0 && t.Custo > 0)
+        .map((t) => ({ name: t.name, percentual: +((t.Custo / t.Faturamento) * 100).toFixed(2), custo: t.Custo, faturamento: t.Faturamento }))
+        .sort((a, b) => a.percentual - b.percentual).slice(0, 10),
+      topClientes: Object.values(cli).sort((a, b) => b.Valor - a.Valor).slice(0, 10),
+      timeline: Object.values(tl).sort((a, b) => a.iso.localeCompare(b.iso)),
+      porEstado: Object.entries(est).map(([uf, x]) => ({
+        uf, faturamento: x.faturamento, custo: x.custo, percentual: +percentual(x.custo, x.faturamento).toFixed(2),
+      })).sort((a, b) => b.faturamento - a.faturamento),
+      mediaGap: nGap ? (gap / nGap).toFixed(1).replace('.', ',') : '-',
     };
-  }, [entregasFiltradas]);
+  }, [filtradas]);
 
-  const handleStatusClick = (statusList: string[]) => {
-    limparFiltros(); 
-    setFiltroStatus(statusList);
+  const abrirNoPainel = (status: string[]) => {
+    setFiltros({ ...FILTROS_VAZIOS, status });
     navigate('/dashboard');
   };
 
-  const exportarPDF = async () => {
+  async function exportarPDF() {
     if (!painelRef.current) return;
     setGerandoPdf(true);
-    
     try {
-      const canvas = await html2canvas(painelRef.current, {
-        scale: 2, 
-        useCORS: true, 
-        backgroundColor: '#f8fafc' 
-      });
-      
-      const imgData = canvas.toDataURL('image/png');
-      const pdfWidth = 210;
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      const pdf = new jsPDF('p', 'mm', [pdfWidth, pdfHeight]);
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      
-      const regiaoNome = regiaoSelecionada || 'Geral';
-      const nomeArquivo = `Relatorio_BI_${regiaoNome}_MunilaLog.pdf`;
-      pdf.save(nomeArquivo);
-      
-    } catch (error) {
-      console.error("Erro ao gerar o PDF:", error);
-      alert("Houve um problema ao gerar o PDF. Tente novamente.");
+      // bibliotecas pesadas carregadas apenas quando necessárias
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
+      const canvas = await html2canvas(painelRef.current, { scale: 2, useCORS: true, backgroundColor: c.bg });
+      const w = 210; const h = (canvas.height * w) / canvas.width;
+      const pdf = new jsPDF('p', 'mm', [w, h]);
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, w, h);
+      pdf.save(`Relatorio_BI_${regiao || 'Geral'}_MunilaLog.pdf`);
+      toast({ kind: 'success', title: 'PDF gerado' });
+    } catch (err) {
+      console.error(err);
+      toast({ kind: 'error', title: 'Não foi possível gerar o PDF', text: 'Tente novamente.' });
     } finally {
       setGerandoPdf(false);
     }
-  };
+  }
 
-  const cardStyle: React.CSSProperties = { backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' };
+  if (loading && !entregas.length) return <PageLoader />;
 
-  if (!stats && entregas.length === 0) return <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>A carregar dados para o BI...</div>;
+  const axisTick = { fill: c.axis, fontSize: 11 };
+  const barList = (data: object[], key: string, color: string, fmt: (v: number, p: Record<string, number>) => [string, string]) => (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, left: 4, bottom: 4 }}>
+        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={c.grid} />
+        <XAxis type="number" hide />
+        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={axisTick} width={130}
+          tickFormatter={(v: string) => (v.length > 18 ? v.slice(0, 17) + '…' : v)} />
+        <Tooltip contentStyle={c.tooltip} cursor={{ fill: c.cursor }}
+          formatter={(v, _n, p) => fmt(Number(v), (p as { payload: Record<string, number> }).payload)} />
+        <Bar isAnimationActive={false} dataKey={key} fill={color} radius={[0, 5, 5, 0]} barSize={20} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '32px' }}>
-      
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <h2 style={{ fontSize: '1.75rem', color: '#0f172a', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <PieChart size={28} color="#0284c7" /> Painel de Inteligência e Resultados
-          </h2>
-          <p style={{ color: '#64748b', margin: 0 }}>Análise executiva dinâmica da sua operação logística</p>
-        </div>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          
-          {/* NOVO FILTRO DE REGIÃO AQUI */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', padding: '6px', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-            <MapPin size={18} color="#0284c7" style={{ marginLeft: '8px' }}/>
-            <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600, marginRight: '4px' }}>Região:</span>
-            <select 
-              className="form-select" 
-              style={{ border: 'none', backgroundColor: '#f8fafc', fontWeight: 'bold', color: '#0f172a', minWidth: '130px' }}
-              value={regiaoSelecionada}
-              onChange={(e) => setRegiaoSelecionada(e.target.value)}
-            >
+    <div className="page">
+      <PageHeader icon={<ChartPie size={22} />} title="Painel de Inteligência" subtitle="Análise executiva da operação logística"
+        actions={
+          <button className="btn btn-primary" onClick={exportarPDF} disabled={gerandoPdf || !stats}>
+            <Download size={16} /> {gerandoPdf ? 'Gerando PDF…' : 'Exportar PDF'}
+          </button>
+        } />
+
+      <div className="card card-pad no-print" style={{ padding: 14 }}>
+        <div className="form-grid form-grid--auto" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', alignItems: 'end' }}>
+          <div className="field">
+            <label><MapPin size={14} /> Região</label>
+            <select className="select" value={regiao} onChange={(e) => setRegiao(e.target.value)}>
               <option value="">Todas (Brasil)</option>
-              <option value="Norte">Norte</option>
-              <option value="Nordeste">Nordeste</option>
-              <option value="Centro-Oeste">Centro-Oeste</option>
-              <option value="Sudeste">Sudeste</option>
-              <option value="Sul">Sul</option>
+              {Object.keys(REGIOES).map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
-
-          {periodoFiltro === 'personalizado' && (
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: '#f0fdf4', padding: '6px 12px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
-              <input type="date" className="form-input" style={{ padding: '4px 8px', height: '32px', fontSize: '0.85rem' }} value={dataInicio} onChange={e => setDataInicio(e.target.value)} />
-              <span style={{ color: '#166534', fontWeight: 'bold' }}>até</span>
-              <input type="date" className="form-input" style={{ padding: '4px 8px', height: '32px', fontSize: '0.85rem' }} value={dataFim} onChange={e => setDataFim(e.target.value)} />
-            </div>
-          )}
-
-          {periodoFiltro === 'mes' && (
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: '#fefce8', padding: '6px 12px', borderRadius: '8px', border: '1px solid #fef08a' }}>
-              <select className="form-select" style={{ padding: '4px 8px', height: '32px', fontSize: '0.85rem', border: 'none', backgroundColor: 'transparent', fontWeight: 'bold', color: '#854d0e', outline: 'none' }} value={mesSelecionado} onChange={e => setMesSelecionado(e.target.value)}>
-                <option value="">Selecione o Mês...</option>
-                {mesesDisponiveis.map(m => (
-                  <option key={m} value={m}>{formatarMesAno(m)}</option>
-                ))}
+          <div className="field">
+            <label><Calendar size={14} /> Período</label>
+            <select className="select" value={periodo} onChange={(e) => setPeriodo(e.target.value)}>
+              <option value="tudo">Todo o histórico</option>
+              <option value="30dias">Últimos 30 dias</option>
+              <option value="90dias">Últimos 3 meses</option>
+              <option value="esteAno">Este ano</option>
+              <option value="mes">Mês específico…</option>
+              <option value="personalizado">Personalizado…</option>
+            </select>
+          </div>
+          {periodo === 'mes' && (
+            <div className="field">
+              <label>Mês</label>
+              <select className="select" value={mes} onChange={(e) => setMes(e.target.value)}>
+                <option value="">Selecione o mês…</option>
+                {meses.map((m) => <option key={m} value={m}>{fmtMes(m)}</option>)}
               </select>
             </div>
           )}
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', padding: '6px', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-            <Calendar size={18} color="#64748b" style={{ marginLeft: '8px' }}/>
-            <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600, marginRight: '4px' }}>Período:</span>
-            <select 
-              className="form-select" 
-              style={{ border: 'none', backgroundColor: '#f8fafc', fontWeight: 'bold', color: '#0f172a', minWidth: '150px' }}
-              value={periodoFiltro}
-              onChange={(e) => setPeriodoFiltro(e.target.value)}
-            >
-              <option value="tudo">Todo o Histórico</option>
-              <option value="30dias">Últimos 30 Dias</option>
-              <option value="90dias">Últimos 3 Meses</option>
-              <option value="esteAno">Este Ano (YTD)</option>
-              <option value="mes">Mês Específico...</option>
-              <option value="personalizado">Personalizado...</option>
-            </select>
-          </div>
-
-          <button 
-            onClick={exportarPDF} 
-            disabled={gerandoPdf || !stats}
-            style={{ 
-              display: 'flex', alignItems: 'center', gap: '8px', height: '38px', padding: '0 16px', 
-              backgroundColor: gerandoPdf ? '#94a3b8' : '#0f172a', color: 'white', borderRadius: '8px', 
-              border: 'none', fontWeight: 'bold', cursor: gerandoPdf ? 'not-allowed' : 'pointer',
-              transition: 'background-color 0.2s', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
-            }}
-          >
-            <Download size={18} />
-            {gerandoPdf ? 'Gerando PDF...' : 'Exportar PDF'}
-          </button>
+          {periodo === 'personalizado' && (
+            <>
+              <div className="field"><label>De</label><input type="date" className="input" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} /></div>
+              <div className="field"><label>Até</label><input type="date" className="input" value={dataFim} onChange={(e) => setDataFim(e.target.value)} /></div>
+            </>
+          )}
         </div>
       </div>
 
       {!stats ? (
-        <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', backgroundColor: 'white', borderRadius: '12px' }}>
-          Nenhum dado financeiro ou de entrega encontrado para os filtros selecionados.
-        </div>
+        <div className="card"><EmptyState title="Sem dados para este filtro" text="Nenhum dado financeiro ou de entrega encontrado para o período/região selecionados." /></div>
       ) : (
-        <div ref={painelRef} style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '12px', marginTop: '-16px' }}>
-          
-          <div style={{ display: 'none' }}> 
-            <h2>Relatório de Operação Logística - MunilaLog {regiaoSelecionada && `(${regiaoSelecionada})`}</h2>
+        <div ref={painelRef} style={{ display: 'flex', flexDirection: 'column', gap: 16, background: 'var(--bg)' }}>
+          <div className="kpi-grid">
+            <KpiCard label="Faturamento (período)" value={formatMoney(stats.faturamento)} hint={`${stats.total.toLocaleString('pt-BR')} notas`} icon={<DollarSign size={16} />} tone="blue" />
+            <KpiCard label="Custo logístico" value={formatMoney(stats.custo)} valueClass="text-orange" icon={<Truck size={16} />} tone="orange" />
+            <KpiCard label="Impacto frete médio" value={formatPercent(stats.freteMedio)} valueClass="text-brand" icon={<Percent size={16} />} tone="brand" />
+            <KpiCard label="Taxa de sucesso" value={formatPercent(stats.percentEntregue, 1)} valueClass="text-green" icon={<Award size={16} />} tone="green" accent="var(--green-solid)" hint={`${stats.entregues} entregues`} />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-            <div style={cardStyle}>
-              <p style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>Faturamento (Período)</p>
-              <h3 style={{ fontSize: '1.75rem', color: '#0f172a', margin: 0, fontWeight: 800 }}>R$ {stats.faturamentoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
-            </div>
-            
-            <div style={cardStyle}>
-              <p style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>Custo Logístico</p>
-              <h3 style={{ fontSize: '1.75rem', color: '#ea580c', margin: 0, fontWeight: 800 }}>R$ {stats.custoLogistico.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
-            </div>
-
-            <div style={cardStyle}>
-              <p style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>Impacto Frete Médio</p>
-              <h3 style={{ fontSize: '1.75rem', color: '#0284c7', margin: 0, fontWeight: 800 }}>{stats.freteMedio}%</h3>
-            </div>
-
-            <div style={{...cardStyle, borderTop: '4px solid #22c55e'}}>
-              <p style={{ color: '#166534', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>Taxa de Sucesso</p>
-              <h3 style={{ fontSize: '1.75rem', color: '#15803d', margin: 0, fontWeight: 800 }}>{stats.percentEntregue}%</h3>
-            </div>
-          </div>
-
-          <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column' }}>
-            <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <TrendingDown size={20} color="#6366f1"/> Evolução Faturamento vs Frete
-            </h3>
-            
-            <div style={{ width: '100%', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '12px' }}>
-              <div style={{ minWidth: `${Math.max(800, stats.timelineData.length * 50)}px`, height: '280px' }}>
+          <div className="card chart-card">
+            <h3><TrendingUp size={18} color={c.purple} /> Evolução faturamento × frete</h3>
+            <div className="chart-scroll">
+              <div style={{ minWidth: Math.max(640, stats.timeline.length * 40), height: 280 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={stats.timelineData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <AreaChart data={stats.timeline} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <defs>
-                      <linearGradient id="colorFaturamento" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#0284c7" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#0284c7" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="colorFrete" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ea580c" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#ea580c" stopOpacity={0}/>
-                      </linearGradient>
+                      <linearGradient id="gFat" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={c.blue} stopOpacity={0.3} /><stop offset="95%" stopColor={c.blue} stopOpacity={0} /></linearGradient>
+                      <linearGradient id="gFrete" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={c.orange} stopOpacity={0.3} /><stop offset="95%" stopColor={c.orange} stopOpacity={0} /></linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} minTickGap={30} interval="preserveStartEnd" />
-                    <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} />
-                    <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} />
-                    <Tooltip 
-                      formatter={(value: any) => {
-                        const numVal = Number(value) || 0;
-                        return [`R$ ${numVal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, ''];
-                      }}
-                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
-                    />
-                    <Legend verticalAlign="top" height={36} />
-                    <Area isAnimationActive={false} connectNulls type="linear" dot={false} activeDot={{ r: 6 }} yAxisId="left" dataKey="Faturamento" stroke="#0284c7" strokeWidth={3} fillOpacity={1} fill="url(#colorFaturamento)" />
-                    <Area isAnimationActive={false} connectNulls type="linear" dot={false} activeDot={{ r: 6 }} yAxisId="right" dataKey="Frete" stroke="#ea580c" strokeWidth={3} fillOpacity={1} fill="url(#colorFrete)" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={c.grid} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={axisTick} dy={8} minTickGap={24} />
+                    <YAxis yAxisId="l" axisLine={false} tickLine={false} tick={axisTick} tickFormatter={formatMoneyShort} width={64} />
+                    <YAxis yAxisId="r" orientation="right" axisLine={false} tickLine={false} tick={axisTick} tickFormatter={formatMoneyShort} width={64} />
+                    <Tooltip contentStyle={c.tooltip} formatter={(v, n) => [formatMoney(Number(v)), n]} />
+                    <Legend verticalAlign="top" height={32} iconType="circle" />
+                    <Area isAnimationActive={false} yAxisId="l" type="linear" dataKey="Faturamento" stroke={c.blue} strokeWidth={2.5} fill="url(#gFat)" dot={false} activeDot={{ r: 5 }} />
+                    <Area isAnimationActive={false} yAxisId="r" type="linear" dataKey="Frete" stroke={c.orange} strokeWidth={2.5} fill="url(#gFrete)" dot={false} activeDot={{ r: 5 }} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '16px' }}>
-            <div style={{ ...cardStyle, height: '450px', display: 'flex', flexDirection: 'column' }}>
-              <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <DollarSign size={20} color="#10b981"/> Top 10 Clientes (Maior Receita)
-              </h3>
-              <div style={{ flex: 1, width: '100%' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stats.topClientes} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
-                    <XAxis type="number" hide />
-                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 11 }} width={120} />
-                    <Tooltip 
-                      formatter={(value: any, name: any) => {
-                        const numVal = Number(value) || 0;
-                        return [name === 'Valor' ? `R$ ${numVal.toLocaleString('pt-BR')}` : numVal, name === 'Valor' ? 'Faturamento' : 'Volume de NFs'];
-                      }}
-                      cursor={{fill: '#f8fafc'}}
-                    />
-                    <Bar isAnimationActive={false} dataKey="Valor" fill="#10b981" radius={[0, 4, 4, 0]} barSize={24} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+          <div className="chart-grid">
+            <div className="card chart-card" style={{ height: 420 }}>
+              <h3><DollarSign size={18} color={c.green} /> Top 10 clientes (receita)</h3>
+              <div style={{ flex: 1, minHeight: 0 }}>{barList(stats.topClientes, 'Valor', c.green, (v) => [formatMoney(v), 'Faturamento'])}</div>
             </div>
-
-            <div style={{ ...cardStyle, height: '450px', display: 'flex', flexDirection: 'column' }}>
-              <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Truck size={20} color="#8b5cf6"/> Top 10 Transportadoras (Maior Custo)
-              </h3>
-              <div style={{ flex: 1, width: '100%' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stats.topTransportadoras} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
-                    <XAxis type="number" hide />
-                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 11 }} width={120} />
-                    <Tooltip 
-                      formatter={(value: any, name: any) => {
-                         const numVal = Number(value) || 0;
-                         return [name === 'Custo' ? `R$ ${numVal.toLocaleString('pt-BR')}` : numVal, name === 'Custo' ? 'Custo Logístico' : 'NFs Transportadas'];
-                      }}
-                      cursor={{fill: '#f8fafc'}}
-                    />
-                    <Bar isAnimationActive={false} dataKey="Custo" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={24} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+            <div className="card chart-card" style={{ height: 420 }}>
+              <h3><Truck size={18} color={c.purple} /> Top 10 transportadoras (custo)</h3>
+              <div style={{ flex: 1, minHeight: 0 }}>{barList(stats.topTransp, 'Custo', c.purple, (v) => [formatMoney(v), 'Custo logístico'])}</div>
             </div>
-
-            <div style={{ ...cardStyle, height: '450px', display: 'flex', flexDirection: 'column' }}>
-              <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Award size={20} color="#f59e0b"/> Top 10 Transportadoras (Mais Eficientes)
-              </h3>
-              <div style={{ flex: 1, width: '100%' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stats.topTransportadorasEficiencia} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
-                    <XAxis type="number" hide />
-                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 11 }} width={120} />
-                    <Tooltip 
-                      formatter={(value: any, _name: any, props: any) => {
-                         const faturamento = Number(props.payload.faturamento).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-                         const custo = Number(props.payload.custo).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-                         return [`${value}% (Frete: R$ ${custo} | NF: R$ ${faturamento})`, 'Custo-Benefício (% da NF)'];
-                      }}
-                      cursor={{fill: '#f8fafc'}}
-                    />
-                    <Bar isAnimationActive={false} dataKey="percentual" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={24} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+            <div className="card chart-card" style={{ height: 420 }}>
+              <h3><Award size={18} color={c.amber} /> Transportadoras mais eficientes</h3>
+              <div style={{ flex: 1, minHeight: 0 }}>{barList(stats.eficiencia, 'percentual', c.amber,
+                (v, p) => [`${formatPercent(v)} (Frete ${formatMoney(p.custo)} · NF ${formatMoney(p.faturamento)})`, 'Custo-benefício'])}</div>
             </div>
           </div>
 
-          {/* SÓ MOSTRA O COMPARATIVO SE A PESQUISA NÃO FOR DE UMA REGIÃO ESPECÍFICA */}
-          {/* Se pesquisar pelo Nordeste, não faz sentido mostrar o gráfico de estados de todo o Brasil */}
-          {!regiaoSelecionada && (
-            <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column' }}>
-              <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Percent size={20} color="#ef4444"/> Comparativo Geral: Receita vs Custo Logístico por Estado (%)
-              </h3>
-              <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '16px' }}>
-                Proporção do frete comparado ao faturamento em todas as regiões de operação.
-              </p>
-              
-              <div style={{ width: '100%', overflowX: 'auto', overflowY: 'hidden', paddingBottom: '12px' }}>
-                <div style={{ minWidth: `${Math.max(800, stats.analisePorEstado.length * 60)}px`, height: '350px' }}>
+          {!regiao && (
+            <div className="card chart-card">
+              <h3><Percent size={18} color={c.red} /> Receita × custo logístico por estado</h3>
+              <p className="muted" style={{ marginTop: -6, marginBottom: 10, fontSize: '0.84rem' }}>Proporção do frete sobre o faturamento em cada UF de destino.</p>
+              <div className="chart-scroll">
+                <div style={{ minWidth: Math.max(640, stats.porEstado.length * 56), height: 340 }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={stats.analisePorEstado} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                      
-                      <XAxis dataKey="uf" scale="band" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12, fontWeight: 'bold' }} dy={10} />
-                      
-                      <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} tickFormatter={(val) => `R$ ${(val/1000).toFixed(0)}k`} />
-                      
-                      <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#ef4444', fontSize: 12, fontWeight: 'bold' }} tickFormatter={(val) => `${val}%`} />
-                      
-                      <Tooltip 
-                        formatter={(value: any, name: any) => {
-                          if (name === '% do Frete') return [`${value}%`, name];
-                          return [`R$ ${Number(value).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`, name];
-                        }}
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
-                      />
-                      <Legend verticalAlign="top" height={36} />
-                      
-                      <Bar isAnimationActive={false} yAxisId="left" dataKey="faturamento" name="Faturamento (R$)" fill="#0284c7" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                      <Bar isAnimationActive={false} yAxisId="left" dataKey="custo" name="Custo Frete (R$)" fill="#f59e0b" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                      
-                      <Line isAnimationActive={false} yAxisId="right" type="monotone" dataKey="percentual" name="% do Frete" stroke="#ef4444" strokeWidth={3} dot={{ r: 5, fill: '#ef4444' }} activeDot={{ r: 8 }} />
+                    <ComposedChart data={stats.porEstado} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={c.grid} />
+                      <XAxis dataKey="uf" axisLine={false} tickLine={false} tick={{ ...axisTick, fontWeight: 700 }} dy={8} />
+                      <YAxis yAxisId="l" axisLine={false} tickLine={false} tick={axisTick} tickFormatter={formatMoneyShort} width={64} />
+                      <YAxis yAxisId="r" orientation="right" axisLine={false} tickLine={false} tick={{ ...axisTick, fill: c.red }} tickFormatter={(v) => `${v}%`} width={44} />
+                      <Tooltip contentStyle={c.tooltip} cursor={{ fill: c.cursor }}
+                        formatter={(v, n) => (n === '% do frete' ? [formatPercent(Number(v)), n] : [formatMoney(Number(v)), n])} />
+                      <Legend verticalAlign="top" height={32} iconType="circle" />
+                      <Bar isAnimationActive={false} yAxisId="l" dataKey="faturamento" name="Faturamento" fill={c.blue} radius={[4, 4, 0, 0]} maxBarSize={36} />
+                      <Bar isAnimationActive={false} yAxisId="l" dataKey="custo" name="Custo frete" fill={c.amber} radius={[4, 4, 0, 0]} maxBarSize={36} />
+                      <Line isAnimationActive={false} yAxisId="r" type="monotone" dataKey="percentual" name="% do frete" stroke={c.red} strokeWidth={2.5} dot={{ r: 4, fill: c.red }} />
                     </ComposedChart>
                   </ResponsiveContainer>
                 </div>
@@ -498,32 +271,27 @@ export function Analise({ entregas, setFiltroStatus, limparFiltros }: AnalisePro
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <div style={cardStyle}>
-              <h3 style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}><Activity size={20} color="#f59e0b"/> Resumo de Operação</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div onClick={() => handleStatusClick(['Entregue'])} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'} title="Clique para ver todas as NFs entregues">
-                  <span style={{ color: '#475569', fontWeight: 600 }}>Entregues</span>
-                  <span style={{ color: '#15803d', fontWeight: 800 }}>{stats.entregues}</span>
-                </div>
-                
-                <div onClick={() => handleStatusClick(['Pendente', 'Pendente agendamento', 'Aguardando coleta', 'Solicitado Agendamento', 'Agendado', 'Em Transporte', 'Frete Conferido'])} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'} title="Clique para ver NFs em trânsito ou processamento">
-                  <span style={{ color: '#475569', fontWeight: 600 }}>Em Trânsito / Processo</span>
-                  <span style={{ color: '#b45309', fontWeight: 800 }}>{stats.emAndamento}</span>
-                </div>
-
-                <div onClick={() => handleStatusClick(['Atrasado', 'Problema', 'Em devolução'])} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', backgroundColor: '#fee2e2', borderRadius: '8px', border: '1px solid #fecaca', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fca5a5'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'} title="Clique para analisar entregas atrasadas">
-                  <span style={{ color: '#991b1b', fontWeight: 600 }}>Atrasadas ou Críticas</span>
-                  <span style={{ color: '#b91c1c', fontWeight: 800 }}>{stats.atrasadas}</span>
-                </div>
+          <div className="chart-grid">
+            <div className="card card-pad">
+              <h3 className="card-title" style={{ marginBottom: 14 }}><Activity size={18} color={c.amber} /> Resumo de operação</h3>
+              <div className="stat-list">
+                <button className="stat-row" onClick={() => abrirNoPainel(['Entregue'])} title="Ver no Painel de Entregas">
+                  <span>Entregues</span><strong className="text-green">{stats.entregues}</strong>
+                </button>
+                <button className="stat-row" onClick={() => abrirNoPainel(GRUPO_EM_ANDAMENTO)} title="Ver no Painel de Entregas">
+                  <span>Em trânsito / processo</span><strong className="text-orange">{stats.emAndamento}</strong>
+                </button>
+                <button className="stat-row stat-row--danger" onClick={() => abrirNoPainel(GRUPO_CRITICO)} title="Ver no Painel de Entregas">
+                  <span>Atrasadas ou críticas</span><strong>{stats.atrasadas}</strong>
+                </button>
               </div>
+              <p className="muted" style={{ fontSize: '0.75rem', marginTop: 10 }}>Clique em uma linha para abrir as NFs no Painel de Entregas.</p>
             </div>
-
-            <div style={{...cardStyle, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center'}}>
-              <Clock size={40} color="#3b82f6" style={{ marginBottom: '16px' }} />
-              <h4 style={{ margin: '0 0 8px 0', color: '#64748b', textTransform: 'uppercase', fontSize: '0.85rem', fontWeight: 600 }}>Lead Time Total (SLA Médio)</h4>
-              <h1 style={{ fontSize: '3.5rem', color: '#1e3a8a', margin: 0, fontWeight: 900 }}>{stats.mediaGap}</h1>
-              <p style={{ margin: '8px 0 0 0', color: '#64748b', fontSize: '0.9rem' }}>Dias desde o pedido até à entrega no cliente.</p>
+            <div className="card card-pad" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 6 }}>
+              <Clock size={34} color={c.blue} />
+              <div className="kpi__label">Lead time total (SLA médio)</div>
+              <div style={{ fontSize: '3rem', fontWeight: 800, letterSpacing: '-0.03em' }} className="num">{stats.mediaGap}<small style={{ fontSize: '1rem', color: 'var(--muted)', marginLeft: 6 }}>dias</small></div>
+              <p className="muted" style={{ fontSize: '0.85rem' }}>Do pedido até a entrega no cliente.</p>
             </div>
           </div>
         </div>

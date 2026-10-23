@@ -1,152 +1,135 @@
-import React, { useState, useEffect } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
+import { Mail, Pencil, Phone, Plus, Trash2, Truck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { Edit, Trash2, Phone, Mail, X } from 'lucide-react';
+import { registrarLog, mensagemErro } from '../lib/db';
+import { MODAIS } from '../lib/constants';
+import { formatCnpj, matchesSearch } from '../lib/format';
+import { useAppData } from '../state/context';
+import { useFeedback } from '../feedback/context';
+import { Badge, Field, PageHeader, SearchInput } from '../components/ui/basics';
+import { DataTable, type Column } from '../components/ui/DataTable';
+import { Modal, ModalActions } from '../components/ui/Modal';
+import type { Transportadora } from '../types';
 
-interface TransportadorasProps {
-  transportadoras: any[];
-  entregas: any[];
-  onUpdate: () => void;
-}
+const VAZIO = { nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', modal_padrao: '', telefone: '', email: '' };
 
-export function Transportadoras({ transportadoras, entregas, onUpdate }: TransportadorasProps) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', modal_padrao: '', telefone: '', email: ''
-  });
+export default function Transportadoras() {
+  const { transportadoras, entregas, recarregarCadastros, loading } = useAppData();
+  const { toast, confirm } = useFeedback();
+  const [busca, setBusca] = useState('');
+  const [editando, setEditando] = useState<Transportadora | null>(null);
+  const [aberto, setAberto] = useState(false);
+  const [form, setForm] = useState(VAZIO);
+  const [salvando, setSalvando] = useState(false);
 
-  const [userEmail, setUserEmail] = useState<string>('');
+  const qtd = useMemo(() => {
+    const m: Record<string, number> = {};
+    entregas.forEach((e) => { if (e.transportadora_id) m[e.transportadora_id] = (m[e.transportadora_id] ?? 0) + 1; });
+    return m;
+  }, [entregas]);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.email) {
-        setUserEmail(session.user.email);
-      }
-    });
-  }, []);
-
-  const registrarLogTransportadora = async (acao: string, detalhes: string) => {
-    if (!userEmail) return;
-    try {
-      await supabase.from('logs_auditoria').insert([{
-        usuario_email: userEmail,
-        acao: acao,
-        modulo: 'TRANSPORTADORAS',
-        detalhes: detalhes
-      }]);
-    } catch (error) {
-      console.error("Erro ao registrar log de Transportadora:", error);
-    }
+  const abrir = (t?: Transportadora) => {
+    setEditando(t ?? null);
+    setForm(t ? {
+      nome: t.nome, cnpj_cpf: t.cnpj_cpf ?? '', razao_social: t.razao_social ?? '', nome_fantasia: t.nome_fantasia ?? '',
+      modal_padrao: t.modal_padrao ?? '', telefone: t.telefone ?? '', email: t.email ?? '',
+    } : VAZIO);
+    setAberto(true);
   };
 
-  function abrirModalNova() {
-    setEditingId(null);
-    setFormData({ nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', modal_padrao: '', telefone: '', email: '' });
-    setIsModalOpen(true);
-  }
-
-  function abrirModalEdicao(transp: any) {
-    setEditingId(transp.id);
-    setFormData({
-      nome: transp.nome, cnpj_cpf: transp.cnpj_cpf || '', razao_social: transp.razao_social || '', 
-      nome_fantasia: transp.nome_fantasia || '', modal_padrao: transp.modal_padrao || '', 
-      telefone: transp.telefone || '', email: transp.email || ''
-    });
-    setIsModalOpen(true);
-  }
-
-  async function handleDelete(id: string) {
-    if (!window.confirm("Tem certeza que deseja excluir esta transportadora?")) return;
-    try {
-      const transpParaApagar = transportadoras.find(t => t.id === id);
-      const { error } = await supabase.from('transportadoras').delete().eq('id', id);
-      if (error) {
-        if (error.code === '23503') alert("Não é possível excluir! Esta transportadora já possui notas fiscais ou metas vinculadas a ela.");
-        else throw error;
-      } else {
-        if (transpParaApagar) {
-          await registrarLogTransportadora('APAGOU', `Excluiu a Transportadora: ${transpParaApagar.nome}`);
-        }
-        onUpdate();
-      }
-    } catch (error) { console.error(error); alert("Erro ao excluir transportadora."); }
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
+  async function salvar(e: FormEvent) {
     e.preventDefault();
-    const payload = { 
-      nome: formData.nome.toUpperCase(), cnpj_cpf: formData.cnpj_cpf, razao_social: formData.razao_social.toUpperCase(), 
-      nome_fantasia: formData.nome_fantasia.toUpperCase(), modal_padrao: formData.modal_padrao, telefone: formData.telefone, 
-      email: formData.email.toLowerCase() 
+    setSalvando(true);
+    const payload = {
+      nome: form.nome.toUpperCase(), cnpj_cpf: form.cnpj_cpf, razao_social: form.razao_social.toUpperCase(),
+      nome_fantasia: form.nome_fantasia.toUpperCase(), modal_padrao: form.modal_padrao, telefone: form.telefone, email: form.email.toLowerCase(),
     };
     try {
-      if (editingId) {
-        const { error } = await supabase.from('transportadoras').update([payload]).eq('id', editingId);
+      if (editando) {
+        const { error } = await supabase.from('transportadoras').update(payload).eq('id', editando.id);
         if (error) throw error;
-        await registrarLogTransportadora('EDITOU', `Editou os dados da Transportadora: ${payload.nome}`);
+        await registrarLog('EDITOU', 'TRANSPORTADORAS', `Editou os dados da Transportadora: ${payload.nome}`);
       } else {
         const { error } = await supabase.from('transportadoras').insert([payload]);
         if (error) throw error;
-        await registrarLogTransportadora('CRIOU', `Cadastrou uma nova Transportadora: ${payload.nome}`);
+        await registrarLog('CRIOU', 'TRANSPORTADORAS', `Cadastrou uma nova Transportadora: ${payload.nome}`);
       }
-      setIsModalOpen(false);
-      onUpdate();
-    } catch (error) { console.error(error); alert("Erro ao salvar transportadora."); }
+      toast({ kind: 'success', title: editando ? 'Transportadora atualizada' : 'Transportadora cadastrada', text: payload.nome });
+      setAberto(false);
+      recarregarCadastros();
+    } catch (err) {
+      toast({ kind: 'error', title: 'Erro ao salvar transportadora', text: mensagemErro(err) });
+    } finally { setSalvando(false); }
   }
 
+  async function excluir(t: Transportadora) {
+    const ok = await confirm({ title: `Excluir ${t.nome}?`, text: 'Esta ação não pode ser desfeita.', danger: true, confirmLabel: 'Excluir' });
+    if (!ok) return;
+    const { error } = await supabase.from('transportadoras').delete().eq('id', t.id);
+    if (error) {
+      toast({
+        kind: 'error', title: 'Não foi possível excluir',
+        text: error.code === '23503' ? 'Esta transportadora já possui notas fiscais ou metas vinculadas a ela.' : mensagemErro(error),
+      });
+      return;
+    }
+    await registrarLog('APAGOU', 'TRANSPORTADORAS', `Excluiu a Transportadora: ${t.nome}`);
+    toast({ kind: 'success', title: 'Transportadora excluída' });
+    recarregarCadastros();
+  }
+
+  const cols: Column<Transportadora>[] = [
+    { key: 'nome', header: 'Transportadora', render: (t) => <strong style={{ color: 'var(--text)' }}>{t.nome}</strong>, mobile: 'title', sortValue: (t) => t.nome },
+    { key: 'cnpj', header: 'CNPJ', render: (t) => t.cnpj_cpf || '-', mobile: 'subtitle', className: 'num' },
+    {
+      key: 'contato', header: 'Contato (operacional)',
+      render: (t) => (t.telefone || t.email ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: '0.8rem' }}>
+          {t.telefone && <a href={`tel:${t.telefone}`} style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}><Phone size={13} /> {t.telefone}</a>}
+          {t.email && <a href={`mailto:${t.email}`} style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}><Mail size={13} /> {t.email}</a>}
+        </div>) : '-'),
+    },
+    { key: 'modal', header: 'Modal padrão', render: (t) => <Badge tone="slate" square>{MODAIS.find((m) => m.value === t.modal_padrao)?.label ?? t.modal_padrao ?? 'Não definido'}</Badge>, mobile: 'badge' },
+    { key: 'qtd', header: 'Entregas', render: (t) => `${(qtd[t.id] ?? 0).toLocaleString('pt-BR')} entregas`, sortValue: (t) => qtd[t.id] ?? 0, align: 'right', className: 'num' },
+  ];
+
   return (
-    <>
-      <header className="header">
-        <div><h2>Gestão de Transportadoras</h2><p>Cadastro de parceiros logísticos e modais operacionais</p></div>
-        <button className="btn-primary" onClick={abrirModalNova}>+ Nova Transportadora</button>
-      </header>
-      
-      <div className="table-container" style={{ maxWidth: '1000px' }}>
-        <table>
-          <thead><tr><th>Nome da Transportadora</th><th>Contato (Operacional)</th><th>Modal Padrão</th><th>Entregas Realizadas</th><th style={{ textAlign: 'center' }}>Ações</th></tr></thead>
-          <tbody>
-            {transportadoras.map((transp) => {
-              const qtdEntregas = entregas.filter(e => e.transportadora_id === transp.id).length;
-              return (
-                <tr key={transp.id}>
-                  <td style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{transp.nome}</td>
-                  <td>
-                    {transp.telefone && <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}><Phone size={14} /> {transp.telefone}</div>}
-                    {transp.email && <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: 'var(--text-muted)' }}><Mail size={14} /> {transp.email}</div>}
-                    {(!transp.telefone && !transp.email) && <span style={{ color: '#cbd5e1' }}>-</span>}
-                  </td>
-                  <td><span className="status-badge" style={{ backgroundColor: '#f1f5f9' }}>{transp.modal_padrao || 'Não definido'}</span></td>
-                  <td>{qtdEntregas} entregas</td>
-                  <td style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '8px' }}>
-                    <button onClick={() => abrirModalEdicao(transp)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: '4px' }} title="Editar Transportadora"><Edit size={18} /></button>
-                    <button onClick={() => handleDelete(transp.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '4px' }} title="Excluir Transportadora"><Trash2 size={18} /></button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+    <div className="page">
+      <PageHeader icon={<Truck size={22} />} title="Transportadoras" subtitle="Parceiros logísticos e modais operacionais"
+        actions={<button className="btn btn-primary" onClick={() => abrir()}><Plus size={16} /> Nova transportadora</button>} />
+
+      <div className="toolbar"><SearchInput className="toolbar__search" value={busca} onChange={setBusca} placeholder="Buscar nome, CNPJ ou e-mail…" /></div>
+
+      <div className="card table-card">
+        <DataTable rows={transportadoras.filter((t) => matchesSearch(busca, t.nome, t.cnpj_cpf, t.email, t.razao_social))} columns={cols}
+          rowKey={(t) => t.id} loading={loading} onRowClick={abrir}
+          actions={(t) => (
+            <>
+              <button className="icon-btn icon-btn--sm" onClick={() => abrir(t)} title="Editar"><Pencil size={16} /></button>
+              <button className="icon-btn icon-btn--sm icon-btn--danger" onClick={() => excluir(t)} title="Excluir"><Trash2 size={16} /></button>
+            </>
+          )} />
       </div>
 
-      {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '700px' }}>
-            <div className="modal-header"><h3>{editingId ? 'Editar Transportadora' : 'Cadastrar Nova Transportadora'}</h3><button className="close-btn" onClick={() => setIsModalOpen(false)}><X size={24} /></button></div>
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Nome Principal (Identificação rápida no sistema)</label><input type="text" className="form-input" placeholder="Ex: BRASPRESS" required value={formData.nome} onChange={(e) => setFormData({...formData, nome: e.target.value})} /></div>
-                <div className="form-group"><label>CNPJ / CPF</label><input type="text" className="form-input" placeholder="00.000.000/0000-00" value={formData.cnpj_cpf} onChange={(e) => setFormData({...formData, cnpj_cpf: e.target.value})} /></div>
-                <div className="form-group"><label>Nome Fantasia</label><input type="text" className="form-input" placeholder="Braspress" value={formData.nome_fantasia} onChange={(e) => setFormData({...formData, nome_fantasia: e.target.value})} /></div>
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Razão Social</label><input type="text" className="form-input" placeholder="BRASPRESS TRANSPORTES URGENTES LTDA" value={formData.razao_social} onChange={(e) => setFormData({...formData, razao_social: e.target.value})} /></div>
-                <div className="form-group"><label>Telefone / WhatsApp Comercial</label><input type="text" className="form-input" placeholder="Ex: (11) 99999-9999" value={formData.telefone} onChange={(e) => setFormData({...formData, telefone: e.target.value})} /></div>
-                <div className="form-group"><label>E-mail de Contato</label><input type="email" className="form-input" placeholder="contato@transportadora.com" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} /></div>
-                <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Modal Padrão de Envio</label><select className="form-select" required value={formData.modal_padrao} onChange={(e) => setFormData({...formData, modal_padrao: e.target.value})}><option value="">Selecione...</option><option value="AÉREO">Aéreo</option><option value="RODOVIÁRIO">Rodoviário</option><option value="PAC">PAC</option><option value="SEDEX">Sedex</option></select></div>
-              </div>
-              <div className="modal-footer"><button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Cancelar</button><button type="submit" className="btn-primary">{editingId ? 'Atualizar Parceiro' : 'Salvar Parceiro'}</button></div>
-            </form>
+      {aberto && (
+        <Modal title={editando ? 'Editar transportadora' : 'Nova transportadora'} onClose={() => setAberto(false)} onSubmit={salvar}
+          footer={<ModalActions onCancel={() => setAberto(false)} submitting={salvando} submitLabel={editando ? 'Atualizar parceiro' : 'Salvar parceiro'} />}>
+          <div className="form-grid">
+            <Field label="Nome principal (identificação rápida)" required className="span-all"><input className="input" required placeholder="Ex: BRASPRESS" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></Field>
+            <Field label="CNPJ / CPF"><input className="input" placeholder="00.000.000/0000-00" value={form.cnpj_cpf} onChange={(e) => setForm({ ...form, cnpj_cpf: e.target.value })} onBlur={(e) => setForm((f) => ({ ...f, cnpj_cpf: formatCnpj(e.target.value) }))} /></Field>
+            <Field label="Nome fantasia"><input className="input" placeholder="Braspress" value={form.nome_fantasia} onChange={(e) => setForm({ ...form, nome_fantasia: e.target.value })} /></Field>
+            <Field label="Razão social" className="span-all"><input className="input" placeholder="BRASPRESS TRANSPORTES URGENTES LTDA" value={form.razao_social} onChange={(e) => setForm({ ...form, razao_social: e.target.value })} /></Field>
+            <Field label="Telefone / WhatsApp"><input className="input" type="tel" placeholder="(11) 99999-9999" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} /></Field>
+            <Field label="E-mail de contato"><input className="input" type="email" placeholder="contato@transportadora.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
+            <Field label="Modal padrão de envio" required className="span-all">
+              <select className="select" required value={form.modal_padrao} onChange={(e) => setForm({ ...form, modal_padrao: e.target.value })}>
+                <option value="">Selecione…</option>
+                {MODAIS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
+            </Field>
           </div>
-        </div>
+        </Modal>
       )}
-    </>
+    </div>
   );
 }

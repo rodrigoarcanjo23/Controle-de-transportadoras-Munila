@@ -12,6 +12,7 @@ import {
 } from '../lib/format';
 import { FILTROS_VAZIOS, cidadeDestino, filtrarEntregas, filtrosAtivos, modalDe, ufDestino } from '../lib/filtrosEntrega';
 import { downloadCsv, csvNum } from '../lib/csv';
+import { pesosSuspeitos } from '../lib/bi';
 import { loadPrefRaw, savePref } from '../lib/storage';
 import { useAppData } from '../state/context';
 import { useFeedback } from '../feedback/context';
@@ -43,14 +44,17 @@ export default function Dashboard() {
   const filtradas = useMemo(() => filtrarEntregas(entregas, filtros), [entregas, filtros]);
   const chips = filtrosAtivos(filtros, transportadoras);
 
+  // pesos com cara de erro de digitação (ex.: nº da NF no campo peso) ficam fora do total
+  const suspeitos = useMemo(() => pesosSuspeitos(entregas), [entregas]);
   const kpis = useMemo(() => {
-    let nf = 0, cot = 0, real = 0, efetivo = 0, vol = 0, peso = 0;
+    let nf = 0, cot = 0, real = 0, efetivo = 0, vol = 0, peso = 0, pesoIgn = 0;
     for (const e of filtradas) {
       nf += toNumber(e.valor_nf); cot += toNumber(e.valor_frete); real += toNumber(e.valor_frete_real);
-      efetivo += freteEfetivo(e); vol += toNumber(e.volume); peso += toNumber(e.peso_kg);
+      efetivo += freteEfetivo(e); vol += toNumber(e.volume);
+      if (suspeitos.has(e.id)) pesoIgn++; else peso += toNumber(e.peso_kg);
     }
-    return { nf, cot, real, medio: percentual(efetivo, nf), vol, peso };
-  }, [filtradas]);
+    return { nf, cot, real, medio: percentual(efetivo, nf), vol, peso, pesoIgn };
+  }, [filtradas, suspeitos]);
 
   const toggleColuna = (key: string) => {
     const next = ocultas.includes(key) ? ocultas.filter((k) => k !== key) : [...ocultas, key];
@@ -252,7 +256,8 @@ export default function Dashboard() {
         </KpiCard>
         <KpiCard label="% Frete médio" icon={<Target size={16} />} tone="brand" value={formatPercent(kpis.medio)} valueClass="text-brand" hint="Frete ÷ valor das NFs" />
         <KpiCard label="Volume total" icon={<Package size={16} />} tone="purple" value={formatInt(kpis.vol)} unit=" cx" />
-        <KpiCard label="Peso total" icon={<Scale size={16} />} tone="amber" value={formatDecimal(kpis.peso)} unit=" kg" />
+        <KpiCard label="Peso total" icon={<Scale size={16} />} tone="amber" value={formatDecimal(kpis.peso)} unit=" kg"
+          hint={kpis.pesoIgn ? `${kpis.pesoIgn} peso(s) fora do padrão ignorado(s) — veja no Painel de BI` : undefined} />
       </div>}
 
       <div className="card table-card">

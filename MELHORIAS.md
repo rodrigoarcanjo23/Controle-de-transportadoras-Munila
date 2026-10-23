@@ -139,3 +139,39 @@ Abra **Supabase › SQL Editor › New query**, cole o conteúdo de **`supabase/
 Enquanto o SQL não for executado, a tela mostra um aviso explicando o que fazer.
 
 Os dados que estavam no painel HTML antigo (base do Claude) **não** são migrados automaticamente; se precisar, exporte o CSV de cada área no painel antigo e peça a importação.
+
+---
+
+## 9. Painel de BI para reuniões — etapa 1 (out/2026)
+
+**Números corrigidos**
+- **% de frete** agora é calculado só com as NFs que já têm frete real (CTE), dividindo pelo valor *dessas mesmas* NFs. Antes o frete real era dividido pelo faturamento de todas as NFs (inclusive as ~40% sem CTE), o que deixava o % artificialmente baixo.
+- **Frete real × cotado** compara apenas NFs que têm os dois valores.
+- **Pesos fora do padrão** (peso igual ao nº da NF ou kg/volume 20× acima do normal) ficam fora do total — no BI e no Painel de Entregas — e são listados para correção.
+
+**Novo layout** em 5 blocos numerados: Resumo do período · Prazo e nível de serviço · Evolução · Clientes e transportadoras · Destinos.
+- **Resumo:** 4 números grandes (faturamento, % de frete, entregas no prazo, lead time) com **seta ↑ ↓ comparando com o período anterior** (verde = melhorou), faixa com NFs, volumes, peso, real × cotado e cobertura de CTE, e **Destaques escritos automaticamente** (frases prontas para falar na reunião).
+- **Prazo:** % de entregas até a *Data de previsão*, atraso médio, **jornada do pedido** (pedido → faturamento → coleta → entrega, em dias), NFs em aberto com previsão vencida, % no prazo por mês e por transportadora.
+- Comparação: mês escolhido × mês anterior (se for o mês atual, compara os mesmos dias); 30/90 dias × período anterior; "Este ano" × mesmo período do ano passado.
+
+**Modo apresentação** (botão *Apresentar* ou *Apresentar daqui* em cada bloco): tela cheia, um bloco por slide, letras maiores, `← →` / espaço / PageDown para avançar, `Esc` para sair, botão de tema claro/escuro.
+
+**PDF:** A4 deitado, uma página por bloco, com cabeçalho do período.
+
+Arquivos: `src/lib/bi.ts` (cálculos), `src/pages/Analise.tsx`, `src/pages/bi/*`.
+
+## 10. Painel de BI — etapa 2 (out/2026)
+
+Três blocos novos (o BI agora tem 6 blocos / 6 slides / 6 páginas no PDF):
+
+- **4 · Ranking de transportadoras** — NFs, faturamento, custo de frete, % de frete (CTE), entregas no prazo, atraso médio, real × cotado e ocorrências críticas em aberto. Cada transportadora recebe uma **nota de 0 a 100** e um **semáforo** (verde/amarelo/vermelho):
+  - prazo (peso 50%): ≥ 90% verde · ≥ 75% amarelo · abaixo vermelho;
+  - % de frete (30%): até a média geral da empresa verde · até 20% acima amarelo · acima vermelho;
+  - real × cotado (20%): igual/abaixo do cotado verde · até 5% acima amarelo · acima vermelho;
+  - com menos de 3 NFs a métrica fica cinza e não entra na nota.
+- **5 · Clientes e metas de frete** — Top 10 clientes com participação no faturamento e a **comparação das metas cadastradas (cliente × transportadora) com o % de frete realizado** pelo CTE: barra com a bandeira da meta, quantas NFs passaram da meta e um resumo "dentro / acima / sem CTE".
+- **6 · Destinos** — **mapa do Brasil por estado** (um quadrado por UF), colorido por faturamento, % de frete ou entregas no prazo, com a tabela dos estados ao lado.
+
+Os "Destaques do período" passam a citar a melhor (e a pior) transportadora e o resultado das metas de frete.
+
+Arquivos novos: `src/pages/bi/SecoesEtapa2.tsx`, `src/pages/bi/mapaBrasil.ts`; cálculos em `src/lib/bi.ts` (`rankingTransportadoras`, `avaliarMetas`).

@@ -876,3 +876,7 @@ input[type="date"].input { padding-right: 8px; }
 .ao-vivo { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; font-size: 0.72rem; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: 0.05em; }
 .ao-vivo::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--green-solid); animation: ao-vivo 2s infinite; }
 @keyframes ao-vivo { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.alerta-filtro { background: var(--amber-bg); color: var(--text); align-items: center; flex-wrap: wrap; font-weight: 450; }
+.alerta-filtro > svg { color: var(--amber); }
+.alerta-filtro > span:nth-child(2) { flex: 1; min-width: 220px; }
+.alerta-filtro__acoes { display: flex; gap: 6px; }

@@ -33,7 +33,7 @@ export const lerConfigAlertas = (v: unknown): ConfigAlertas => {
 };
 
 export type NivelAlerta = 'critico' | 'atencao' | 'info';
-export interface ItemAlerta { nf: string; cliente: string; detalhe: string; dias?: number }
+export interface ItemAlerta { nf: string; cliente: string; detalhe: string; dias?: number; /** id da entrega (para abrir no Painel) */ id?: string }
 export interface Alerta {
   id: string; nivel: NivelAlerta; titulo: string; descricao: string;
   itens: ItemAlerta[];
@@ -86,7 +86,7 @@ export function gerarAlertas({ entregas, devolucoes, metas, indicadores, cfg, ho
     descricao: 'Ainda em aberto depois da data prevista de entrega. Confirme com a transportadora e atualize o status.',
     itens: ordem(abertas.filter((e) => e.data_previsao && e.data_previsao < hoje).map((e) => {
       const d = dias(e.data_previsao!, hoje);
-      return { nf: e.nota_fiscal, cliente: cliente(e), dias: d, detalhe: `previsão ${ddmm(e.data_previsao!)} · ${d} dia${d > 1 ? 's' : ''} de atraso · ${e.transportadoras?.nome ?? 'sem transportadora'}` };
+      return { id: e.id, nf: e.nota_fiscal, cliente: cliente(e), dias: d, detalhe: `previsão ${ddmm(e.data_previsao!)} · ${d} dia${d > 1 ? 's' : ''} de atraso · ${e.transportadoras?.nome ?? 'sem transportadora'}` };
     })),
   });
 
@@ -96,7 +96,7 @@ export function gerarAlertas({ entregas, devolucoes, metas, indicadores, cfg, ho
     titulo: 'Entregas com status Atrasado, Problema ou Em devolução',
     descricao: 'Ocorrências abertas que precisam de tratativa.',
     itens: entregas.filter((e) => CRITICOS.includes(e.status)).map((e) => ({
-      nf: e.nota_fiscal, cliente: cliente(e), detalhe: `${e.status} · ${e.transportadoras?.nome ?? 'sem transportadora'}`,
+      id: e.id, nf: e.nota_fiscal, cliente: cliente(e), detalhe: `${e.status} · ${e.transportadoras?.nome ?? 'sem transportadora'}`,
     })),
   });
 
@@ -106,7 +106,7 @@ export function gerarAlertas({ entregas, devolucoes, metas, indicadores, cfg, ho
     titulo: 'Previsão de entrega é hoje',
     descricao: 'Acompanhe para não virar atraso.',
     itens: abertas.filter((e) => e.data_previsao === hoje).map((e) => ({
-      nf: e.nota_fiscal, cliente: cliente(e), detalhe: `${e.status} · ${e.transportadoras?.nome ?? 'sem transportadora'}`,
+      id: e.id, nf: e.nota_fiscal, cliente: cliente(e), detalhe: `${e.status} · ${e.transportadoras?.nome ?? 'sem transportadora'}`,
     })),
   });
 
@@ -117,7 +117,7 @@ export function gerarAlertas({ entregas, devolucoes, metas, indicadores, cfg, ho
     descricao: 'A transportadora ainda não coletou (sem data de coleta).',
     itens: ordem(abertas.filter((e) => !e.data_coleta && e.status !== 'Em Transporte' && e.data_faturamento && dias(e.data_faturamento, hoje) > cfg.dias_aguardando_coleta).map((e) => {
       const d = dias(e.data_faturamento!, hoje);
-      return { nf: e.nota_fiscal, cliente: cliente(e), dias: d, detalhe: `faturada em ${ddmm(e.data_faturamento!)} (${d} dias) · ${e.status}` };
+      return { id: e.id, nf: e.nota_fiscal, cliente: cliente(e), dias: d, detalhe: `faturada em ${ddmm(e.data_faturamento!)} (${d} dias) · ${e.status}` };
     })),
   });
 
@@ -132,7 +132,7 @@ export function gerarAlertas({ entregas, devolucoes, metas, indicadores, cfg, ho
       const meta = metaDe.get(`${e.cliente_id}|${e.transportadora_id ?? ''}`);
       if (meta === undefined) return [];
       const p = (num(e.valor_frete_real) / num(e.valor_nf)) * 100;
-      return p > meta ? [{ nf: e.nota_fiscal, cliente: cliente(e), dias: p - meta, detalhe: `${pct(p)} de frete · meta ${pct(meta)} · ${e.transportadoras?.nome ?? ''}` }] : [];
+      return p > meta ? [{ id: e.id, nf: e.nota_fiscal, cliente: cliente(e), dias: p - meta, detalhe: `${pct(p)} de frete · meta ${pct(meta)} · ${e.transportadoras?.nome ?? ''}` }] : [];
     }).sort((a, b) => (b.dias ?? 0) - (a.dias ?? 0)),
   });
 
@@ -143,7 +143,7 @@ export function gerarAlertas({ entregas, devolucoes, metas, indicadores, cfg, ho
     descricao: 'Vale conferir o CTE com a transportadora antes de pagar.',
     itens: recentes.filter((e) => num(e.valor_frete) > 0 && num(e.valor_frete_real) > num(e.valor_frete) * (1 + cfg.margem_cotado_pct / 100)).map((e) => {
       const r = num(e.valor_frete_real), c = num(e.valor_frete);
-      return { nf: e.nota_fiscal, cliente: cliente(e), dias: ((r - c) / c) * 100, detalhe: `real ${brl(r)} × cotado ${brl(c)} (+${pct(((r - c) / c) * 100)}) · ${e.transportadoras?.nome ?? ''}` };
+      return { id: e.id, nf: e.nota_fiscal, cliente: cliente(e), dias: ((r - c) / c) * 100, detalhe: `real ${brl(r)} × cotado ${brl(c)} (+${pct(((r - c) / c) * 100)}) · ${e.transportadoras?.nome ?? ''}` };
     }).sort((a, b) => (b.dias ?? 0) - (a.dias ?? 0)),
   });
 
@@ -166,7 +166,7 @@ export function gerarAlertas({ entregas, devolucoes, metas, indicadores, cfg, ho
     itens: ordem(entregas.filter((e) => !temValor(e.valor_frete_real) && e.data_faturamento && !['Devolvido', 'Devolução'].includes(e.status)
       && dias(e.data_faturamento, hoje) > cfg.dias_sem_cte && dias(e.data_faturamento, hoje) <= 180).map((e) => {
       const d = dias(e.data_faturamento!, hoje);
-      return { nf: e.nota_fiscal, cliente: cliente(e), dias: d, detalhe: `faturada em ${ddmm(e.data_faturamento!)} (${d} dias) · ${e.transportadoras?.nome ?? ''}` };
+      return { id: e.id, nf: e.nota_fiscal, cliente: cliente(e), dias: d, detalhe: `faturada em ${ddmm(e.data_faturamento!)} (${d} dias) · ${e.transportadoras?.nome ?? ''}` };
     })),
   });
 

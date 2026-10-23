@@ -6,7 +6,7 @@ import { useFeedback } from '../feedback/context';
 import { useAlertas } from '../hooks/useAlertas';
 import { mensagemErro } from '../lib/db';
 import { FILTROS_VAZIOS } from '../lib/filtrosEntrega';
-import { resumoTexto, type Alerta, type ConfigAlertas, type NivelAlerta } from '../lib/alertas';
+import { resumoTexto, type Alerta, type ConfigAlertas, type ItemAlerta, type NivelAlerta } from '../lib/alertas';
 import { EmptyState, PageHeader } from '../components/ui/basics';
 import { Modal } from '../components/ui/Modal';
 import './alertas.css';
@@ -14,7 +14,8 @@ import './alertas.css';
 const NIVEL: Record<NivelAlerta, [string, string]> = { critico: ['Crítico', 'red'], atencao: ['Atenção', 'amber'], info: ['Informativo', 'blue'] };
 const TELA: Record<string, string> = { '/dashboard': 'Painel de Entregas', '/financeiro': 'Gestão Financeira', '/devolucoes': 'Devoluções', '/ctes': 'Registro de CTE', '/indicadores': 'Indicadores Diários' };
 
-function CartaoAlerta({ a, abrirNf, abrir }: { a: Alerta; abrirNf: (nf: string) => void; abrir: (a: Alerta) => void }) {
+function CartaoAlerta({ a, abrirNf, abrir }: { a: Alerta; abrirNf: (i: ItemAlerta) => void; abrir: (a: Alerta) => void }) {
+  const comIds = a.itens.filter((i) => i.id).length;
   const [todos, setTodos] = useState(false);
   const [rot, tom] = NIVEL[a.nivel];
   const itens = todos ? a.itens : a.itens.slice(0, 6);
@@ -33,7 +34,7 @@ function CartaoAlerta({ a, abrirNf, abrir }: { a: Alerta; abrirNf: (nf: string) 
         {itens.map((i, k) => (
           <li key={`${i.nf}-${k}`}>
             {ehNf && a.id !== 'devolucoes'
-              ? <button className="alerta__nf" onClick={() => abrirNf(i.nf)} title="Abrir esta NF no Painel de Entregas">NF {i.nf}</button>
+              ? <button className="alerta__nf" onClick={() => abrirNf(i)} title="Abrir esta NF no Painel de Entregas">NF {i.nf}</button>
               : <span className="alerta__nf alerta__nf--txt">{a.id === 'devolucoes' ? `NF ${i.nf}` : i.nf}</span>}
             {i.cliente && <span className="alerta__cli">{i.cliente}</span>}
             <span className="alerta__det">{i.detalhe}</span>
@@ -46,7 +47,7 @@ function CartaoAlerta({ a, abrirNf, abrir }: { a: Alerta; abrirNf: (nf: string) 
             {todos ? <><ChevronUp size={14} /> Mostrar menos</> : <><ChevronDown size={14} /> Ver todas ({a.itens.length})</>}
           </button>
         )}
-        <button className="btn btn-sm" onClick={() => abrir(a)}>{a.status?.length ? 'Filtrar no Painel' : `Abrir ${TELA[a.rota] ?? 'tela'}`}</button>
+        <button className="btn btn-sm" onClick={() => abrir(a)}>{comIds ? `Ver ${comIds === 1 ? 'esta NF' : `estas ${comIds} NFs`} no Painel` : `Abrir ${TELA[a.rota] ?? 'tela'}`}</button>
       </div>
     </div>
   );
@@ -132,9 +133,14 @@ export default function Alertas() {
 
   const conta = (n: NivelAlerta) => alertas.filter((a) => a.nivel === n).reduce((s, a) => s + a.itens.length, 0);
   const texto = resumoTexto(alertas);
-  const abrirNf = (nf: string) => { setFiltros({ ...FILTROS_VAZIOS, busca: nf }); navigate('/dashboard'); };
+  // abre o Painel de Entregas mostrando SOMENTE as NFs do alerta (chip removível no topo)
+  const abrirNf = (i: ItemAlerta) => {
+    setFiltros(i.id ? { ...FILTROS_VAZIOS, nfsIds: [i.id], nfsRotulo: `Alerta: NF ${i.nf}` } : { ...FILTROS_VAZIOS, busca: i.nf });
+    navigate('/dashboard');
+  };
   const abrir = (a: Alerta) => {
-    if (a.status?.length) { setFiltros({ ...FILTROS_VAZIOS, status: a.status }); navigate('/dashboard'); }
+    const ids = a.itens.map((i) => i.id).filter((x): x is string => !!x);
+    if (ids.length) { setFiltros({ ...FILTROS_VAZIOS, nfsIds: ids, nfsRotulo: `Alerta: ${a.titulo}` }); navigate('/dashboard'); }
     else navigate(a.rota);
   };
   const copiar = async () => {

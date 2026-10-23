@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import {
   ArrowRightLeft, ChartColumn, Columns3, Copy, Download, FileText, Hash, Package, Pencil, Plus, RotateCw,
-  Rows3, Scale, SlidersHorizontal, Target, Trash2, LayoutDashboard, SearchX, History,
+  Rows3, Scale, SlidersHorizontal, Target, Trash2, LayoutDashboard, SearchX, History, Bell,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { registrarLog, mensagemErro } from '../lib/db';
 import { STATUS_ENTREGA, toneOf } from '../lib/constants';
@@ -45,6 +46,8 @@ export default function Dashboard() {
 
   const filtradas = useMemo(() => filtrarEntregas(entregas, filtros), [entregas, filtros]);
   const chips = filtrosAtivos(filtros, transportadoras);
+  const filtrosSemAlerta = chips.some((c) => c.id !== 'alerta') || !!filtros.busca;
+  const navigate = useNavigate();
 
   // pesos com cara de erro de digitação (ex.: nº da NF no campo peso) ficam fora do total
   const suspeitos = useMemo(() => pesosSuspeitos(entregas), [entregas]);
@@ -236,9 +239,23 @@ export default function Dashboard() {
 
       {mostrarFiltros && <FiltrosPanel filtros={filtros} setFiltros={setFiltros} transportadoras={transportadoras} />}
 
-      {chips.length > 0 && (
+      {filtros.nfsIds.length > 0 && (
+        <div className="callout alerta-filtro no-print">
+          <Bell size={18} style={{ flexShrink: 0 }} />
+          <span>
+            Mostrando <strong>somente {filtros.nfsIds.length === 1 ? 'a NF' : `as ${filtros.nfsIds.length} NFs`}</strong> de <strong>{filtros.nfsRotulo.replace(/^Alerta: /, '')}</strong>.
+            {filtrosSemAlerta && ' Outros filtros também estão ativos.'}
+          </span>
+          <span className="alerta-filtro__acoes">
+            <button className="btn btn-sm" onClick={() => navigate('/alertas')}>Voltar aos alertas</button>
+            <button className="btn btn-sm btn-ghost" onClick={() => setFiltros((f) => ({ ...f, nfsIds: [], nfsRotulo: '' }))}>Mostrar todas</button>
+          </span>
+        </div>
+      )}
+
+      {chips.some((c) => c.id !== 'alerta') && (
         <div className="chips no-print" aria-label="Filtros ativos">
-          {chips.map((c) => (
+          {chips.filter((c) => c.id !== 'alerta').map((c) => (
             <span key={c.id} className="chip chip--removable">
               {c.label}
               <button onClick={() => setFiltros((f) => ({ ...f, ...c.clear }))} aria-label={`Remover filtro ${c.label}`}>×</button>

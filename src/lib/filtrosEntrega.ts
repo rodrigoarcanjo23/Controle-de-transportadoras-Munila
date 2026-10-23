@@ -22,6 +22,10 @@ export interface FiltrosEntrega {
   comFreteCotado: boolean;
   comFreteReal: boolean;
   semDataEntrega: boolean;
+  /** lista fixa de entregas (ex.: vindas de um alerta) */
+  nfsIds: string[];
+  /** nome do filtro acima, exibido no chip */
+  nfsRotulo: string;
 }
 
 export const FILTROS_VAZIOS: FiltrosEntrega = {
@@ -29,6 +33,7 @@ export const FILTROS_VAZIOS: FiltrosEntrega = {
   regiao: '', uf: '', valorNfMin: '', valorNfMax: '', percFreteMin: '', percFreteMax: '',
   freteVazio: false, freteConfirmado: false, comAgendamento: false, semAgendamento: false,
   comFreteCotado: false, comFreteReal: false, semDataEntrega: false,
+  nfsIds: [], nfsRotulo: '',
 };
 
 export const FLAGS: { key: keyof FiltrosEntrega; label: string }[] = [
@@ -51,9 +56,11 @@ export function filtrarEntregas(entregas: Entrega[], f: FiltrosEntrega): Entrega
   const pMin = f.percFreteMin ? Number(f.percFreteMin) : null;
   const pMax = f.percFreteMax ? Number(f.percFreteMax) : null;
   const ufsRegiao = f.regiao ? REGIOES[f.regiao] ?? [] : null;
+  const soIds = f.nfsIds?.length ? new Set(f.nfsIds) : null;
 
   return entregas
     .filter((e) => {
+      if (soIds && !soIds.has(e.id)) return false;
       if (f.busca && !matchesSearch(f.busca, e.nota_fiscal, e.clientes?.nome, e.transportadoras?.nome, e.status, cidadeDestino(e))) return false;
       if (f.dataInicio && (e.data_faturamento ?? '') < f.dataInicio) return false;
       if (f.dataFim && (e.data_faturamento ?? '') > f.dataFim) return false;
@@ -88,6 +95,7 @@ export function filtrarEntregas(entregas: Entrega[], f: FiltrosEntrega): Entrega
 /** Lista de "chips" com os filtros ativos — cada um sabe se remover. */
 export function filtrosAtivos(f: FiltrosEntrega, transportadoras: Transportadora[]) {
   const chips: { id: string; label: string; clear: Partial<FiltrosEntrega> }[] = [];
+  if (f.nfsIds?.length) chips.push({ id: 'alerta', label: `${f.nfsRotulo || 'Seleção'} · ${f.nfsIds.length} NF${f.nfsIds.length > 1 ? 's' : ''}`, clear: { nfsIds: [], nfsRotulo: '' } });
   if (f.dataInicio || f.dataFim) {
     chips.push({
       id: 'periodo',

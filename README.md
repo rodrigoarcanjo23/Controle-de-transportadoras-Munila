@@ -4,7 +4,7 @@ O **MunilaLog** é uma plataforma web moderna desenvolvida para revolucionar e a
 
 ## ✨ Principais Funcionalidades
 
-- **📊 Dashboard Inteligente e Dinâmico:** Painel de controle com métricas em tempo real (Faturamento, Custo Logístico, % Frete Médio, Volume Total, etc.) e filtros avançados de múltipla escolha (cruze dados por status, transportadora, datas, modais e regras de agendamento).
+- **📊 Dashboard Inteligente e Dinâmico:** Painel de controle com métricas em tempo real (Faturamento, Custo Logístico, % Frete Médio, Volume Total, etc.) e filtros avançados de múltipla escolha (cruze dados por status, transportadora, datas, modais e regras de agendmento).
 - **📦 Gestão Completa de Entregas:** Controle de ponta a ponta das notas fiscais, incluindo valores de frete, cubagem e mudança automatizada de status (com inteligência de preenchimento de datas e gatilhos visuais para "frete conferido" e "com agendamento").
 - **🧾 Módulo Avançado de CTEs:**
   - **Leitura Automática de XML:** Importação de arquivos `.xml` com extração instantânea e preenchimento de todos os dados cruciais (Emissor, CNPJ, CFOP, Datas, Valor, etc.).

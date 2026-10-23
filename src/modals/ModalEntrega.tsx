@@ -39,6 +39,35 @@ function paraForm(e: Partial<Entrega>): Form {
 
 type NfStatus = 'idle' | 'checking' | 'available' | 'duplicate';
 
+/** Texto curto com o que mudou na edição (vai para a auditoria / histórico da NF). */
+const ROTULOS: [keyof Entrega, string, 'data' | 'valor' | 'texto'][] = [
+  ['status', 'status', 'texto'], ['nota_fiscal', 'NF', 'texto'], ['cliente_id', 'cliente', 'texto'], ['transportadora_id', 'transportadora', 'texto'],
+  ['data_entrada_pedido', 'entrada do pedido', 'data'], ['data_faturamento', 'faturamento', 'data'], ['data_coleta', 'coleta', 'data'],
+  ['data_previsao', 'previsão', 'data'], ['data_entrega_agendamento', 'entrega/agendamento', 'data'],
+  ['valor_nf', 'valor da NF', 'valor'], ['valor_frete', 'frete cotado', 'valor'], ['valor_frete_real', 'frete real', 'valor'],
+  ['volume', 'volumes', 'texto'], ['peso_kg', 'peso (kg)', 'texto'], ['cidade_destino', 'cidade', 'texto'], ['uf_destino', 'UF', 'texto'],
+  ['modal_frete', 'modal', 'texto'], ['frete_confirmado', 'frete confirmado', 'texto'], ['tem_agendamento', 'agendamento', 'texto'], ['observacoes', 'observações', 'texto'],
+];
+function mudancas(antes: Entrega, depois: Record<string, unknown>, clientes: { id: string; nome: string }[], transps: { id: string; nome: string }[]): string {
+  const fmt = (k: keyof Entrega, v: unknown, tipo: string) => {
+    if (v === null || v === undefined || v === '') return '—';
+    if (k === 'cliente_id') return clientes.find((c) => c.id === v)?.nome ?? String(v);
+    if (k === 'transportadora_id') return transps.find((t) => t.id === v)?.nome ?? String(v);
+    if (typeof v === 'boolean') return v ? 'sim' : 'não';
+    if (tipo === 'data') return String(v).split('-').reverse().join('/');
+    if (tipo === 'valor') return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    return String(v);
+  };
+  const igual = (a: unknown, b: unknown) => (a ?? '') === (b ?? '') || (a !== null && b !== null && a !== '' && b !== '' && !isNaN(Number(a)) && Number(a) === Number(b));
+  const out: string[] = [];
+  for (const [k, l, tipo] of ROTULOS) {
+    const a = antes[k]; const b = depois[k as string];
+    if (!(k in depois) || igual(a, b)) continue;
+    out.push(k === 'observacoes' ? 'observações alteradas' : `${l}: ${fmt(k, a, tipo)} → ${fmt(k, b, tipo)}`);
+  }
+  return out.slice(0, 10).join('; ') + (out.length > 10 ? `; e mais ${out.length - 10}` : '');
+}
+
 /**
  * Cadastro/edição de entrega. `entrega` = edição; `modelo` = nova entrega
  * pré-preenchida (função "Duplicar").
@@ -106,7 +135,8 @@ export function ModalEntrega({ entrega, modelo, onClose }: { entrega?: Entrega; 
         const { data, error } = await supabase.from('entregas').update(payload).eq('id', entrega.id).select(SELECT_ENTREGA);
         if (error) throw error;
         if (data?.[0]) setEntregas((list) => list.map((x) => (x.id === entrega.id ? (data[0] as Entrega) : x)));
-        await registrarLog('EDITOU', 'ENTREGAS', `Editou os dados da Entrega (NF: ${nf})`);
+        const mud = mudancas(entrega, payload, clientes, transportadoras);
+        await registrarLog('EDITOU', 'ENTREGAS', `Editou os dados da Entrega (NF: ${nf})${mud ? ` — ${mud}` : ''}`);
         toast({ kind: 'success', title: `Entrega NF ${nf} atualizada` });
       } else {
         const { data, error } = await supabase.from('entregas').insert([payload]).select(SELECT_ENTREGA);

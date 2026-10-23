@@ -23,6 +23,7 @@ const Devolucoes = lazy(() => import('./pages/Devolucoes'));
 const Ctes = lazy(() => import('./pages/Ctes'));
 const Auditoria = lazy(() => import('./pages/Auditoria'));
 const Indicadores = lazy(() => import('./pages/indicadores/Indicadores'));
+const Alertas = lazy(() => import('./pages/Alertas'));
 
 /** Rotas exclusivas de administrador (aguarda os perfis antes de decidir). */
 function AdminOnly({ children }: { children: ReactNode }) {
@@ -42,6 +43,7 @@ function Rotas() {
         <Route path="logistica" element={<Logistica />} />
         <Route path="calculadora" element={<Calculadora />} />
         <Route path="indicadores/:pagina?" element={<Indicadores />} />
+        <Route path="alertas" element={<Alertas />} />
         <Route path="equipe" element={<AdminOnly><Equipe /></AdminOnly>} />
         <Route path="clientes" element={<AdminOnly><Clientes /></AdminOnly>} />
         <Route path="transportadoras" element={<AdminOnly><Transportadoras /></AdminOnly>} />

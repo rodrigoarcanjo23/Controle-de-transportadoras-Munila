@@ -9,10 +9,12 @@ import { iniciais } from '../../lib/format';
 import { useFeedback } from '../../feedback/context';
 import { NAV, tituloDaRota } from './nav';
 import { PageLoader } from './PageLoader';
+import { useAlertas } from '../../hooks/useAlertas';
 
 export function AppLayout() {
   const { isAdmin, perfil, email, logout } = useAppData();
   const { confirm } = useFeedback();
+  const { criticos } = useAlertas();
   const { theme, toggle } = useTheme();
   const location = useLocation();
   const isTablet = useMediaQuery('(max-width: 1023px)');
@@ -58,6 +60,7 @@ export function AppLayout() {
                   <NavLink key={to} to={to} className="nav-link" title={collapsed ? label : undefined} onClick={() => setDrawerOpen(false)}>
                     <Icon size={19} />
                     <span className="nav-link__label">{label}</span>
+                    {to === '/alertas' && criticos > 0 && <span className="nav-badge" title={`${criticos} alerta(s) crítico(s)`}>{criticos > 99 ? '99+' : criticos}</span>}
                   </NavLink>
                 ))}
               </div>

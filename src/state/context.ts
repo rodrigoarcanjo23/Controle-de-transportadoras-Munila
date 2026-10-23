@@ -20,6 +20,8 @@ export interface AppData {
 
   loading: boolean;
   atualizadoEm: Date | null;
+  /** conectado ao tempo real (mudanças de outros usuários chegam sozinhas) */
+  aoVivo: boolean;
 
   recarregarTudo: () => Promise<void>;
   recarregarEntregas: () => Promise<void>;

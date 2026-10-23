@@ -93,6 +93,8 @@ export const MODULOS_LOG = [
   { value: 'DEVOLUCOES', label: 'Devoluções' },
   { value: 'CTES', label: 'Registro de CTE' },
   { value: 'INDICADORES', label: 'Indicadores Diários' },
+  { value: 'ALERTAS', label: 'Alertas' },
+  { value: 'FECHAMENTO', label: 'Fechamento mensal' },
 ];
 
 /** SLA (dias desde o faturamento) usado na Visão Logística. */

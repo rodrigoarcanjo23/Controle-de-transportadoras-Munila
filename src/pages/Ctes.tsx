@@ -66,7 +66,7 @@ export default function Ctes() {
   const nfsIdentificadas = extrairNFs(form.chave_acesso.join(','));
 
   /** Grava o frete real nas entregas (em lotes paralelos) e atualiza a tela. */
-  async function gravarFretes(lista: { id: string; valor: number }[], progresso?: (n: number) => void) {
+  async function gravarFretes(lista: { id: string; valor: number }[], progresso?: (n: number) => void, origem?: string) {
     let ok = 0;
     const gravadas = new Map<string, number>();
     for (let i = 0; i < lista.length; i += 8) {
@@ -78,6 +78,12 @@ export default function Ctes() {
     }
     if (gravadas.size) {
       setEntregas((l) => l.map((e) => (gravadas.has(e.id) ? { ...e, valor_frete_real: gravadas.get(e.id)!, frete_confirmado: true } : e)));
+      // registra NF por NF (em blocos) para aparecer no histórico de cada entrega
+      const nfDe = new Map(entregas.map((e) => [e.id, e.nota_fiscal]));
+      const linhas = [...gravadas].map(([id, v]) => `NF ${nfDe.get(id) ?? id} = ${formatMoney(v)}`);
+      for (let i = 0; i < linhas.length; i += 30) {
+        await registrarLog('EDITOU', 'ENTREGAS', `Frete real aplicado pelo CTE${origem ? ` ${origem}` : ''}: ${linhas.slice(i, i + 30).join('; ')}`);
+      }
     }
     return ok;
   }
@@ -88,7 +94,7 @@ export default function Ctes() {
     const r = c.porCte.get(cte.id);
     if (!r || !r.nfs.length) return;
     const pend = atualizacoesPendentes(c, entregas, new Set(r.entregas));
-    const ok = await gravarFretes(pend);
+    const ok = await gravarFretes(pend, undefined, `Nº ${cte.numero_documento}`);
     const nfsAtualizadas = entregas.filter((e) => r.entregas.includes(e.id)).map((e) => e.nota_fiscal);
     if (r.encontradas.length && !r.faltando.length) {
       toast({ kind: 'success', title: 'Integração concluída', duration: 9000,
@@ -117,7 +123,7 @@ export default function Ctes() {
     if (!ok) return;
     setSync({ atual: 0, total: pend.length });
     try {
-      const total = await gravarFretes(pend, (n) => setSync({ atual: n, total: pend.length }));
+      const total = await gravarFretes(pend, (n) => setSync({ atual: n, total: pend.length }), '(sincronização)');
       toast({ kind: total === pend.length ? 'success' : 'warning', title: 'Sincronização concluída', duration: 10000,
         text: `${total} entrega(s) atualizadas no Painel${total < pend.length ? ` (${pend.length - total} falharam)` : ''}.${naoEncontrados ? `\n${naoEncontrados} CTE(s) têm NFs que não estão no Painel — use o filtro “NF não encontrada”.` : ''}` });
       await registrarLog('EDITOU', 'CTES', `Executou a sincronização retroativa de CTEs (${total} entregas atualizadas no Painel Principal)`);

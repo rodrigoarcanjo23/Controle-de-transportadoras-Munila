@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import {
   ArrowRightLeft, ChartColumn, Columns3, Copy, Download, FileText, Hash, Package, Pencil, Plus, RotateCw,
-  Rows3, Scale, SlidersHorizontal, Target, Trash2, LayoutDashboard, SearchX,
+  Rows3, Scale, SlidersHorizontal, Target, Trash2, LayoutDashboard, SearchX, History,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { registrarLog, mensagemErro } from '../lib/db';
@@ -21,18 +21,20 @@ import { Badge, EmptyState, KpiCard, PageHeader, SearchInput, StatusBadge } from
 import { DataTable, type Column } from '../components/ui/DataTable';
 import { Dropdown } from '../components/ui/Dropdown';
 import { ModalEntrega } from '../modals/ModalEntrega';
+import { ModalHistorico } from '../modals/ModalHistorico';
 import { FiltrosPanel } from './dashboard/FiltrosPanel';
 import type { Entrega } from '../types';
 
 const OCULTAS_PADRAO: string[] = [];
 
 export default function Dashboard() {
-  const { entregas, transportadoras, loading, isAdmin, filtros, setFiltros, setEntregas, recarregarEntregas, atualizadoEm } = useAppData();
+  const { entregas, transportadoras, loading, isAdmin, filtros, setFiltros, setEntregas, recarregarEntregas, atualizadoEm, aoVivo } = useAppData();
   const { toast, confirm } = useFeedback();
   const buscaRef = useRef<HTMLInputElement>(null);
 
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [modal, setModal] = useState<{ entrega?: Entrega; modelo?: Partial<Entrega> } | null>(null);
+  const [historico, setHistorico] = useState<Entrega | null>(null);
   const [ocultas, setOcultas] = useState<string[]>(() => loadPrefRaw('colunasOcultas', OCULTAS_PADRAO));
   const [compacto, setCompacto] = useState<boolean>(() => loadPrefRaw('tabelaCompacta', false));
   const [verKpis, setVerKpis] = useState<boolean>(() => loadPrefRaw('verIndicadores', true));
@@ -183,7 +185,10 @@ export default function Dashboard() {
       <PageHeader
         icon={<LayoutDashboard size={22} />}
         title="Acompanhamento Logístico"
-        subtitle={atualizadoEm ? `Gerenciamento de entregas · atualizado às ${atualizadoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'Gerenciamento de entregas'}
+        subtitle={<>
+          {atualizadoEm ? `Gerenciamento de entregas · atualizado às ${atualizadoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : 'Gerenciamento de entregas'}
+          {aoVivo && <span className="ao-vivo" title="As alterações feitas por outras pessoas aparecem aqui automaticamente">ao vivo</span>}
+        </>}
         actions={
           <>
             <button className="btn" onClick={atualizar} disabled={atualizando} title="Recarregar entregas">
@@ -284,17 +289,23 @@ export default function Dashboard() {
               text={chips.length || filtros.busca ? 'Tente remover alguns filtros ou ajustar a busca.' : 'Cadastre a primeira entrega para começar.'}
               action={(chips.length > 0 || filtros.busca) ? <button className="btn" onClick={() => setFiltros(FILTROS_VAZIOS)}>Limpar busca e filtros</button> : undefined} />
           }
-          actions={isAdmin ? (e) => (
+          actions={(e) => (
             <>
-              <button className="icon-btn icon-btn--sm" onClick={() => setModal({ entrega: e })} title="Editar (ou duplo clique na linha)"><Pencil size={16} /></button>
-              <button className="icon-btn icon-btn--sm" onClick={() => duplicar(e)} title="Duplicar para nova NF"><Copy size={16} /></button>
-              <button className="icon-btn icon-btn--sm icon-btn--danger" onClick={() => excluir(e)} title="Excluir"><Trash2 size={16} /></button>
+              <button className="icon-btn icon-btn--sm" onClick={() => setHistorico(e)} title="Histórico da NF"><History size={16} /></button>
+              {isAdmin && (
+                <>
+                  <button className="icon-btn icon-btn--sm" onClick={() => setModal({ entrega: e })} title="Editar (ou duplo clique na linha)"><Pencil size={16} /></button>
+                  <button className="icon-btn icon-btn--sm" onClick={() => duplicar(e)} title="Duplicar para nova NF"><Copy size={16} /></button>
+                  <button className="icon-btn icon-btn--sm icon-btn--danger" onClick={() => excluir(e)} title="Excluir"><Trash2 size={16} /></button>
+                </>
+              )}
             </>
-          ) : undefined}
+          )}
         />
       </div>
 
       {modal && <ModalEntrega entrega={modal.entrega} modelo={modal.modelo} onClose={() => setModal(null)} />}
+      {historico && <ModalHistorico entrega={historico} onClose={() => setHistorico(null)} />}
     </div>
   );
 }

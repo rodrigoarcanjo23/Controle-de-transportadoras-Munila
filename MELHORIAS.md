@@ -185,3 +185,31 @@ Arquivos novos: `src/pages/bi/SecoesEtapa2.tsx`, `src/pages/bi/mapaBrasil.ts`; c
 - Os "Destaques do período" passam a citar o armazém (pedidos coletados no prazo, divergência no recebimento) e as devoluções (quantidade, % do faturamento e principal motivo).
 
 Arquivos novos: `src/pages/bi/SecoesEtapa3.tsx`, `src/pages/bi/armazem.ts`; cálculos em `src/lib/bi.ts` (`calcularDevolucoes`, `checarQualidade`).
+
+---
+
+## 12. Segurança, alertas, histórico, tempo real e fechamento mensal (out/2026)
+
+### Passo obrigatório no Supabase (uma vez)
+**SQL Editor › New query** → cole **`supabase/seguranca_e_novidades.sql`** → **Run**. Ele:
+- liga a segurança (RLS) em todas as tabelas: **sem login ninguém lê nem grava**; Operador consulta e lança Indicadores Diários; criar/editar/excluir entregas, CTEs, devoluções, clientes, metas, transportadoras, produtos e equipe só Administrador (as mesmas regras das telas). Auditoria: cada um registra só no próprio nome; ninguém edita/apaga. As políticas antigas ficam guardadas em `_backup_policies`;
+- cria a tabela `fechamentos_mensais` e a configuração dos alertas;
+- liga o tempo real nas tabelas `entregas` e `devolucoes`.
+
+Se algo parar de funcionar: rode `supabase/reverter_seguranca.sql` (volta ao acesso livre para usuários logados).
+
+> Importante: o e-mail de login de cada pessoa precisa estar cadastrado em **Equipe** com o nível certo. Quem não estiver na Equipe só consegue consultar.
+
+### Alertas (menu Operação › Alertas)
+- Central com o que precisa de ação hoje: previsão vencida, status Atrasado/Problema, previsão para hoje, faturada sem coleta, frete acima da meta, real acima do cotado, devoluções paradas, NFs sem CTE e Indicadores Diários de ontem não lançados. Contador vermelho no menu.
+- **Copiar resumo** e **Enviar no WhatsApp** (abre o WhatsApp com o texto pronto).
+- **E-mail diário** (seg–sáb, 8h): função `api/alertas-diarios.ts` agendada em `vercel.json`. Para ligar: Alertas › Configurar (destinatários e prazos) e, na Vercel, as variáveis `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` e (recomendado) `CRON_SECRET`. Para enviar a outros e-mails além do dono da conta Resend, verifique o domínio no Resend e crie `ALERTAS_REMETENTE`.
+
+### Histórico por NF
+Ícone de relógio em cada linha do Painel de Entregas (para todos os usuários): datas da operação (pedido → entrega) e a linha do tempo da auditoria — quem criou, mudou status, editou (agora com **o que mudou**: "status: Pendente → Entregue; frete real: … → …") e qual CTE aplicou o frete.
+
+### Tempo real
+O Painel de Entregas, o BI e os alertas se atualizam sozinhos quando outra pessoa altera uma entrega ou devolução (indicador "ao vivo" no topo do Painel).
+
+### Fechamento mensal (Painel de BI › Período: Mês)
+Administrador clica **Fechar o mês** depois da reunião: os números do BI ficam congelados. Ao abrir um mês fechado, o BI mostra a foto do fechamento e avisa o que mudou desde então ("+2 NFs · % de frete 5,82% → 5,90%"), com botão para ver os números atuais e opção de **Reabrir**.

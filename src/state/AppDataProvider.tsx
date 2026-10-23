@@ -97,6 +97,48 @@ export function AppDataProvider({ session, children }: { session: Session; child
   // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => { carregar(); }, [session.user.id]);
 
+  // Tempo real: quando outra pessoa cria/altera/exclui uma entrega ou devolução,
+  // a mudança chega aqui e a tela se atualiza sozinha (sem F5).
+  // Várias mudanças seguidas (ex.: sincronização de CTEs) viram uma única busca.
+  const [aoVivo, setAoVivo] = useState(false);
+  useEffect(() => {
+    const fila = { entregas: new Set<string>(), devolucoes: new Set<string>() };
+    const apagar = { entregas: new Set<string>(), devolucoes: new Set<string>() };
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const mesclar = <T extends { id: string }>(lista: T[], novos: T[], fora: Set<string>) => {
+      const porId = new Map(novos.map((n) => [n.id, n]));
+      const out = lista.filter((x) => !fora.has(x.id)).map((x) => porId.get(x.id) ?? x);
+      const existentes = new Set(lista.map((x) => x.id));
+      return [...novos.filter((n) => !existentes.has(n.id)), ...out];
+    };
+    const descarregar = async () => {
+      const idsE = [...fila.entregas]; const idsD = [...fila.devolucoes];
+      const foraE = new Set(apagar.entregas); const foraD = new Set(apagar.devolucoes);
+      fila.entregas.clear(); fila.devolucoes.clear(); apagar.entregas.clear(); apagar.devolucoes.clear();
+      try {
+        const [e, d] = await Promise.all([
+          idsE.length ? supabase.from('entregas').select(SELECT_ENTREGA).in('id', idsE) : Promise.resolve({ data: [] as Entrega[], error: null }),
+          idsD.length ? supabase.from('devolucoes').select(SELECT_DEVOLUCAO).in('id', idsD) : Promise.resolve({ data: [] as Devolucao[], error: null }),
+        ]);
+        if (idsE.length || foraE.size) setEntregas((l) => mesclar(l, (e.data ?? []) as Entrega[], foraE));
+        if (idsD.length || foraD.size) setDevolucoes((l) => mesclar(l, (d.data ?? []) as Devolucao[], foraD));
+        setAtualizadoEm(new Date());
+      } catch (err) { console.error('Tempo real:', err); }
+    };
+    const receber = (tabela: 'entregas' | 'devolucoes') => (p: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
+      if (p.eventType === 'DELETE') { const id = p.old?.id; if (id) apagar[tabela].add(String(id)); }
+      else { const id = p.new?.id; if (id) fila[tabela].add(String(id)); }
+      clearTimeout(timer);
+      timer = setTimeout(descarregar, 600);
+    };
+    const canal = supabase.channel('munilalog-dados')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'entregas' }, receber('entregas'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'devolucoes' }, receber('devolucoes'))
+      .subscribe((status) => setAoVivo(status === 'SUBSCRIBED'));
+    return () => { clearTimeout(timer); supabase.removeChannel(canal); };
+  }, [session.user.id]);
+
   const perfil = perfis.find((p) => p.email?.toLowerCase() === email.toLowerCase());
   // Regra original preservada: sem nenhum perfil cadastrado, o primeiro acesso é administrador.
   const isAdmin = perfisCarregados && (perfis.length === 0 || perfil?.nivel_acesso === 'Administrador');
@@ -106,12 +148,12 @@ export function AppDataProvider({ session, children }: { session: Session; child
   const value = useMemo<AppData>(() => ({
     session, email, perfil, isAdmin, perfisCarregados,
     entregas, devolucoes, clientes, transportadoras, metas, produtos, perfis,
-    loading, atualizadoEm,
+    loading, atualizadoEm, aoVivo,
     recarregarTudo, recarregarEntregas, recarregarDevolucoes, recarregarCadastros,
     setEntregas, setClientes, setMetas, setPerfis,
     filtros, setFiltros, logout,
   }), [session, email, perfil, isAdmin, perfisCarregados, entregas, devolucoes, clientes, transportadoras, metas, produtos, perfis,
-    loading, atualizadoEm, recarregarTudo, recarregarEntregas, recarregarDevolucoes, recarregarCadastros, filtros, setFiltros, logout]);
+    loading, atualizadoEm, aoVivo, recarregarTudo, recarregarEntregas, recarregarDevolucoes, recarregarCadastros, filtros, setFiltros, logout]);
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
 }

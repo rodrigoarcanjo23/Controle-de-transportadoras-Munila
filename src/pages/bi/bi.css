@@ -344,3 +344,12 @@
   .bi-qual__row { grid-template-columns: auto minmax(0, 1fr) auto; }
   .bi-qual__acoes { grid-column: 2 / -1; flex-direction: row; }
 }
+
+/* Fechamento mensal */
+.fech { display: flex; align-items: center; gap: 14px; padding: 12px 16px; flex-wrap: wrap; }
+.fech > svg { color: var(--muted); flex-shrink: 0; }
+.fech--on { background: var(--indigo-bg); border-color: transparent; }
+.fech--on > svg { color: var(--indigo); }
+.fech__txt { flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 2px; font-size: 0.86rem; }
+.fech__txt span { color: var(--text-2); }
+.fech__acoes { display: flex; gap: 6px; flex-wrap: wrap; }

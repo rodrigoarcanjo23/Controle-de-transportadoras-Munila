@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, ChartPie, Download, MapPin, Presentation } from 'lucide-react';
+import { Calendar, ChartPie, Download, Lock, LockOpen, MapPin, Presentation } from 'lucide-react';
 import { useAppData } from '../state/context';
 import { useFeedback } from '../feedback/context';
 import { useChartTheme } from '../hooks/useChartTheme';
@@ -14,15 +14,17 @@ import { PageLoader } from '../components/layout/PageLoader';
 import type { DadosBI } from './bi/Secoes';
 import { SECOES, secoesApresentaveis } from './bi/listaSecoes';
 import { resumirArmazem } from './bi/armazem';
+import { useFechamentos } from './bi/useFechamentos';
 import { useIndicadores } from './indicadores/useIndicadores';
-import { formatPercent, percentual } from '../lib/format';
+import { formatDateTimeBR, formatMoney, formatPercent, percentual } from '../lib/format';
 import { Apresentacao } from './bi/Apresentacao';
 import './bi/bi.css';
 
 export default function Analise() {
-  const { entregas, devolucoes, metas: metasCad, loading, setFiltros } = useAppData();
+  const { entregas, devolucoes, metas: metasCad, loading, setFiltros, isAdmin, email, perfis } = useAppData();
   const ind = useIndicadores();
-  const { toast } = useFeedback();
+  const { toast, confirm } = useFeedback();
+  const fech = useFechamentos();
   const navigate = useNavigate();
   const c = useChartTheme();
   const painelRef = useRef<HTMLDivElement>(null);
@@ -45,7 +47,7 @@ export default function Analise() {
     [periodo, mes, meses, dataInicio, dataFim]);
   const suspeitos = useMemo(() => pesosSuspeitos(entregas), [entregas]);
 
-  const dados = useMemo<DadosBI | null>(() => {
+  const dadosVivos = useMemo<DadosBI | null>(() => {
     const atual = filtrarBI(entregas, per.atual, regiao);
     if (!atual.length) return null;
     const ant = per.anterior ? filtrarBI(entregas, per.anterior, regiao) : [];
@@ -100,6 +102,55 @@ export default function Analise() {
       armazem, dev, devAnt, qualidade: checarQualidade(atual, suspeitos),
     };
   }, [entregas, per, regiao, suspeitos, metasCad, devolucoes, ind.estado, ind.dias]);
+
+  // ---- Fechamento mensal: mês fechado mostra os números congelados ----
+  const mesSel = periodo === 'mes' ? (mes || meses[0] || '') : '';
+  const fechamento = fech.lista.find((f) => f.mes === mesSel);
+  const fechados = useMemo(() => new Set(fech.lista.map((f) => f.mes)), [fech.lista]);
+  const [verAtual, setVerAtual] = useState(false);
+  const [mesAnterior, setMesAnterior] = useState(mesSel);
+  if (mesSel !== mesAnterior) { setMesAnterior(mesSel); setVerAtual(false); }
+  const [congelado, setCongelado] = useState<{ mes: string; dados: DadosBI } | null>(null);
+  const abrirFechamento = fech.abrir;
+  useEffect(() => {
+    if (!fechamento || congelado?.mes === fechamento.mes) return;
+    let vivo = true;
+    abrirFechamento(fechamento.mes).then((d) => { if (vivo && d) setCongelado({ mes: fechamento.mes, dados: d }); });
+    return () => { vivo = false; };
+  }, [fechamento, congelado?.mes, abrirFechamento]);
+  const mostrandoFechamento = !!fechamento && !verAtual && congelado?.mes === mesSel;
+  const dados = mostrandoFechamento ? congelado!.dados : dadosVivos;
+  const mesAtual = new Date().toISOString().slice(0, 7);
+
+  async function fecharMes() {
+    if (!dadosVivos || !mesSel) return;
+    const ok = await confirm({
+      title: `Fechar ${fmtMes(mesSel)}?`,
+      text: `Os números do BI deste mês (${dadosVivos.m.notas} NFs, ${formatMoney(dadosVivos.m.faturamento)}) ficam congelados como foram apresentados. Correções futuras em NFs deste mês não mudam o fechamento — o painel mostra a diferença.\n\nUm administrador pode reabrir o mês depois.`,
+      confirmLabel: 'Fechar o mês',
+    });
+    if (!ok) return;
+    try { await fech.fechar(mesSel, dadosVivos, email); setCongelado({ mes: mesSel, dados: dadosVivos }); toast({ kind: 'success', title: `${fmtMes(mesSel)} fechado` }); }
+    catch (err) { toast({ kind: 'error', title: 'Não foi possível fechar o mês', text: err instanceof Error ? err.message : String(err) }); }
+  }
+  async function reabrirMes() {
+    if (!mesSel) return;
+    const ok = await confirm({ title: `Reabrir ${fmtMes(mesSel)}?`, text: 'O fechamento é excluído e o BI volta a mostrar os números atuais deste mês. Você pode fechar de novo depois.', confirmLabel: 'Reabrir', danger: true });
+    if (!ok) return;
+    try { await fech.reabrir(mesSel); setCongelado(null); toast({ kind: 'success', title: `${fmtMes(mesSel)} reaberto` }); }
+    catch (err) { toast({ kind: 'error', title: 'Não foi possível reabrir', text: err instanceof Error ? err.message : String(err) }); }
+  }
+  const diferencas = useMemo(() => {
+    if (!mostrandoFechamento || !dadosVivos || !congelado) return [];
+    const a = congelado.dados.m; const b = dadosVivos.m; const out: string[] = [];
+    if (b.notas !== a.notas) out.push(`${b.notas - a.notas > 0 ? '+' : ''}${b.notas - a.notas} NF(s)`);
+    if (Math.abs(b.faturamento - a.faturamento) >= 0.01) out.push(`faturamento ${b.faturamento > a.faturamento ? '+' : '−'}${formatMoney(Math.abs(b.faturamento - a.faturamento))}`);
+    if (Math.abs(b.pctFrete - a.pctFrete) >= 0.005) out.push(`% de frete ${formatPercent(a.pctFrete)} → ${formatPercent(b.pctFrete)}`);
+    if (b.conferidas !== a.conferidas) out.push(`${b.conferidas - a.conferidas > 0 ? '+' : ''}${b.conferidas - a.conferidas} NF(s) com CTE`);
+    return out;
+  }, [mostrandoFechamento, dadosVivos, congelado]);
+  const nomeDe = (e?: string | null) => perfis.find((p) => p.email?.toLowerCase() === e?.toLowerCase())?.nome ?? e ?? '—';
+
   const apresentaveis = useMemo(() => (dados ? secoesApresentaveis(dados) : []), [dados]);
 
   const abrirNoPainel = useCallback((status: string[]) => {
@@ -180,7 +231,7 @@ export default function Analise() {
           <div className="field">
             <label>Mês</label>
             <select className="select" value={mes || meses[0] || ''} onChange={(e) => setMes(e.target.value)}>
-              {meses.map((m) => <option key={m} value={m}>{fmtMes(m)}</option>)}
+              {meses.map((m) => <option key={m} value={m}>{fmtMes(m)}{fechados.has(m) ? ' · fechado' : ''}</option>)}
             </select>
           </div>
         )}
@@ -202,6 +253,31 @@ export default function Analise() {
           <span>{dados?.ma ? `Comparando com ${per.rotuloAnterior}` : per.anterior ? `Sem dados em ${per.rotuloAnterior} para comparar` : 'Escolha um período para ver a comparação ↑ ↓'}</span>
         </div>
       </div>
+
+      {periodo === 'mes' && mesSel && fech.disponivel && (fechamento ? (
+        <div className={`card fech ${mostrandoFechamento ? 'fech--on' : ''}`}>
+          <Lock size={18} />
+          <div className="fech__txt">
+            <strong>{fmtMes(mesSel)} fechado em {formatDateTimeBR(fechamento.created_at)} por {nomeDe(fechamento.fechado_por)}.</strong>
+            <span>{mostrandoFechamento
+              ? (diferencas.length ? <>Exibindo os números congelados. Desde o fechamento mudou: {diferencas.join(' · ')}.</> : 'Exibindo os números congelados — nada mudou desde o fechamento.')
+              : 'Exibindo os números ATUAIS (com as correções feitas depois do fechamento).'}</span>
+          </div>
+          <div className="fech__acoes">
+            <button className="btn btn-sm" onClick={() => setVerAtual((v) => !v)}>{mostrandoFechamento || !verAtual ? 'Ver números atuais' : 'Ver fechamento'}</button>
+            {isAdmin && <button className="btn btn-ghost btn-sm" onClick={reabrirMes}><LockOpen size={14} /> Reabrir</button>}
+          </div>
+        </div>
+      ) : mesSel < mesAtual && isAdmin && dadosVivos ? (
+        <div className="card fech">
+          <LockOpen size={18} />
+          <div className="fech__txt">
+            <strong>{fmtMes(mesSel)} ainda está aberto.</strong>
+            <span>Feche o mês depois da reunião para congelar os números apresentados.</span>
+          </div>
+          <div className="fech__acoes"><button className="btn btn-primary btn-sm" onClick={fecharMes}><Lock size={14} /> Fechar o mês</button></div>
+        </div>
+      ) : null)}
 
       {!dados || !ctxBase ? (
         <div className="card"><EmptyState title="Sem dados para este filtro" text="Nenhuma NF faturada no período/região selecionados." /></div>

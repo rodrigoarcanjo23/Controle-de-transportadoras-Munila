@@ -121,7 +121,7 @@ export interface Cte {
 }
 
 export type AcaoLog = 'CRIOU' | 'EDITOU' | 'APAGOU';
-export type ModuloLog = 'ENTREGAS' | 'CLIENTES' | 'EQUIPE' | 'TRANSPORTADORAS' | 'DEVOLUCOES' | 'CTES';
+export type ModuloLog = 'ENTREGAS' | 'CLIENTES' | 'EQUIPE' | 'TRANSPORTADORAS' | 'DEVOLUCOES' | 'CTES' | 'INDICADORES';
 
 export interface LogAuditoria {
   id: ID;

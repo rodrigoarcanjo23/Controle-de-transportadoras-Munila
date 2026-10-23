@@ -20,8 +20,15 @@ export function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Tablet: menu compacto por padrão; o usuário pode fixar a preferência.
-  const collapsed = collapsedPref ?? isTablet;
-  const toggleCollapsed = () => { savePref('menuRecolhido', !collapsed); setCollapsedPref(!collapsed); };
+  // Indicadores Diários tem navegação própria: o menu principal recolhe sozinho lá
+  // (o usuário ainda pode expandir enquanto estiver na tela).
+  const telaLarga = location.pathname.startsWith('/indicadores');
+  const [expandirAqui, setExpandirAqui] = useState(false);
+  const collapsed = telaLarga ? !expandirAqui : collapsedPref ?? isTablet;
+  const toggleCollapsed = () => {
+    if (telaLarga) { setExpandirAqui((v) => !v); return; }
+    savePref('menuRecolhido', !collapsed); setCollapsedPref(!collapsed);
+  };
 
   useEffect(() => { document.title = `${tituloDaRota(location.pathname)} · MunilaLog`; }, [location.pathname]);
 

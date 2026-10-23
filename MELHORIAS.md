@@ -107,3 +107,35 @@ npx cap sync android   # para atualizar o app Android
 ```
 
 Roteiro rápido: login → Painel (filtros, colunas, status inline, duplicar) → Nova entrega (`N`) → CTE (importar XML) → Devoluções (ler XML) → BI (exportar PDF) → alternar tema → testar no celular (F12 › modo dispositivo).
+
+---
+
+## 8. Indicadores Diários do Armazém (out/2026)
+
+Novo item no menu: **Armazém › Indicadores Diários** (`/indicadores`). É o "Painel Logístico Munila" (HTML) incorporado ao sistema, com a mesma estrutura visual e as mesmas fórmulas:
+
+| Sigla | Área | O que se lança por dia | Indicadores |
+|---|---|---|---|
+| PNL | Visão geral | — | 1 indicador por área + "Lançamentos de hoje" |
+| REC | Recebimento | Fornecedores, NFs, volumes, divergências (ou lista de NFs) | Índice de divergências |
+| ARM | Armazenagem | Posições, endereços auditados/corretos | Ocupação, acuracidade |
+| EXP | Expedição/Separação | Lista de NFs do pedido (cliente, NF, volumes, transportadora, destino, status) | Notas, volumes, no prazo, tempo até a coleta |
+| COL | Coleta | Coletas agendadas/no prazo, aguardando | Coletas no prazo |
+| DEV | Devoluções | Entregues, devolvidos, avarias, faltas, custo | Índices de devolução e avarias |
+| TRP / CLI | Acompanhamento | — | NFs por transportadora / cliente, pendentes e atrasadas |
+
+Mantido do original: filtros de período (com dias da semana, agrupamento e comparação com o período anterior), gráficos, lista de NFs com totais automáticos, prévia dos índices, rascunho automático, aviso de data diferente de hoje, troca de status direto na lista, prazo de coleta (D+0…D+5), exportação CSV, tema escuro e celular.
+
+**Novo:** botão **"Importar do Painel de Entregas"** na Expedição — traz as NFs cuja *data de entrada do pedido* é a data do lançamento (cliente, NF, volumes, transportadora, destino, coleta), evitando digitar duas vezes.
+
+### Supabase — passo obrigatório (uma vez)
+
+Abra **Supabase › SQL Editor › New query**, cole o conteúdo de **`supabase/indicadores_diarios.sql`** e clique **Run**. Ele cria:
+
+- `indicadores_diarios` — um registro por área e por dia (`valores` e `notas` em JSON; único por `area + data`).
+- `configuracoes` — guarda o prazo de coleta (`prazo_coleta_dias`).
+- Segurança (RLS): qualquer usuário logado consulta e lança; **excluir um dia** e **alterar o prazo de coleta** só Administrador (função `is_admin()` baseada na tabela `perfis`).
+
+Enquanto o SQL não for executado, a tela mostra um aviso explicando o que fazer.
+
+Os dados que estavam no painel HTML antigo (base do Claude) **não** são migrados automaticamente; se precisar, exporte o CSV de cada área no painel antigo e peça a importação.

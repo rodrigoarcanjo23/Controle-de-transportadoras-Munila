@@ -1,19 +1,26 @@
-import { useCallback, useEffect, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 export interface ColumnGroup { label: string; keys: string[] }
+
+const SEM_GRUPOS: ColumnGroup[] = [];
 
 /**
  * Barra de navegação horizontal para tabelas largas: botões ◀ ▶, controle
  * deslizante (funciona como uma barra de rolagem no topo) e atalhos que
  * pulam direto para um grupo de colunas. Some quando a tabela cabe na tela.
  */
-export function ScrollNav({ scrollRef, groups = [], deps }: {
+export function ScrollNav({ scrollRef, groups = SEM_GRUPOS, deps }: {
   scrollRef: RefObject<HTMLDivElement | null>; groups?: ColumnGroup[]; deps?: unknown;
 }) {
   const [pos, setPos] = useState({ left: 0, max: 0, width: 0 });
   const [ativo, setAtivo] = useState<string>('');
-  const [disponiveis, setDisponiveis] = useState<string[]>([]);
+  const [disponiveis, setDisponiveis] = useState<string>('');
+
+  // Os grupos ficam numa ref: assim a medição é estável e NÃO dispara um novo
+  // ciclo de renderização a cada render (era isso que travava a troca de página).
+  const groupsRef = useRef(groups);
+  useEffect(() => { groupsRef.current = groups; });
 
   /** largura da coluna fixa à esquerda (não conta como área visível) */
   const stickyWidth = useCallback(() => {
@@ -34,32 +41,39 @@ export function ScrollNav({ scrollRef, groups = [], deps }: {
   const medir = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    setPos({ left: el.scrollLeft, max: Math.max(0, el.scrollWidth - el.clientWidth), width: el.clientWidth });
+    const gs = groupsRef.current;
+    const left = Math.round(el.scrollLeft);
+    const max = Math.max(0, el.scrollWidth - el.clientWidth);
+    const width = el.clientWidth;
+    // só atualiza o estado quando algo realmente mudou
+    setPos((p) => (p.left === left && p.max === max && p.width === width ? p : { left, max, width }));
     // grupo ativo = último grupo cujo início já passou da borda esquerda visível
     const borda = el.scrollLeft + stickyWidth() + 24;
     let atual = '';
-    for (const g of groups) {
+    for (const g of gs) {
       const th = thDoGrupo(g);
       if (th && th.offsetLeft <= borda) atual = g.label;
     }
-    if (el.scrollLeft >= el.scrollWidth - el.clientWidth - 4 && groups.length) {
-      const ultimo = [...groups].reverse().find((g) => thDoGrupo(g));
+    if (el.scrollLeft >= max - 4 && gs.length) {
+      const ultimo = [...gs].reverse().find((g) => thDoGrupo(g));
       if (ultimo) atual = ultimo.label;
     }
-    setAtivo(atual || groups[0]?.label || '');
-    setDisponiveis(groups.filter((g) => thDoGrupo(g)).map((g) => g.label));
-  }, [scrollRef, groups, stickyWidth, thDoGrupo]);
+    setAtivo(atual || gs[0]?.label || '');
+    setDisponiveis(gs.filter((g) => thDoGrupo(g)).map((g) => g.label).join('|'));
+  }, [scrollRef, stickyWidth, thDoGrupo]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    medir();
-    el.addEventListener('scroll', medir, { passive: true });
-    const ro = new ResizeObserver(medir);
+    let frame = 0;
+    const agendar = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(medir); };
+    agendar();
+    el.addEventListener('scroll', agendar, { passive: true });
+    const ro = new ResizeObserver(agendar);
     ro.observe(el);
     const table = el.querySelector('table');
     if (table) ro.observe(table);
-    return () => { el.removeEventListener('scroll', medir); ro.disconnect(); };
+    return () => { cancelAnimationFrame(frame); el.removeEventListener('scroll', agendar); ro.disconnect(); };
   }, [scrollRef, medir, deps]);
 
   const ir = (left: number) => scrollRef.current?.scrollTo({ left, behavior: 'smooth' });
@@ -82,7 +96,7 @@ export function ScrollNav({ scrollRef, groups = [], deps }: {
 
       {groups.length > 0 && (
         <div className="scroll-nav__groups" role="tablist" aria-label="Ir para grupo de colunas">
-          {groups.filter((g) => disponiveis.includes(g.label)).map((g) => (
+          {groups.filter((g) => disponiveis.split('|').includes(g.label)).map((g) => (
             <button key={g.label} role="tab" aria-selected={ativo === g.label}
               className={`scroll-nav__group ${ativo === g.label ? 'is-active' : ''}`} onClick={() => irParaGrupo(g)}>
               {g.label}

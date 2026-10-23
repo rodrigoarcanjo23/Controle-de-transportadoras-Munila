@@ -5,7 +5,8 @@ import { fetchAll, registrarLog, mensagemErro } from '../lib/db';
 import { SITUACOES_CTE } from '../lib/constants';
 import { formatDate, formatInt, formatMoney, matchesSearch, parseDecimalBR, toNumber } from '../lib/format';
 import { downloadCsv, csvNum } from '../lib/csv';
-import { lerArquivoTexto, nfsDasChaves, obterListaNFs, parseCteXml, variacoesNF } from '../lib/xml';
+import { lerArquivoTexto, parseCteXml } from '../lib/xml';
+import { atualizacoesPendentes, calcularIntegracao, extrairNFs } from '../lib/integracaoCte';
 import { loadPrefRaw, savePref } from '../lib/storage';
 import { useAppData } from '../state/context';
 import { useFeedback } from '../feedback/context';
@@ -20,7 +21,7 @@ const VAZIO = {
 const FILTROS = { dataInicio: '', dataFim: '', numero: '', chave: '', emitente: '', cfop: '', situacao: '' };
 
 export default function Ctes() {
-  const { transportadoras, recarregarEntregas } = useAppData();
+  const { transportadoras, entregas, setEntregas } = useAppData();
   const { toast, confirm } = useFeedback();
   const [ctes, setCtes] = useState<Cte[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +30,7 @@ export default function Ctes() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [form, setForm] = useState(VAZIO);
   const [f, setF] = useState(FILTROS);
+  const [soNaoEncontrados, setSoNaoEncontrados] = useState(false);
   const [formAberto, setFormAberto] = useState<boolean>(() => loadPrefRaw('cteFormAberto', window.innerWidth >= 768));
   const fileRef = useRef<HTMLInputElement>(null);
   const topRef = useRef<HTMLDivElement>(null);
@@ -42,7 +44,13 @@ export default function Ctes() {
 
   const abrirForm = (v: boolean) => { setFormAberto(v); savePref('cteFormAberto', v); };
 
+  // Correspondência CTE ↔ Painel (NF a NF, aceita entregas com "17248 / 17252")
+  const calc = useMemo(() => calcularIntegracao(ctes, entregas), [ctes, entregas]);
+  const nfsDasChaves = (ch?: string | null) => { const n = extrairNFs(ch); return n.length ? n.join(' / ') : '-'; };
+  const naoEncontrados = useMemo(() => ctes.filter((c) => (calc.porCte.get(c.id)?.faltando.length ?? 0) > 0).length, [ctes, calc]);
+
   const filtrados = useMemo(() => ctes.filter((c) => {
+    if (soNaoEncontrados && !(calc.porCte.get(c.id)?.faltando.length)) return false;
     if (f.dataInicio && (c.data_emissao ?? '') < f.dataInicio) return false;
     if (f.dataFim && (c.data_emissao ?? '') > f.dataFim) return false;
     if (f.numero && !matchesSearch(f.numero, c.numero_documento)) return false;
@@ -51,51 +59,68 @@ export default function Ctes() {
     if (f.cfop && !matchesSearch(f.cfop, c.cfop)) return false;
     if (f.situacao && c.situacao !== f.situacao) return false;
     return true;
-  }), [ctes, f]);
+  }), [ctes, f, soNaoEncontrados, calc]);
 
   const totalServico = filtrados.reduce((a, c) => a + toNumber(c.valor_total_servico), 0);
   const temFiltro = Object.values(f).some(Boolean);
-  const nfsIdentificadas = obterListaNFs(form.chave_acesso.join(','));
+  const nfsIdentificadas = extrairNFs(form.chave_acesso.join(','));
+
+  /** Grava o frete real nas entregas (em lotes paralelos) e atualiza a tela. */
+  async function gravarFretes(lista: { id: string; valor: number }[], progresso?: (n: number) => void) {
+    let ok = 0;
+    const gravadas = new Map<string, number>();
+    for (let i = 0; i < lista.length; i += 8) {
+      const lote = lista.slice(i, i + 8);
+      const res = await Promise.all(lote.map((u) =>
+        supabase.from('entregas').update({ valor_frete_real: u.valor, frete_confirmado: true }).eq('id', u.id)));
+      res.forEach((r, j) => { if (!r.error) { ok++; gravadas.set(lote[j].id, lote[j].valor); } else console.error('Erro na integração CTE → Entrega', r.error); });
+      progresso?.(Math.min(i + 8, lista.length));
+    }
+    if (gravadas.size) {
+      setEntregas((l) => l.map((e) => (gravadas.has(e.id) ? { ...e, valor_frete_real: gravadas.get(e.id)!, frete_confirmado: true } : e)));
+    }
+    return ok;
+  }
 
   /** CTE → Painel: rateia o valor do CTE entre as NFs e marca o frete como confirmado. */
-  async function integrarFrete(cte: Cte, silencioso = false): Promise<number> {
-    const nfs = obterListaNFs(cte.chave_acesso);
-    if (!nfs.length) return 0;
-    const rateado = parseFloat((toNumber(cte.valor_total_servico) / nfs.length).toFixed(2));
-    const { data, error } = await supabase.from('entregas')
-      .update({ valor_frete_real: rateado, frete_confirmado: true })
-      .in('nota_fiscal', variacoesNF(nfs))
-      .select('nota_fiscal');
-    if (error) { console.error('Erro na integração CTE → Entrega', error); return 0; }
-    if (!silencioso) {
-      if (data?.length) {
-        toast({ kind: 'success', title: 'Integração concluída', duration: 9000,
-          text: `NF(s) atualizadas no Painel: ${data.map((d) => d.nota_fiscal).join(', ')}\nFrete real de ${formatMoney(rateado)} aplicado e frete confirmado.` });
-      } else {
-        toast({ kind: 'warning', title: 'CTE salvo, mas sem NF correspondente', duration: 10000,
-          text: `As NFs (${nfs.join(', ')}) não foram encontradas no Painel de Entregas. Lance a NF com o mesmo número para a integração funcionar.` });
-      }
+  async function integrarFrete(cte: Cte, todosCtes: Cte[]) {
+    const c = calcularIntegracao(todosCtes, entregas);
+    const r = c.porCte.get(cte.id);
+    if (!r || !r.nfs.length) return;
+    const pend = atualizacoesPendentes(c, entregas, new Set(r.entregas));
+    const ok = await gravarFretes(pend);
+    const nfsAtualizadas = entregas.filter((e) => r.entregas.includes(e.id)).map((e) => e.nota_fiscal);
+    if (r.encontradas.length && !r.faltando.length) {
+      toast({ kind: 'success', title: 'Integração concluída', duration: 9000,
+        text: `Entrega(s) no Painel: ${nfsAtualizadas.join(', ')}\nFrete real de ${formatMoney(r.rateioPorNF)} por NF aplicado e frete confirmado${ok < pend.length ? ' (algumas falharam, tente sincronizar)' : ''}.` });
+    } else if (r.encontradas.length) {
+      toast({ kind: 'warning', title: 'Integração parcial', duration: 12000,
+        text: `Atualizadas: ${nfsAtualizadas.join(', ')}\nNão encontradas no Painel: ${r.faltando.join(', ')}. Lance essas NFs no Painel e clique em “Sincronizar histórico”.` });
+    } else {
+      toast({ kind: 'warning', title: 'CTE salvo, mas sem NF correspondente', duration: 12000,
+        text: `As NFs (${r.nfs.join(', ')}) não foram encontradas no Painel de Entregas. Lance a NF no Painel e depois clique em “Sincronizar histórico”.` });
     }
-    return data?.length ?? 0;
   }
 
   async function sincronizarHistorico() {
+    const pend = atualizacoesPendentes(calc, entregas);
+    const corretas = calc.porEntrega.size - pend.length;
+    if (!pend.length) {
+      toast({ kind: 'success', title: 'Tudo sincronizado', text: `As ${calc.porEntrega.size} entregas ligadas a CTEs já estão com o frete real correto.${naoEncontrados ? `\n${naoEncontrados} CTE(s) têm NFs que não estão no Painel.` : ''}` });
+      return;
+    }
     const ok = await confirm({
       title: 'Sincronização retroativa',
-      text: `O sistema vai ler os ${ctes.length} CTEs e copiar o valor rateado para o "Frete real" das NFs correspondentes no Painel.\nNenhum dado do CTE será alterado.`,
-      confirmLabel: 'Sincronizar',
+      text: `${pend.length} entrega(s) do Painel vão receber o frete real dos CTEs (incluindo entregas com várias NFs, como "17248 / 17252").\n${corretas} já estão corretas e não serão alteradas.${calc.nfsRepetidas.length ? `\n\nAtenção: ${calc.nfsRepetidas.length} NF(s) aparecem em mais de um CTE (ex.: ${calc.nfsRepetidas.slice(0, 5).join(', ')}) — os fretes delas serão SOMADOS. Elas ficam marcadas como “NF em 2+ CTEs” na tabela.` : ''}\nNenhum dado do CTE será alterado.`,
+      confirmLabel: `Atualizar ${pend.length} entrega(s)`,
     });
     if (!ok) return;
-    let total = 0;
-    setSync({ atual: 0, total: ctes.length });
+    setSync({ atual: 0, total: pend.length });
     try {
-      for (let i = 0; i < ctes.length; i++) {
-        total += await integrarFrete(ctes[i], true);
-        setSync({ atual: i + 1, total: ctes.length });
-      }
-      toast({ kind: 'success', title: 'Sincronização concluída', text: `${total} notas fiscais atualizadas no Painel de Entregas.` });
-      await registrarLog('EDITOU', 'CTES', `Executou a sincronização retroativa de CTEs (${total} NFs atualizadas no Painel Principal)`);
-      recarregarEntregas();
+      const total = await gravarFretes(pend, (n) => setSync({ atual: n, total: pend.length }));
+      toast({ kind: total === pend.length ? 'success' : 'warning', title: 'Sincronização concluída', duration: 10000,
+        text: `${total} entrega(s) atualizadas no Painel${total < pend.length ? ` (${pend.length - total} falharam)` : ''}.${naoEncontrados ? `\n${naoEncontrados} CTE(s) têm NFs que não estão no Painel — use o filtro “NF não encontrada”.` : ''}` });
+      await registrarLog('EDITOU', 'CTES', `Executou a sincronização retroativa de CTEs (${total} entregas atualizadas no Painel Principal)`);
     } catch (err) {
       toast({ kind: 'error', title: 'Erro durante a sincronização', text: mensagemErro(err) });
     } finally { setSync(null); }
@@ -136,7 +161,11 @@ export default function Ctes() {
         if (salvo) setCtes((l) => [salvo!, ...l]);
         await registrarLog('CRIOU', 'CTES', `Registrou um novo CTE Nº ${payload.numero_documento} (${payload.razao_social_emitente})`);
       }
-      if (salvo) { await integrarFrete(salvo); recarregarEntregas(); }
+      if (salvo) {
+        const s = salvo;
+        const lista = editandoId ? ctes.map((c) => (c.id === s.id ? s : c)) : [s, ...ctes];
+        await integrarFrete(s, lista);
+      }
       cancelar();
     } catch (err) {
       toast({ kind: 'error', title: 'Erro ao processar o CTE', text: mensagemErro(err) });
@@ -198,6 +227,25 @@ export default function Ctes() {
     { key: 'cnpj', header: 'CNPJ', render: (c) => c.cnpj_emitente || '-', className: 'num', mobile: 'hide' },
     { key: 'cfop', header: 'CFOP', render: (c) => c.cfop || '-' },
     { key: 'nfs', header: 'NFs (origem)', render: (c) => <span className="strong text-green">{nfsDasChaves(c.chave_acesso)}</span> },
+    {
+      key: 'painel', header: 'No Painel', label: 'No Painel', align: 'center', title: 'NFs do CTE encontradas no Painel de Entregas',
+      sortValue: (c) => { const r = calc.porCte.get(c.id); return r && r.nfs.length ? r.encontradas.length / r.nfs.length : -1; },
+      render: (c) => {
+        const r = calc.porCte.get(c.id);
+        if (!r || !r.nfs.length) return <span className="muted">-</span>;
+        const repetida = r.emOutrosCtes.length > 0 && (
+          <span title={`NF ${r.emOutrosCtes.join(', ')} também aparece em outro CTE — os fretes foram somados. Confira se não é CTE cancelado/substituído.`}>
+            <Badge tone="purple" square>NF em 2+ CTEs</Badge>
+          </span>
+        );
+        if (!r.faltando.length) return <span style={{ display: 'inline-flex', gap: 4 }}><Badge tone="green" square>✓ {r.encontradas.length}/{r.nfs.length}</Badge>{repetida}</span>;
+        return (
+          <span style={{ display: 'inline-flex', gap: 4 }} title={`Não encontradas no Painel: ${r.faltando.join(', ')}`}>
+            <Badge tone={r.encontradas.length ? 'amber' : 'red'} square>{r.encontradas.length}/{r.nfs.length} · falta {r.faltando.join(', ')}</Badge>{repetida}
+          </span>
+        );
+      },
+    },
     {
       key: 'chaves', header: 'Chaves vinculadas', className: 'wrap', mobile: 'hide',
       render: (c) => (c.chave_acesso ? <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>{c.chave_acesso.split(',').map((ch, i) => <span key={i} className="mono text-brand">{ch}</span>)}</div> : '-'),
@@ -302,7 +350,15 @@ export default function Ctes() {
 
       <div className="card table-card">
         <div className="card-header no-print">
-          <div className="card-title">Histórico de CTEs</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <div className="card-title">Histórico de CTEs</div>
+            {naoEncontrados > 0 && (
+              <button className={`chip ${soNaoEncontrados ? 'chip--on' : ''}`} onClick={() => setSoNaoEncontrados((v) => !v)} aria-pressed={soNaoEncontrados}
+                title="CTEs com alguma NF que não existe no Painel de Entregas">
+                NF não encontrada no Painel ({naoEncontrados})
+              </button>
+            )}
+          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn btn-sm hide-mobile" onClick={() => window.print()}><Printer size={15} /> PDF</button>
             <button className="btn btn-sm btn-success-outline" onClick={exportar}><Download size={15} /> Excel</button>

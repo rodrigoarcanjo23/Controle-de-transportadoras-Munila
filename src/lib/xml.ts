@@ -19,33 +19,6 @@ export function lerArquivoTexto(file: File): Promise<string> {
   });
 }
 
-/** Extrai os números de NF de uma lista de chaves (44 dígitos) ou NFs digitadas. */
-export function obterListaNFs(chavesStr?: string | null): string[] {
-  if (!chavesStr) return [];
-  const nfs = chavesStr
-    .split(/,| \/ |\//)
-    .map((raw) => {
-      const chave = raw.replace(/\D/g, '');
-      if (chave.length === 44) return Number(chave.substring(25, 34)).toString();
-      if (chave.length > 0) return Number(chave).toString();
-      return '';
-    })
-    .filter(Boolean);
-  return Array.from(new Set(nfs));
-}
-
-export const nfsDasChaves = (chaves?: string | null) => {
-  const nfs = obterListaNFs(chaves);
-  return nfs.length ? nfs.join(' / ') : '-';
-};
-
-/** Variações de busca: "16464" e "000016464". */
-export const variacoesNF = (nfs: string[]) =>
-  nfs.flatMap((nf) => {
-    const n = Number(nf).toString();
-    return [n, n.padStart(9, '0')];
-  });
-
 export interface CteXml {
   numero_documento: string;
   chave_acesso: string[];

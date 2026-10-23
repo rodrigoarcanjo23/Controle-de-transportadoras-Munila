@@ -1,0 +1,68 @@
+/* Gestão Financeira */
+.fin-strip-btn { background: none; border: 0; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.fin-strip-btn:hover { background: var(--surface-2); }
+
+.fin-tabs { display: flex; gap: 4px; align-items: center; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.fin-tab {
+  background: none; border: 0; padding: 10px 14px; font: inherit; font-weight: 650; font-size: 0.9rem; color: var(--muted);
+  border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer;
+}
+.fin-tab:hover { color: var(--text); }
+.fin-tab.is-on { color: var(--brand); border-bottom-color: var(--brand); }
+.fin-tabs__busca { margin-left: auto; min-width: 260px; margin-bottom: 6px; }
+
+.fin-visao { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr); gap: 14px; align-items: start; }
+.fin-lado { display: flex; flex-direction: column; gap: 14px; }
+.fin-lado h3 { font-size: 1rem; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.fin-orc__nums { display: flex; align-items: baseline; gap: 8px; }
+.fin-orc__nums strong { font-size: 1.7rem; font-weight: 800; letter-spacing: -0.02em; }
+.fin-orc__nums span { color: var(--muted); font-size: 0.9rem; }
+.fin-orc__barra { height: 10px; margin: 10px 0; }
+.fin-orc--verde { background: var(--green-solid); }
+.fin-orc--amarelo { background: var(--amber-solid); }
+.fin-orc--vermelho { background: var(--red-solid); }
+.fin-orc__txt { font-size: 0.84rem; }
+.fin-proj__txt { font-size: 0.86rem; color: var(--text-2); line-height: 1.5; }
+.fin-proj__valor { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.02em; margin: 8px 0 10px; font-variant-numeric: tabular-nums; }
+.fin-proj__linhas { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: 0.84rem; color: var(--text-2); border-top: 1px dashed var(--border); padding-top: 10px; }
+.fin-proj__linhas b { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+
+.fin-conf { display: flex; flex-direction: column; gap: 12px; }
+.fin-abas { display: flex; gap: 8px; flex-wrap: wrap; }
+.fin-aba {
+  display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface); font: inherit; font-size: 0.84rem; font-weight: 600; color: var(--text-2);
+}
+.fin-aba b { min-width: 22px; padding: 1px 7px; border-radius: 99px; background: var(--surface-3); font-size: 0.75rem; text-align: center; font-variant-numeric: tabular-nums; }
+.fin-aba:hover { border-color: var(--border-strong); }
+.fin-aba.is-on { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-ink); }
+.fin-aba--red b { background: var(--red-bg); color: var(--red); }
+.fin-aba--orange b { background: var(--orange-bg); color: var(--orange); }
+.fin-aba--amber b { background: var(--amber-bg); color: var(--amber); }
+.fin-aba--purple b { background: var(--purple-bg); color: var(--purple); }
+.fin-aba--green b { background: var(--green-bg); color: var(--green); }
+
+.fin-nf { display: inline-flex; align-items: center; gap: 5px; background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: var(--text); cursor: pointer; text-align: left; }
+.fin-nf:hover { color: var(--brand); text-decoration: underline; }
+.fin-nf svg { color: var(--muted); flex-shrink: 0; }
+.fin .cell-id small { font-size: 0.74rem; color: var(--muted); font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fin-selos { display: inline-flex; align-items: center; gap: 4px; }
+.fin-totais {
+  display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--border);
+  background: var(--surface-2); font-size: 0.82rem; color: var(--text-2);
+}
+.fin-totais b { color: var(--text); font-variant-numeric: tabular-nums; }
+.fin-totais .muted { margin-left: auto; font-size: 0.75rem; }
+
+.fin-infarma { background: var(--orange-bg); color: var(--text); align-items: center; flex-wrap: wrap; font-weight: 450; }
+.fin-infarma > svg { color: var(--orange); flex-shrink: 0; }
+.fin-infarma > span { flex: 1; min-width: 240px; }
+.fin-ordem { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.85rem; color: var(--text-2); }
+.fin .bi-tabela small { font-size: 0.75rem; }
+
+@media (max-width: 1100px) { .fin-visao { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 767px) {
+  .fin-tabs { overflow-x: auto; flex-wrap: nowrap; }
+  .fin-tab { white-space: nowrap; }
+  .fin-tabs__busca { margin-left: 0; min-width: 100%; }
+}

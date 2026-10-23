@@ -213,3 +213,13 @@ O Painel de Entregas, o BI e os alertas se atualizam sozinhos quando outra pesso
 
 ### Fechamento mensal (Painel de BI › Período: Mês)
 Administrador clica **Fechar o mês** depois da reunião: os números do BI ficam congelados. Ao abrir um mês fechado, o BI mostra a foto do fechamento e avisa o que mudou desde então ("+2 NFs · % de frete 5,82% → 5,90%"), com botão para ver os números atuais e opção de **Reabrir**.
+
+## 13. Gestão Financeira renovada (out/2026)
+
+- **Filtros**: período de faturamento (com comparação ↑ ↓ com o período anterior, como no BI) e transportadora.
+- **Topo com os números certos**: % de frete só das NFs com CTE (o antigo "impacto 3,46%" dividia pelo faturamento de todas as NFs, inclusive as sem CTE), frete a conferir (cotado das NFs sem CTE e há quantos dias), economia/gasto real × cotado (só NFs com os dois valores), custo total previsto, % conferido e **CTEs a lançar no Infarma** (situação ABERTO).
+- **Visão geral**: custo de frete por mês (real + a conferir) com a linha do **orçamento de frete**, barra de orçamento do mês e **projeção** do custo do período.
+- **Conferência de frete**: abas Acima do cotado · Acima da meta · Fora do padrão · Sem cotação · Aguardando CTE · Conferido, selo de situação por NF, colunas de data/transportadora/modal, "igual ao cotado" para diferenças de centavos, totais no rodapé e clique na NF para o histórico.
+- **Transportadoras**: frete real, % de frete, real × cotado, NFs aguardando CTE, CTEs do período e **CTEs a lançar no Infarma** (identificados pelo CNPJ do emitente).
+- **Clientes**: custo para atender — ticket médio, custo de frete, % do custo total, frete por NF, % de frete e NFs acima da meta.
+- **Parâmetros** (administrador): orçamento de frete (% da receita), limite de "fora do padrão" e margem real × cotado. Exportação CSV da aba aberta.

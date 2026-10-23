@@ -1,104 +1,184 @@
-import { useMemo, useState } from 'react';
-import { CircleCheck, Clock, Download, Map, Package, TriangleAlert, Truck } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { CalendarClock, CircleCheck, Download, Map as MapIcon, ShieldQuestion, TriangleAlert, Truck } from 'lucide-react';
 import { useAppData } from '../state/context';
 import { useFeedback } from '../feedback/context';
-import { SLA_ALERTA_DIAS, SLA_CRITICO_DIAS, type Tone } from '../lib/constants';
-import { diffDias, diasDesde, formatDate, formatMoney, matchesSearch, toNumber } from '../lib/format';
-import { cidadeDestino, ufDestino } from '../lib/filtrosEntrega';
+import { useChartTheme } from '../hooks/useChartTheme';
+import { supabase } from '../lib/supabase';
+import { mensagemErro, registrarLog } from '../lib/db';
 import { downloadCsv } from '../lib/csv';
-import { Badge, KpiCard, PageHeader, SearchInput, StatusBadge } from '../components/ui/basics';
-import { DataTable, type Column } from '../components/ui/DataTable';
+import { FILTROS_VAZIOS, cidadeDestino, ufDestino } from '../lib/filtrosEntrega';
+import { formatDate, hojeISO, matchesSearch, percentual, formatPercent } from '../lib/format';
+import { diasUteisEntre } from '../lib/diasUteis';
+import {
+  CONFIG_SLA_PADRAO, ETAPA, aprenderPrazos, analisarSLA, lerConfigSLA, type ConfigSLA, type Etapa, type LinhaSLA, type SituacaoSLA,
+} from '../lib/sla';
+import { loadPrefRaw, savePref } from '../lib/storage';
+import { KpiCard, PageHeader, SearchInput } from '../components/ui/basics';
+import { ModalHistorico } from '../modals/ModalHistorico';
+import { Cobranca, Desempenho, EmAberto, Prazos, Verificar } from './logistica/Abas';
 import type { Entrega } from '../types';
+import './bi/bi.css';
+import './financeiro/financeiro.css';
+import './logistica/logistica.css';
 
-type Tipo = 'concluido' | 'critico' | 'alerta' | 'normal' | 'sem_data';
-interface Linha extends Entrega { sla: { dias: number | null; tipo: Tipo } }
-
-function calcularSLA(e: Entrega): Linha['sla'] {
-  if (!e.data_faturamento) return { dias: null, tipo: 'sem_data' };
-  if (e.status === 'Entregue' && e.data_entrega_agendamento) {
-    return { dias: diffDias(e.data_faturamento, e.data_entrega_agendamento), tipo: 'concluido' };
-  }
-  const d = diasDesde(e.data_faturamento) ?? 0;
-  return { dias: d, tipo: d > SLA_CRITICO_DIAS ? 'critico' : d > SLA_ALERTA_DIAS ? 'alerta' : 'normal' };
-}
-
-const SLA_UI: Record<Tipo, { tone: Tone; icon: typeof Truck; label: (d: number | null) => string }> = {
-  concluido: { tone: 'green', icon: CircleCheck, label: (d) => `${d} dias totais` },
-  critico: { tone: 'red', icon: TriangleAlert, label: (d) => `${d} dias rodando` },
-  alerta: { tone: 'amber', icon: Clock, label: (d) => `${d} dias rodando` },
-  normal: { tone: 'slate', icon: Truck, label: (d) => `${d} dias rodando` },
-  sem_data: { tone: 'slate', icon: Package, label: () => '-' },
-};
+type Aba = 'aberto' | 'verificar' | 'cobranca' | 'desempenho' | 'prazos';
+const ABERTAS = new Set<Etapa>(['coleta', 'agendamento', 'agendado', 'transito']);
 
 export default function Logistica() {
-  const { entregas, loading } = useAppData();
-  const { toast } = useFeedback();
+  const { entregas, transportadoras, loading, isAdmin, setEntregas, setFiltros } = useAppData();
+  const { toast, confirm } = useFeedback();
+  const navigate = useNavigate();
+  const c = useChartTheme();
+
+  const [aba, setAbaState] = useState<Aba>(() => loadPrefRaw<Aba>('slaAba', 'aberto'));
+  const setAba = (a: Aba) => { setAbaState(a); savePref('slaAba', a); };
   const [busca, setBusca] = useState('');
-  const [tipo, setTipo] = useState<Tipo | ''>('');
+  const [transp, setTransp] = useState('');
+  const [uf, setUf] = useState('');
+  const [etapa, setEtapa] = useState<Etapa | ''>('');
+  const [situacao, setSituacao] = useState<SituacaoSLA | ''>('');
+  const [historico, setHistorico] = useState<Entrega | null>(null);
+  const [cfg, setCfg] = useState<ConfigSLA>(CONFIG_SLA_PADRAO);
 
-  const linhas = useMemo<Linha[]>(() => entregas
-    .map((e) => ({ ...e, sla: calcularSLA(e) }))
-    .sort((a, b) => {
-      if (a.sla.dias === null) return 1;
-      if (b.sla.dias === null) return -1;
-      if (a.status !== 'Entregue' && b.status === 'Entregue') return -1;
-      if (a.status === 'Entregue' && b.status !== 'Entregue') return 1;
-      return (b.sla.dias ?? 0) - (a.sla.dias ?? 0);
-    }), [entregas]);
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const { data } = await supabase.from('configuracoes').select('chave, valor').in('chave', ['sla', 'prazo_coleta_dias']);
+      if (!vivo || !data) return;
+      const v = (k: string) => data.find((x) => x.chave === k)?.valor;
+      const col = Number(v('prazo_coleta_dias'));
+      setCfg(lerConfigSLA(v('sla'), Number.isFinite(col) ? col : undefined));
+    })();
+    return () => { vivo = false; };
+  }, []);
 
-  const contagem = useMemo(() => {
-    const c: Record<Tipo, number> = { concluido: 0, critico: 0, alerta: 0, normal: 0, sem_data: 0 };
-    linhas.forEach((l) => { c[l.sla.tipo]++; });
-    return c;
-  }, [linhas]);
+  const hoje = hojeISO();
+  const apr = useMemo(() => aprenderPrazos(entregas), [entregas]);
+  const todas = useMemo(() => analisarSLA(entregas, cfg, apr, hoje), [entregas, cfg, apr, hoje]);
+  const filtradas = useMemo(() => todas.filter((l) =>
+    (!transp || l.e.transportadora_id === transp) && (!uf || ufDestino(l.e) === uf)
+    && matchesSearch(busca, l.e.nota_fiscal, l.e.clientes?.nome, cidadeDestino(l.e), l.e.transportadoras?.nome, l.e.status)), [todas, transp, uf, busca]);
 
-  const filtradas = useMemo(() => linhas.filter((e) =>
-    matchesSearch(busca, e.clientes?.nome, e.nota_fiscal, e.status, cidadeDestino(e)) && (!tipo || e.sla.tipo === tipo)), [linhas, busca, tipo]);
+  const abertas = useMemo(() => filtradas.filter((l) => ABERTAS.has(l.etapa) && l.situacao !== 'verificar')
+    .sort((a, b) => (b.atraso ?? -999) - (a.atraso ?? -999)), [filtradas]);
+  const verificar = useMemo(() => filtradas.filter((l) => l.situacao === 'verificar').sort((a, b) => (b.idade ?? 0) - (a.idade ?? 0)), [filtradas]);
+  const k = useMemo(() => {
+    const atr = abertas.filter((l) => l.situacao === 'atrasada');
+    const resp = (et: Etapa[]) => atr.filter((l) => et.includes(l.etapa)).length;
+    const desde = diasUteisAtras(hoje, 22);
+    const ent = filtradas.filter((l) => l.etapa === 'entregue' && l.e.data_entrega_agendamento && l.e.data_entrega_agendamento >= desde);
+    const ok = ent.filter((l) => l.situacao === 'entregue_prazo').length;
+    return {
+      atrasadas: atr.length, transp: resp(['transito', 'agendado']), coleta: resp(['coleta']), agend: resp(['agendamento']),
+      vence: abertas.filter((l) => l.situacao === 'vence_hoje').length,
+      noPrazo: abertas.filter((l) => l.situacao === 'no_prazo').length,
+      ent: ent.length, entOk: ok,
+    };
+  }, [abertas, filtradas, hoje]);
 
-  function exportar() {
-    if (!filtradas.length) { toast({ kind: 'warning', title: 'Não há dados para exportar.' }); return; }
-    downloadCsv('MunilaLog_SLA', ['Cliente', 'Destino', 'Nº NF', 'Valor NF', 'Data Fat.', 'Status', 'Dias', 'Situação SLA'],
-      filtradas.map((e) => [e.clientes?.nome ?? '-', `${cidadeDestino(e)} - ${ufDestino(e)}`, e.nota_fiscal, String(toNumber(e.valor_nf)).replace('.', ','),
-        formatDate(e.data_faturamento), e.status, e.sla.dias ?? '-', e.sla.tipo]));
+  const listaAberto = situacao ? abertas.filter((l) => l.situacao === situacao) : abertas;
+  const filtroKpi = (s: SituacaoSLA) => () => { setAba('aberto'); setSituacao((x) => (x === s ? '' : s)); };
+  const abrirPainel = (ids: string[]) => { setFiltros({ ...FILTROS_VAZIOS, nfsIds: ids, nfsRotulo: 'Logística & SLA' }); navigate('/dashboard'); };
+
+  async function marcarEntregues(itens: { e: Entrega; data: string }[]) {
+    if (!itens.length) return;
+    const ok = await confirm({
+      title: `Marcar ${itens.length} NF${itens.length > 1 ? 's' : ''} como Entregue?`,
+      text: `O status muda para "Entregue" e a data de entrega é gravada (${itens.length === 1 ? formatDate(itens[0].data) : 'conforme escolhido'}). Fica registrado na auditoria e no histórico de cada NF.`,
+      confirmLabel: 'Marcar como Entregue',
+    });
+    if (!ok) return;
+    let feitos = 0; const gravadas = new Map<string, string>();
+    for (let i = 0; i < itens.length; i += 8) {
+      const lote = itens.slice(i, i + 8);
+      const res = await Promise.all(lote.map(({ e, data }) => supabase.from('entregas').update({ status: 'Entregue', data_entrega_agendamento: data }).eq('id', e.id).select('id')));
+      res.forEach((r, j) => { if (!r.error && r.data?.length) { feitos++; gravadas.set(lote[j].e.id, lote[j].data); } });
+    }
+    if (gravadas.size) {
+      setEntregas((l) => l.map((e) => (gravadas.has(e.id) ? { ...e, status: 'Entregue', data_entrega_agendamento: gravadas.get(e.id)! } : e)));
+      const linhas = itens.filter((x) => gravadas.has(x.e.id)).map((x) => `NF ${x.e.nota_fiscal} (entrega ${formatDate(x.data)})`);
+      for (let i = 0; i < linhas.length; i += 30) await registrarLog('EDITOU', 'ENTREGAS', `Marcou como Entregue pela Central de SLA (verificação de status): ${linhas.slice(i, i + 30).join('; ')}`);
+    }
+    if (feitos === itens.length) toast({ kind: 'success', title: `${feitos} NF${feitos > 1 ? 's' : ''} atualizada${feitos > 1 ? 's' : ''}` });
+    else toast({ kind: 'warning', title: `${feitos} de ${itens.length} atualizadas`, text: 'Algumas não foram gravadas (verifique a permissão de administrador).' });
   }
 
-  const cols: Column<Linha>[] = [
-    {
-      key: 'cliente', header: 'Cliente / destino', mobile: 'subtitle', sortValue: (e) => e.clientes?.nome,
-      render: (e) => (<div><div className="strong" style={{ color: 'var(--text)' }}>{e.clientes?.nome ?? '-'}</div><div className="muted" style={{ fontSize: '0.75rem' }}>{cidadeDestino(e)} - {ufDestino(e)}</div></div>),
-    },
-    { key: 'nf', header: 'Nº NF', render: (e) => <strong>NF {e.nota_fiscal}</strong>, mobile: 'title', sortValue: (e) => Number(e.nota_fiscal) || e.nota_fiscal },
-    { key: 'valor', header: 'Valor NF', render: (e) => formatMoney(e.valor_nf), sortValue: (e) => toNumber(e.valor_nf), align: 'right', className: 'num strong text-green' },
-    { key: 'fat', header: 'Data fat.', render: (e) => formatDate(e.data_faturamento), sortValue: (e) => e.data_faturamento },
-    { key: 'status', header: 'Status operacional', render: (e) => <StatusBadge status={e.status} />, align: 'center', sortValue: (e) => e.status },
-    {
-      key: 'sla', header: 'Envelhecimento (SLA)', label: 'SLA', align: 'center', thClassName: 'hl-blue', mobile: 'badge', sortValue: (e) => e.sla.dias,
-      render: (e) => { const u = SLA_UI[e.sla.tipo]; const I = u.icon; return <Badge tone={u.tone} square><I size={13} /> {u.label(e.sla.dias)}</Badge>; },
-    },
+  async function salvarCfg(n: ConfigSLA) {
+    // o prazo de coleta continua sendo o dos Indicadores Diários (não é gravado aqui)
+    const valor = { agendamento_dias: n.agendamento_dias, transito_padrao: n.transito_padrao, rotas: n.rotas };
+    const { error } = await supabase.from('configuracoes').upsert({ chave: 'sla', valor }, { onConflict: 'chave' });
+    if (error) { toast({ kind: 'error', title: 'Não foi possível salvar', text: mensagemErro(error) }); return; }
+    setCfg(n);
+    registrarLog('EDITOU', 'ENTREGAS', `Alterou os prazos de SLA (agendamento ${n.agendamento_dias} d.u., trânsito padrão ${n.transito_padrao} d.u., ${n.rotas.length} prazo(s) manual(is))`);
+    toast({ kind: 'success', title: 'Prazos salvos', text: 'Os prazos de todas as NFs foram recalculados.' });
+  }
+
+  function exportar() {
+    const lista = aba === 'verificar' ? verificar : listaAberto;
+    if (!lista.length) { toast({ kind: 'warning', title: 'Não há dados para exportar.' }); return; }
+    downloadCsv('MunilaLog_SLA', ['NF', 'Cliente', 'Cidade', 'UF', 'Transportadora', 'Faturamento', 'Coleta', 'Etapa', 'Responsável', 'Prazo da etapa', 'Previsão de entrega', 'Origem do prazo', 'Dias úteis de atraso', 'Status'],
+      lista.map((l: LinhaSLA) => [l.e.nota_fiscal, l.e.clientes?.nome ?? '-', cidadeDestino(l.e), ufDestino(l.e), l.e.transportadoras?.nome ?? '-',
+        formatDate(l.e.data_faturamento), formatDate(l.e.data_coleta), ETAPA[l.etapa].label, ETAPA[l.etapa].resp, formatDate(l.limite), formatDate(l.previsao),
+        l.e.data_previsao ? 'Previsão da NF' : l.prazo.detalhe, l.atraso !== null && l.atraso > 0 ? l.atraso : 0, l.e.status]));
+  }
+
+  const ufs = useMemo(() => [...new Set(entregas.map(ufDestino).filter(Boolean))].sort(), [entregas]);
+  const ABAS: [Aba, string, number | null][] = [
+    ['aberto', 'Em aberto', abertas.length], ['verificar', 'Verificar status', verificar.length],
+    ['cobranca', 'Cobrar transportadoras', null], ['desempenho', 'Desempenho', null], ['prazos', 'Prazos', null],
   ];
 
-  const filtroKpi = (t: Tipo) => () => setTipo((x) => (x === t ? '' : t));
-
   return (
-    <div className="page">
-      <PageHeader icon={<Map size={22} />} title="Central de Logística & SLA" subtitle={`Envelhecimento da carga desde o faturamento · alerta > ${SLA_ALERTA_DIAS} dias · crítico > ${SLA_CRITICO_DIAS} dias`}
+    <div className="page fin">
+      <PageHeader icon={<MapIcon size={22} />} title="Logística & SLA" subtitle="Prazo de cada NF em dias úteis, por etapa e por responsável — aprendido com o histórico de entregas"
         actions={<button className="btn btn-success-outline" onClick={exportar}><Download size={16} /> Exportar</button>} />
 
       <div className="kpi-grid">
-        <KpiCard label="Críticas" value={contagem.critico} icon={<TriangleAlert size={16} />} tone="red" valueClass="text-red" onClick={filtroKpi('critico')} active={tipo === 'critico'} hint="Clique para filtrar" />
-        <KpiCard label="Em alerta" value={contagem.alerta} icon={<Clock size={16} />} tone="amber" onClick={filtroKpi('alerta')} active={tipo === 'alerta'} hint="Clique para filtrar" />
-        <KpiCard label="No prazo" value={contagem.normal} icon={<Truck size={16} />} tone="slate" onClick={filtroKpi('normal')} active={tipo === 'normal'} hint="Clique para filtrar" />
-        <KpiCard label="Concluídas" value={contagem.concluido} icon={<CircleCheck size={16} />} tone="green" valueClass="text-green" onClick={filtroKpi('concluido')} active={tipo === 'concluido'} hint="Clique para filtrar" />
+        <KpiCard label="Atrasadas" value={k.atrasadas} icon={<TriangleAlert size={16} />} tone="red" valueClass="text-red" onClick={filtroKpi('atrasada')} active={situacao === 'atrasada'}
+          hint={`${k.transp} transportadora · ${k.coleta} coleta · ${k.agend} agendamento`} />
+        <KpiCard label="Vencem hoje ou amanhã" value={k.vence} icon={<CalendarClock size={16} />} tone="amber" onClick={filtroKpi('vence_hoje')} active={situacao === 'vence_hoje'} hint="Acompanhar para não atrasar" />
+        <KpiCard label="No prazo" value={k.noPrazo} icon={<Truck size={16} />} tone="blue" onClick={filtroKpi('no_prazo')} active={situacao === 'no_prazo'} hint="Em aberto, dentro do prazo" />
+        <KpiCard label="Verificar status" value={verificar.length} icon={<ShieldQuestion size={16} />} tone="purple" onClick={() => setAba('verificar')} active={aba === 'verificar'} hint="Provavelmente já entregues" />
+        <KpiCard label="Entregues no prazo (último mês)" value={k.ent ? formatPercent(percentual(k.entOk, k.ent), 0) : '—'} icon={<CircleCheck size={16} />} tone="green" valueClass="text-green"
+          onClick={() => setAba('desempenho')} hint={`${k.entOk} de ${k.ent} entregas`} />
       </div>
 
-      <div className="toolbar no-print">
-        <SearchInput className="toolbar__search" value={busca} onChange={setBusca} placeholder="Buscar cliente, NF, cidade ou status…" />
-        {tipo && <span className="chip chip--removable">SLA: {tipo.replace('_', ' ')} <button onClick={() => setTipo('')} aria-label="Remover filtro">×</button></span>}
+      <div className="toolbar no-print sla-filtros">
+        <SearchInput className="toolbar__search" value={busca} onChange={setBusca} placeholder="Buscar NF, cliente, cidade, transportadora…" />
+        <select className="select" value={transp} onChange={(e) => setTransp(e.target.value)} aria-label="Transportadora">
+          <option value="">Todas as transportadoras</option>
+          {transportadoras.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}
+        </select>
+        <select className="select" value={uf} onChange={(e) => setUf(e.target.value)} aria-label="UF" style={{ maxWidth: 140 }}>
+          <option value="">Todas as UFs</option>
+          {ufs.map((u) => <option key={u} value={u}>{u}</option>)}
+        </select>
+        {situacao && aba === 'aberto' && <span className="chip chip--removable">Situação: {({ atrasada: 'Atrasadas', vence_hoje: 'Vencem hoje/amanhã', no_prazo: 'No prazo' } as Record<string, string>)[situacao]} <button onClick={() => setSituacao('')} aria-label="Remover filtro">×</button></span>}
       </div>
 
-      <div className="card table-card">
-        <DataTable rows={filtradas} columns={cols} rowKey={(e) => e.id} loading={loading} fill />
+      <div className="fin-tabs no-print" role="tablist">
+        {ABAS.map(([kk, l, n]) => (
+          <button key={kk} role="tab" aria-selected={aba === kk} className={`fin-tab ${aba === kk ? 'is-on' : ''}`} onClick={() => setAba(kk)}>
+            {l}{n !== null && <span className={`sla-tabn ${kk === 'verificar' && n ? 'sla-tabn--roxo' : ''}`}>{n}</span>}
+          </button>
+        ))}
       </div>
+
+      {aba === 'aberto' && <EmAberto linhas={listaAberto} etapa={etapa} setEtapa={setEtapa} onHistorico={setHistorico} loading={loading} />}
+      {aba === 'verificar' && <Verificar linhas={verificar} isAdmin={isAdmin} onMarcar={marcarEntregues} onAbrirPainel={abrirPainel} />}
+      {aba === 'cobranca' && <Cobranca linhas={abertas} onAbrirPainel={abrirPainel} onCopiado={() => toast({ kind: 'success', title: 'Mensagem copiada', text: 'Cole no WhatsApp ou e-mail da transportadora.' })} />}
+      {aba === 'desempenho' && <Desempenho linhas={filtradas} apr={apr} c={c} />}
+      {aba === 'prazos' && <Prazos key={JSON.stringify(cfg)} cfg={cfg} apr={apr} isAdmin={isAdmin} onSalvar={salvarCfg} />}
+
+      {historico && <ModalHistorico entrega={historico} onClose={() => setHistorico(null)} />}
     </div>
   );
+}
+
+/** Data de N dias úteis atrás (para "último mês" ≈ 22 dias úteis). */
+function diasUteisAtras(hoje: string, n: number) {
+  const d = new Date(`${hoje}T12:00:00Z`);
+  while (diasUteisEntre(d.toISOString().slice(0, 10), hoje) < n) d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
 }

@@ -223,3 +223,14 @@ Administrador clica **Fechar o mês** depois da reunião: os números do BI fica
 - **Transportadoras**: frete real, % de frete, real × cotado, NFs aguardando CTE, CTEs do período e **CTEs a lançar no Infarma** (identificados pelo CNPJ do emitente).
 - **Clientes**: custo para atender — ticket médio, custo de frete, % do custo total, frete por NF, % de frete e NFs acima da meta.
 - **Parâmetros** (administrador): orçamento de frete (% da receita), limite de "fora do padrão" e margem real × cotado. Exportação CSV da aba aberta.
+
+## 14. Logística & SLA mais precisa (out/2026)
+
+- **Prazos em dias úteis** (sem fins de semana e feriados nacionais, incluindo Carnaval, Sexta-feira Santa e Corpus Christi), **aprendidos com o histórico**: para cada transportadora × UF, o sistema mede a coleta → entrega das NFs entregues no último ano e usa o prazo em que 80% chegaram. Sem histórico suficiente usa a UF, e depois o padrão. A Data de previsão preenchida na NF sempre vale.
+- **Etapas e responsáveis**: Aguardando coleta (expedição/transportadora, D+N dos Indicadores Diários), Aguardando agendamento (cliente), Agendado (data marcada) e Em trânsito (transportadora). Cada NF fica No prazo, Vence hoje/amanhã ou **Atrasada X dias úteis**.
+- **Devoluções e recusas saem da conta**.
+- **Verificar status**: NFs com mais que o dobro do prazo e sem atualização (provavelmente já entregues). Administrador marca várias como **Entregue** de uma vez, com a data da previsão de cada NF ou uma data única. Fica registrado na auditoria e no histórico de cada NF.
+- **Cobrar transportadoras**: lista de NFs atrasadas por transportadora com mensagem pronta (copiar, WhatsApp ou e-mail do cadastro) e atalho para ver no Painel.
+- **Desempenho**: envelhecimento por etapa, entregas no prazo por mês e mapa de calor **transportadora × UF** com o tempo real de trânsito.
+- **Prazos**: tabela por UF e por transportadora × UF com o sugerido pelo histórico; o administrador pode fixar um prazo manual (prazo combinado com a transportadora), além do prazo de agendamento e do trânsito padrão.
+- Filtros por transportadora e UF; exportação CSV com etapa, responsável, previsão e origem do prazo.

@@ -1,0 +1,43 @@
+/* Logística & SLA */
+.sla-filtros .select { width: auto; min-width: 180px; }
+.sla-tabn { margin-left: 6px; padding: 1px 7px; border-radius: 99px; background: var(--surface-3); font-size: 0.72rem; font-variant-numeric: tabular-nums; }
+.sla-tabn--roxo { background: var(--purple-bg); color: var(--purple); }
+
+.sla-verif { background: var(--purple-bg); color: var(--text); align-items: center; flex-wrap: wrap; font-weight: 450; }
+.sla-verif > svg { color: var(--purple); flex-shrink: 0; }
+.sla-verif > span { flex: 1; min-width: 260px; line-height: 1.5; }
+.sla-lote { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 12px 16px; font-size: 0.86rem; }
+.sla-lote label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.sla-lote .btn { margin-left: auto; }
+.bi-tabela tr.is-sel td { background: var(--brand-soft); }
+
+.sla-cobr { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 14px; align-items: start; }
+.sla-cobr__card { padding: 0; overflow: hidden; border-left: 4px solid var(--red-solid); }
+.sla-cobr__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 14px 16px 8px; }
+.sla-cobr__head h3 { font-size: 1rem; }
+.sla-cobr__head strong { font-size: 1.6rem; font-weight: 800; line-height: 1; }
+.sla-cobr__head strong small { font-size: 0.75rem; font-weight: 600; margin-left: 3px; }
+.sla-cobr ul { list-style: none; margin: 0; padding: 0 16px 10px; }
+.sla-cobr li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border); font-size: 0.82rem; }
+.sla-cobr li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
+.sla-cobr li em { font-style: normal; color: var(--red); font-weight: 700; font-variant-numeric: tabular-nums; }
+.sla-cobr__acoes { display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 16px 12px; border-top: 1px solid var(--border); background: var(--surface-2); }
+
+.sla-heat th.c, .sla-heat td.c { text-align: center; }
+.sla-heat th small { display: block; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--muted); }
+.sla-cel { display: inline-flex; flex-direction: column; align-items: center; min-width: 44px; padding: 4px 6px; border-radius: 8px; font-weight: 800; line-height: 1.1; background: var(--slate-bg); color: var(--slate); }
+.sla-cel small { font-size: 0.65rem; font-weight: 500; opacity: 0.8; }
+.sla-cel--verde { background: var(--green-bg); color: var(--green); }
+.sla-cel--amarelo { background: var(--amber-bg); color: var(--amber); }
+.sla-cel--vermelho { background: var(--red-bg); color: var(--red); }
+
+.sla-param { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px; align-items: end; }
+.sla-param h3 { font-size: 1rem; margin-bottom: 6px; }
+.sla-param p { font-size: 0.84rem; line-height: 1.55; }
+.sla-param__campos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: end; }
+.sla-param__campos .btn { grid-column: 1 / -1; justify-self: end; }
+.sla-tit { font-size: 1rem; padding: 16px 18px 8px; }
+.sla-input { width: 74px; height: 30px; text-align: right; padding: 0 8px; }
+
+@media (max-width: 1000px) { .sla-param { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 767px) { .sla-filtros .select { min-width: 0; flex: 1 1 140px; } .sla-lote .btn { margin-left: 0; } }

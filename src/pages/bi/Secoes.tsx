@@ -8,17 +8,22 @@ import {
 } from 'recharts';
 import type { useChartTheme } from '../../hooks/useChartTheme';
 import {
-  pctPrazoGrupo, variacao, type Destaque, type LinhaMeta, type LinhaRanking, type MetricasBI, type PeriodoBI, type serieEvolucao,
+  pctPrazoGrupo, variacao, type Destaque, type LinhaMeta, type ProblemaDados, type ResumoDevolucoes, type LinhaRanking, type MetricasBI, type PeriodoBI, type serieEvolucao,
 } from '../../lib/bi';
 import { GRUPO_CRITICO, GRUPO_EM_ANDAMENTO } from '../../lib/constants';
 import { diasDesde, formatDate, formatMoney, formatMoneyShort, formatPercent } from '../../lib/format';
 import { Anel, KpiBI, TextoMarcado } from './KpiBI';
+import type { ResumoArmazem } from './armazem';
 import { corPrazo, encurta, moedaCompacta, num } from './fmt';
 
 export interface DadosBI {
   m: MetricasBI; ma: MetricasBI | null; per: PeriodoBI;
   serie: ReturnType<typeof serieEvolucao>; destaques: Destaque[];
   ranking: LinhaRanking[]; metas: LinhaMeta[];
+  /** null = tabela dos Indicadores Diários ainda não existe/carregou */
+  armazem: ResumoArmazem | null;
+  dev: ResumoDevolucoes; devAnt: ResumoDevolucoes | null;
+  qualidade: ProblemaDados[];
 }
 export interface CtxSecao {
   d: DadosBI; c: ReturnType<typeof useChartTheme>;
@@ -27,6 +32,8 @@ export interface CtxSecao {
   /** altura útil da área do slide, em px (só no modo apresentação) */
   alto: number;
   abrir: (status: string[]) => void;
+  /** abre outra tela do sistema */
+  ir: (rota: string) => void;
 }
 
 /** Área do gráfico: altura fixa na página; no slide ocupa todo o espaço que sobra. */

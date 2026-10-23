@@ -175,3 +175,13 @@ Três blocos novos (o BI agora tem 6 blocos / 6 slides / 6 páginas no PDF):
 Os "Destaques do período" passam a citar a melhor (e a pior) transportadora e o resultado das metas de frete.
 
 Arquivos novos: `src/pages/bi/SecoesEtapa2.tsx`, `src/pages/bi/mapaBrasil.ts`; cálculos em `src/lib/bi.ts` (`rankingTransportadoras`, `avaliarMetas`).
+
+## 11. Painel de BI — etapa 3 (out/2026)
+
+- **7 · Armazém** — os Indicadores Diários no BI, com as mesmas fórmulas da tela do armazém e seta de comparação com o período anterior: NFs e volumes recebidos, índice de divergências (e divergências por tipo), ocupação, acuracidade, notas faturadas, pedidos expedidos no prazo, tempo até a coleta, coletas no prazo, pedidos aguardando coleta, índices de devolução e de avarias/faltas e custo das devoluções. Não é filtrado por região.
+- **8 · Devoluções** — a partir da tela Devoluções (data de emissão da NFD): quantidade, valor devolvido (% do faturamento), frete de retorno, devoluções em aberto, tempo médio de retorno, motivos e clientes que mais devolveram.
+- **9 · Qualidade dos dados** (só para a equipe — **não entra no modo apresentação nem no PDF**): % das NFs sem erro de cadastro e a lista de pendências com as NFs afetadas e botão "Copiar NFs": sem CTE, peso fora do padrão, entregue sem data de entrega, sem data de previsão, datas fora de ordem, sem transportadora, sem UF, valor da NF zerado, sem frete cotado.
+- Blocos sem dados no período (ex.: nenhum lançamento do armazém) são pulados automaticamente na apresentação e no PDF.
+- Os "Destaques do período" passam a citar o armazém (pedidos coletados no prazo, divergência no recebimento) e as devoluções (quantidade, % do faturamento e principal motivo).
+
+Arquivos novos: `src/pages/bi/SecoesEtapa3.tsx`, `src/pages/bi/armazem.ts`; cálculos em `src/lib/bi.ts` (`calcularDevolucoes`, `checarQualidade`).

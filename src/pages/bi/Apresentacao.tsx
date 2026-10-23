@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Maximize, Minimize, Moon, Sun, X } from 'lucide-react';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import type { CtxSecao } from './Secoes';
-import { SECOES } from './listaSecoes';
+import type { Secao } from './listaSecoes';
 
 /**
  * Modo apresentação: um bloco do BI por tela, em tela cheia, como slides.
  * ← → (ou PageUp/PageDown, espaço) navegam; Esc sai.
  */
-export function Apresentacao({ inicio, ctx, periodo, regiao, onClose }: {
-  inicio: number; ctx: Omit<CtxSecao, 'ap' | 'alto' | 'c'>; periodo: string; regiao: string; onClose: () => void;
+export function Apresentacao({ secoes: SECOES, inicio, ctx, periodo, regiao, onClose }: {
+  secoes: Secao[]; inicio: number; ctx: Omit<CtxSecao, 'ap' | 'alto' | 'c'>; periodo: string; regiao: string; onClose: () => void;
 }) {
   const c = useChartTheme();
   const rootRef = useRef<HTMLDivElement>(null);

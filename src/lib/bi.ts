@@ -1,6 +1,6 @@
 // Regras de cálculo do Painel de BI. Funções puras (sem React) para que os
 // números da tela, do modo apresentação e do PDF sejam sempre os mesmos.
-import type { Entrega, MetaFrete } from '../types';
+import type { Devolucao, Entrega, MetaFrete } from '../types';
 import { REGIOES } from './constants';
 import { ufDestino } from './filtrosEntrega';
 import { diffDias, hasValue, hojeISO, percentual, toNumber } from './format';
@@ -455,4 +455,77 @@ export function avaliarMetas(lista: Entrega[], metas: MetaFrete[]): LinhaMeta[] 
     };
   }).sort((a, b) => ordem[a.status] - ordem[b.status]
     || ((b.realizado ?? 0) - b.meta) - ((a.realizado ?? 0) - a.meta) || b.faturamento - a.faturamento);
+}
+
+/* ------------------------------------------------------------------ */
+/* Devoluções                                                           */
+/* ------------------------------------------------------------------ */
+
+/** Status em que a devolução já terminou (mercadoria de volta ou recusada). */
+const DEV_CONCLUIDA = new Set(['Chegou no Galpão', 'Entregue', 'Recusa']);
+export const dataDevolucao = (d: Devolucao) => d.data_emissao || d.created_at?.slice(0, 10) || '';
+
+export interface ResumoDevolucoes {
+  qtd: number; valor: number; freteReverso: number; abertas: number;
+  /** dias da emissão da NFD até a chegada no galpão */
+  retornoMedio: number | null;
+  motivos: { nome: string; qtd: number; valor: number }[];
+  clientes: { nome: string; qtd: number; valor: number }[];
+  status: { nome: string; qtd: number }[];
+}
+
+export function calcularDevolucoes(devs: Devolucao[], i: Intervalo): ResumoDevolucoes {
+  const lista = devs.filter((d) => { const x = dataDevolucao(d); return !!x && dentro(x, i); });
+  let valor = 0, frete = 0, abertas = 0; const ret = novaMedia();
+  const mot = new Map<string, { nome: string; qtd: number; valor: number }>();
+  const cli = new Map<string, { nome: string; qtd: number; valor: number }>();
+  const st = new Map<string, number>();
+  for (const d of lista) {
+    const v = toNumber(d.valor_total_nf); valor += v; frete += toNumber(d.valor_frete_reverso);
+    if (!DEV_CONCLUIDA.has(d.status)) abertas++;
+    somar(ret, diffDias(d.data_emissao, d.data_chegada));
+    const m = (d.motivo || 'Não informado').trim();
+    const xm = mot.get(m) ?? { nome: m, qtd: 0, valor: 0 }; xm.qtd++; xm.valor += v; mot.set(m, xm);
+    const c = d.clientes?.nome || 'Cliente desconhecido';
+    const xc = cli.get(c) ?? { nome: c, qtd: 0, valor: 0 }; xc.qtd++; xc.valor += v; cli.set(c, xc);
+    st.set(d.status || '—', (st.get(d.status || '—') ?? 0) + 1);
+  }
+  return {
+    qtd: lista.length, valor, freteReverso: frete, abertas, retornoMedio: media(ret),
+    motivos: [...mot.values()].sort((a, b) => b.qtd - a.qtd || b.valor - a.valor),
+    clientes: [...cli.values()].sort((a, b) => b.valor - a.valor),
+    status: [...st.entries()].map(([nome, qtd]) => ({ nome, qtd })).sort((a, b) => b.qtd - a.qtd),
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Qualidade dos dados                                                  */
+/* ------------------------------------------------------------------ */
+
+export interface ProblemaDados {
+  id: string; titulo: string; impacto: string; gravidade: 'alta' | 'media' | 'baixa';
+  nfs: Entrega[]; valor?: number;
+}
+
+/** Pendências de cadastro que distorcem os números do BI, com as NFs afetadas. */
+export function checarQualidade(lista: Entrega[], suspeitos: Set<string>): ProblemaDados[] {
+  const p = (id: string, titulo: string, impacto: string, gravidade: ProblemaDados['gravidade'], f: (e: Entrega) => boolean, valor?: (e: Entrega) => number): ProblemaDados => {
+    const nfs = lista.filter(f);
+    return { id, titulo, impacto, gravidade, nfs, valor: valor ? nfs.reduce((s, e) => s + valor(e), 0) : undefined };
+  };
+  const d = (a?: string | null, b?: string | null) => { const x = diffDias(a, b); return x !== null && x < 0; };
+  return [
+    p('sem_cte', 'NFs sem frete real (CTE)', 'Ficam fora do % de frete; o custo delas aparece só pelo cotado.', 'media',
+      (e) => !temFreteReal(e), (e) => toNumber(e.valor_frete)),
+    p('peso', 'Peso fora do padrão', 'Ignorado no peso total (provável erro de digitação).', 'alta', (e) => suspeitos.has(e.id)),
+    p('entregue_sem_data', 'Entregue sem data de entrega', 'Não entra no % no prazo nem no lead time.', 'alta',
+      (e) => e.status === 'Entregue' && !e.data_entrega_agendamento),
+    p('sem_previsao', 'Sem data de previsão', 'Não dá para saber se a entrega foi no prazo.', 'media', (e) => !e.data_previsao),
+    p('datas', 'Datas fora de ordem', 'Ex.: faturamento antes do pedido ou entrega antes da coleta — ignoradas no lead time.', 'media',
+      (e) => d(e.data_entrada_pedido, e.data_faturamento) || d(e.data_faturamento, e.data_coleta) || d(e.data_coleta, e.data_entrega_agendamento) || d(e.data_faturamento, e.data_entrega_agendamento)),
+    p('sem_transp', 'Sem transportadora', 'Aparece como "Não informada" no ranking.', 'media', (e) => !e.transportadora_id && !e.transportadoras?.nome),
+    p('sem_uf', 'Sem UF de destino', 'Fica fora do mapa por estado.', 'baixa', (e) => !ufDestino(e)),
+    p('sem_valor', 'Valor da NF zerado', 'Distorce faturamento e % de frete.', 'alta', (e) => toNumber(e.valor_nf) <= 0),
+    p('sem_cotacao', 'Sem frete cotado nem real', 'Custo de frete da NF fica zerado.', 'baixa', (e) => !temFreteReal(e) && toNumber(e.valor_frete) <= 0),
+  ];
 }

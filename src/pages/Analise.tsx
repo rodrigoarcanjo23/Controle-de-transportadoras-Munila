@@ -7,17 +7,21 @@ import { useChartTheme } from '../hooks/useChartTheme';
 import { FILTROS_VAZIOS } from '../lib/filtrosEntrega';
 import { REGIOES } from '../lib/constants';
 import {
-  avaliarMetas, calcularMetricas, filtrarBI, rankingTransportadoras, fmtMes, gerarDestaques, pesosSuspeitos, resolverPeriodo, serieEvolucao, type PeriodoId,
+  avaliarMetas, calcularDevolucoes, calcularMetricas, checarQualidade, filtrarBI, rankingTransportadoras, fmtMes, gerarDestaques, pesosSuspeitos, resolverPeriodo, serieEvolucao, type PeriodoId,
 } from '../lib/bi';
 import { EmptyState, PageHeader } from '../components/ui/basics';
 import { PageLoader } from '../components/layout/PageLoader';
 import type { DadosBI } from './bi/Secoes';
-import { SECOES } from './bi/listaSecoes';
+import { SECOES, secoesApresentaveis } from './bi/listaSecoes';
+import { resumirArmazem } from './bi/armazem';
+import { useIndicadores } from './indicadores/useIndicadores';
+import { formatPercent, percentual } from '../lib/format';
 import { Apresentacao } from './bi/Apresentacao';
 import './bi/bi.css';
 
 export default function Analise() {
-  const { entregas, metas: metasCad, loading, setFiltros } = useAppData();
+  const { entregas, devolucoes, metas: metasCad, loading, setFiltros } = useAppData();
+  const ind = useIndicadores();
   const { toast } = useFeedback();
   const navigate = useNavigate();
   const c = useChartTheme();
@@ -70,8 +74,33 @@ export default function Analise() {
           : `Todas as **${avaliadas.length} metas de frete** com CTE ficaram dentro do combinado.`,
       });
     }
-    return { m, ma, per, serie: serieEvolucao(atual), destaques, ranking, metas };
-  }, [entregas, per, regiao, suspeitos, metasCad]);
+    // etapa 3: armazém, devoluções e qualidade dos dados
+    const armazem = ind.estado === 'ok' ? resumirArmazem(ind.dias, per.atual, per.anterior) : null;
+    const dev = calcularDevolucoes(devolucoes, per.atual);
+    const devAnt = per.anterior ? calcularDevolucoes(devolucoes, per.anterior) : null;
+    if (armazem?.totalDias) {
+      const exp = armazem.kpis.find((k) => k.area === 'expedicao' && k.id === 'prazo')?.valor ?? null;
+      const div = armazem.kpis.find((k) => k.area === 'recebimento' && k.id === 'idx_div')?.valor ?? null;
+      const partes = [
+        exp !== null ? `**${formatPercent(exp, 1)} dos pedidos** coletados no prazo` : '',
+        div !== null ? `divergência no recebimento de **${formatPercent(div, 1)}**` : '',
+      ].filter(Boolean);
+      if (partes.length) destaques.push({ tom: exp !== null && exp < 90 ? 'ruim' : 'neutro', texto: `No armazém: ${partes.join('; ')}.` });
+    }
+    if (dev.qtd) {
+      const pctDev = percentual(dev.valor, m.faturamento);
+      destaques.push({
+        tom: pctDev > 1 ? 'ruim' : 'neutro',
+        texto: `**${dev.qtd} devolução${dev.qtd > 1 ? 'ões' : ''}** no período (${formatPercent(pctDev, 2)} do faturamento)` +
+          (dev.motivos[0] && dev.motivos[0].nome !== 'Não informado' ? `; principal motivo: **${dev.motivos[0].nome}**.` : '.'),
+      });
+    }
+    return {
+      m, ma, per, serie: serieEvolucao(atual), destaques, ranking, metas,
+      armazem, dev, devAnt, qualidade: checarQualidade(atual, suspeitos),
+    };
+  }, [entregas, per, regiao, suspeitos, metasCad, devolucoes, ind.estado, ind.dias]);
+  const apresentaveis = useMemo(() => (dados ? secoesApresentaveis(dados) : []), [dados]);
 
   const abrirNoPainel = useCallback((status: string[]) => {
     setFiltros({ ...FILTROS_VAZIOS, status });
@@ -92,7 +121,8 @@ export default function Analise() {
         pdf.setTextColor(255, 255, 255); pdf.setFontSize(11); pdf.text(`MunilaLog · Painel de BI — ${titulo}`, M, 9);
         pdf.setFontSize(9); pdf.text(`${per.rotulo}${regiao ? ` · ${regiao}` : ''}   ${n}`, W - M, 9, { align: 'right' });
       };
-      const blocos = Array.from(painelRef.current.querySelectorAll<HTMLElement>('[data-secao]'));
+      const ids = new Set(apresentaveis.map((s) => s.id));
+      const blocos = Array.from(painelRef.current.querySelectorAll<HTMLElement>('[data-secao]')).filter((el) => ids.has(el.dataset.secao ?? ''));
       for (let k = 0; k < blocos.length; k++) {
         const el = blocos[k];
         const canvas = await html2canvas(el, {
@@ -118,7 +148,7 @@ export default function Analise() {
 
   if (loading && !entregas.length) return <PageLoader />;
 
-  const ctxBase = dados ? { d: dados, abrir: abrirNoPainel } : null;
+  const ctxBase = dados ? { d: dados, abrir: abrirNoPainel, ir: navigate } : null;
 
   return (
     <div className="page bi">
@@ -177,22 +207,27 @@ export default function Analise() {
         <div className="card"><EmptyState title="Sem dados para este filtro" text="Nenhuma NF faturada no período/região selecionados." /></div>
       ) : (
         <div ref={painelRef} className="bi-painel">
-          {SECOES.map((s, k) => (
-            <section key={s.id} className="bi-secao" data-secao={s.id} data-titulo={s.titulo}>
+          {SECOES.map((s, k) => {
+            const idx = apresentaveis.findIndex((x) => x.id === s.id);
+            return (
+            <section key={s.id} className={`bi-secao ${s.interno ? 'bi-secao--interno' : ''}`} data-secao={s.id} data-titulo={s.titulo}>
               <div className="bi-secao__tit">
-                <h2><span className="bi-secao__n">{k + 1}</span>{s.titulo}</h2>
-                <button className="btn btn-ghost btn-sm no-print" data-pdf-ignore onClick={() => setApresentando(k)} title="Apresentar a partir deste bloco">
-                  <Presentation size={14} /> Apresentar daqui
-                </button>
+                <h2><span className="bi-secao__n">{k + 1}</span>{s.titulo}{s.interno && <span className="bi-secao__tag">só para a equipe</span>}</h2>
+                {idx >= 0 && (
+                  <button className="btn btn-ghost btn-sm no-print" data-pdf-ignore onClick={() => setApresentando(idx)} title="Apresentar a partir deste bloco">
+                    <Presentation size={14} /> Apresentar daqui
+                  </button>
+                )}
               </div>
               {s.render({ ...ctxBase, c, ap: false, alto: 0 })}
             </section>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {apresentando !== null && ctxBase && (
-        <Apresentacao inicio={apresentando} ctx={ctxBase} periodo={per.rotulo} regiao={regiao} onClose={fecharApresentacao} />
+        <Apresentacao secoes={apresentaveis} inicio={apresentando} ctx={ctxBase} periodo={per.rotulo} regiao={regiao} onClose={fecharApresentacao} />
       )}
     </div>
   );

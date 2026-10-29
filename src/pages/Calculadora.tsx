@@ -4,6 +4,7 @@ import { useAppData } from '../state/context';
 import { useFeedback } from '../feedback/context';
 import { formatDecimal, matchesSearch } from '../lib/format';
 import { EmptyState, Field, PageHeader } from '../components/ui/basics';
+import { CotacaoFrete } from './calculadora/CotacaoFrete';
 
 export default function Calculadora() {
   const { produtos } = useAppData();
@@ -30,7 +31,7 @@ export default function Calculadora() {
 
   return (
     <div className="page">
-      <PageHeader icon={<Calculator size={22} />} title="Calculadora Volumétrica" subtitle="Auditoria de peso e caixaria para faturamento de grandes redes" />
+      <PageHeader icon={<Calculator size={22} />} title="Calculadora" subtitle="Peso e caixaria do pedido e cotação do frete pelas tabelas das transportadoras" />
 
       <div className="chart-grid" style={{ alignItems: 'start' }}>
         <div className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -80,6 +81,8 @@ export default function Calculadora() {
           )}
         </div>
       </div>
+
+      <CotacaoFrete pesoSugerido={peso} />
     </div>
   );
 }

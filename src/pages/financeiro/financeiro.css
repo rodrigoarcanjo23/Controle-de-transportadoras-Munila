@@ -66,3 +66,10 @@
   .fin-tab { white-space: nowrap; }
   .fin-tabs__busca { margin-left: 0; min-width: 100%; }
 }
+.aud td { vertical-align: middle; }
+.aud__det td { background: var(--surface-2); }
+.aud__comp { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 18px; padding: 6px 0; }
+.aud__comp > div { display: flex; justify-content: space-between; gap: 10px; font-size: 0.82rem; border-bottom: 1px dashed var(--border); padding: 4px 0; white-space: normal; }
+.aud__comp span small { display: block; color: var(--muted); font-size: 0.72rem; }
+.aud__comp-total { font-weight: 800; }
+.text-blue { color: var(--blue); }

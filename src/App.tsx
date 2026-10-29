@@ -1,4 +1,4 @@
-import { lazy, useEffect, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
@@ -24,6 +24,8 @@ const Ctes = lazy(() => import('./pages/Ctes'));
 const Auditoria = lazy(() => import('./pages/Auditoria'));
 const Indicadores = lazy(() => import('./pages/indicadores/Indicadores'));
 const Alertas = lazy(() => import('./pages/Alertas'));
+const Portal = lazy(() => import('./pages/portal/Portal'));
+const Expedicao = lazy(() => import('./pages/Expedicao'));
 
 /** Rotas exclusivas de administrador (aguarda os perfis antes de decidir). */
 function AdminOnly({ children }: { children: ReactNode }) {
@@ -44,6 +46,7 @@ function Rotas() {
         <Route path="calculadora" element={<Calculadora />} />
         <Route path="indicadores/:pagina?" element={<Indicadores />} />
         <Route path="alertas" element={<Alertas />} />
+        <Route path="expedicao" element={<Expedicao />} />
         <Route path="equipe" element={<AdminOnly><Equipe /></AdminOnly>} />
         <Route path="clientes" element={<AdminOnly><Clientes /></AdminOnly>} />
         <Route path="transportadoras" element={<AdminOnly><Transportadoras /></AdminOnly>} />
@@ -65,6 +68,11 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_evt, s) => setSession(s));
     return () => subscription.unsubscribe();
   }, []);
+
+  // Portal do transportador: página pública (sem login), aberta pelo link enviado à transportadora
+  if (window.location.pathname.startsWith('/portal/')) {
+    return <FeedbackProvider><Suspense fallback={<PageLoader />}><Portal /></Suspense></FeedbackProvider>;
+  }
 
   if (!ready) return null;
 

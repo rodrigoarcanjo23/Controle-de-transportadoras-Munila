@@ -6,6 +6,7 @@ import { useAppData } from '../state/context';
 import { Modal } from '../components/ui/Modal';
 import { StatusBadge } from '../components/ui/basics';
 import type { Entrega, LogAuditoria } from '../types';
+import { OcorrenciasNF } from './OcorrenciasNF';
 
 /** Números de NF contidos no campo (ex.: "17248 / 17252" → ["17248", "17252"]). */
 const numerosNF = (nf: string) => [...new Set(nf.match(/\d{3,}/g) ?? [])];
@@ -64,6 +65,8 @@ export function ModalHistorico({ entrega, onClose }: { entrega: Entrega; onClose
             </div>
           ))}
         </div>
+
+        <OcorrenciasNF entrega={entrega} />
 
         <h4 className="hist__tit">Alterações no sistema</h4>
         {logs === null ? <p className="muted">Carregando…</p>

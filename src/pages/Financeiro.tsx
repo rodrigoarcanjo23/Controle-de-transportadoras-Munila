@@ -20,12 +20,14 @@ import { ModalHistorico } from '../modals/ModalHistorico';
 import { KpiBI } from './bi/KpiBI';
 import { moedaCompacta, num } from './bi/fmt';
 import { Clientes, Conferencia, Transportadoras, VisaoGeral } from './financeiro/Abas';
+import { AuditoriaTabela } from './financeiro/Auditoria';
+import { auditarCtes, type TabelaFrete } from '../lib/tabelaFrete';
 import type { Cte, Entrega } from '../types';
 import './bi/bi.css';
 import './financeiro/financeiro.css';
 
-type Aba = 'visao' | 'conferencia' | 'transportadoras' | 'clientes';
-const ABAS: [Aba, string][] = [['visao', 'Visão geral'], ['conferencia', 'Conferência de frete'], ['transportadoras', 'Transportadoras'], ['clientes', 'Clientes']];
+type Aba = 'visao' | 'conferencia' | 'auditoria' | 'transportadoras' | 'clientes';
+const ABAS: [Aba, string][] = [['visao', 'Visão geral'], ['conferencia', 'Conferência de frete'], ['auditoria', 'Auditoria pela tabela'], ['transportadoras', 'Transportadoras'], ['clientes', 'Clientes']];
 
 function ModalParametros({ cfg, onClose, onSalvar }: { cfg: ConfigFinanceiro; onClose: () => void; onSalvar: (c: ConfigFinanceiro) => Promise<void> }) {
   const [f, setF] = useState(cfg);
@@ -45,6 +47,7 @@ function ModalParametros({ cfg, onClose, onSalvar }: { cfg: ConfigFinanceiro; on
         {campo('orcamento_pct', 'Orçamento de frete (% do faturamento)', 'Linha vermelha do gráfico e barra de orçamento do mês.')}
         {campo('limite_pct', 'NF fora do padrão acima de (% de frete)', 'Ex.: 15 = NFs com frete maior que 15% do valor da nota.')}
         {campo('margem_cotado_pct', 'Real acima do cotado em mais de (%)', 'NFs para cobrar/revisar com a transportadora.')}
+        {campo('tolerancia_tabela_pct', 'Tolerância da auditoria pela tabela (%)', 'Diferenças menores que isso (ou R$ 1) contam como "conforme".')}
       </div>
     </Modal>
   );
@@ -69,12 +72,15 @@ export default function Financeiro() {
   const [parametros, setParametros] = useState(false);
   const [cfg, setCfg] = useState<ConfigFinanceiro>(CONFIG_FIN_PADRAO);
   const [ctes, setCtes] = useState<Cte[]>([]);
+  const [tabelas, setTabelas] = useState<TabelaFrete[]>([]);
 
   useEffect(() => {
     let vivo = true;
     (async () => {
       const { data } = await supabase.from('configuracoes').select('valor').eq('chave', 'financeiro').maybeSingle();
       if (vivo && data) setCfg(lerConfigFin(data.valor));
+      const { data: tf } = await supabase.from('tabelas_frete').select('*');
+      if (vivo && tf) setTabelas(tf as TabelaFrete[]);
       try {
         const lista = await fetchAll<Cte>((f, t) => supabase.from('ctes').select('*').order('id').range(f, t));
         if (vivo) setCtes(lista);
@@ -110,6 +116,8 @@ export default function Financeiro() {
   const ctesAbertos = useMemo(() => ctes.filter(cteAberto), [ctes]);
   const tabTransp = useMemo(() => porTransportadora(linhas, ctesPeriodo, ctesAbertos, transportadoras)
     .filter((l) => !nomeTransp || l.nome === nomeTransp), [linhas, ctesPeriodo, ctesAbertos, transportadoras, nomeTransp]);
+  const auditoria = useMemo(() => auditarCtes(ctesPeriodo, ctes, entregas, tabelas, cfg.tolerancia_tabela_pct)
+    .filter((l) => !transp || l.transportadoraId === String(transp)), [ctesPeriodo, ctes, entregas, tabelas, cfg.tolerancia_tabela_pct, transp]);
   const tabClientes = useMemo(() => porCliente(linhas), [linhas]);
   const linhasBusca = useMemo(() => (busca ? linhas.filter((l) => matchesSearch(busca, l.e.nota_fiscal, l.e.clientes?.nome, l.e.transportadoras?.nome)) : linhas), [linhas, busca]);
 
@@ -222,6 +230,8 @@ export default function Financeiro() {
 
       {aba === 'visao' && <VisaoGeral serie={serie} r={r} cfg={cfg} c={c} mesOrc={mesOrc} />}
       {aba === 'conferencia' && <Conferencia linhas={linhasBusca} aba={situacao} setAba={setSituacao} cfg={cfg} onHistorico={setHistorico} loading={loading} />}
+      {aba === 'auditoria' && <AuditoriaTabela linhas={auditoria} semTabelas={!tabelas.length} tolerancia={cfg.tolerancia_tabela_pct}
+        onCopiado={() => toast({ kind: 'success', title: 'Contestação copiada', text: 'Cole no e-mail ou WhatsApp da transportadora.' })} irTransportadoras={() => navigate('/transportadoras')} />}
       {aba === 'transportadoras' && <Transportadoras linhas={tabTransp} media={r.pctReal} irCtes={() => navigate('/ctes')} />}
       {aba === 'clientes' && <Clientes linhas={tabClientes} media={r.pctPrevisto} />}
 

@@ -880,3 +880,40 @@ input[type="date"].input { padding-right: 8px; }
 .alerta-filtro > svg { color: var(--amber); }
 .alerta-filtro > span:nth-child(2) { flex: 1; min-width: 220px; }
 .alerta-filtro__acoes { display: flex; gap: 6px; }
+
+/* Ocorrências (histórico da NF) e link do portal */
+.ocor { display: flex; flex-direction: column; gap: 8px; }
+.ocor__tit { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ocor__lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ocor__lista li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); }
+.ocor__txt { display: flex; flex-direction: column; font-size: 0.84rem; }
+.ocor__form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end; padding: 12px; border: 1px dashed var(--border-strong); border-radius: 12px; }
+.ocor__obs { grid-column: span 2; }
+.ocor__foto { cursor: pointer; justify-self: start; }
+.ocor__acoes { display: flex; gap: 6px; justify-content: flex-end; grid-column: 1 / -1; }
+.portal-link { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+.portal-link code { flex: 1; font-family: var(--mono); font-size: 0.8rem; word-break: break-all; }
+
+/* Tabela de frete */
+.tf { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr); gap: 16px; }
+.tf__ufs { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tf__grid { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; min-width: 0; }
+.tf__bloco { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; }
+.tf__bloco h4, .tf__sim h4 { font-size: 0.85rem; display: flex; align-items: center; gap: 6px; }
+.tf__bloco h4 small { font-weight: 500; color: var(--muted); }
+.tf__campo { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; font-weight: 600; color: var(--text-2); }
+.tf__campo small { font-weight: 400; color: var(--muted); }
+.tf-num { height: 34px; text-align: right; }
+.tf__faixas { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.tf__faixas th { text-align: left; color: var(--muted); font-weight: 600; padding-bottom: 4px; }
+.tf__faixas td { padding: 2px 4px 2px 0; }
+.tf__taxa { display: grid; grid-template-columns: minmax(0, 1fr) 100px auto; gap: 6px; align-items: center; }
+.tf__taxa .input { height: 34px; }
+.tf__sim { padding: 14px; border-radius: 12px; background: var(--surface-2); display: flex; flex-direction: column; gap: 10px; align-self: start; }
+.tf__sim-in { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tf__calc { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+.tf__calc td { padding: 6px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+.tf__calc td:last-child { text-align: right; font-variant-numeric: tabular-nums; font-weight: 650; white-space: nowrap; padding-left: 10px; }
+.tf__calc td small { display: block; color: var(--muted); font-size: 0.72rem; }
+.tf__total td { border-bottom: 0; font-size: 1.05rem; font-weight: 800 !important; padding-top: 10px; }
+@media (max-width: 900px) { .tf { grid-template-columns: minmax(0, 1fr); } }

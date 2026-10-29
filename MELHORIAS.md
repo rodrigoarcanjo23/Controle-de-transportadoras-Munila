@@ -234,3 +234,17 @@ Administrador clica **Fechar o mês** depois da reunião: os números do BI fica
 - **Desempenho**: envelhecimento por etapa, entregas no prazo por mês e mapa de calor **transportadora × UF** com o tempo real de trânsito.
 - **Prazos**: tabela por UF e por transportadora × UF com o sugerido pelo histórico; o administrador pode fixar um prazo manual (prazo combinado com a transportadora), além do prazo de agendamento e do trânsito padrão.
 - Filtros por transportadora e UF; exportação CSV com etapa, responsável, previsão e origem do prazo.
+
+## 15. Fase 1 — portal do transportador, tabela de frete e expedição (out/2026)
+
+> Requer rodar `supabase/fase1_portal_frete_expedicao.sql` no Supabase (uma vez; pode rodar de novo sem problema) e `npm install` (leitor de código de barras).
+
+- **Portal do transportador** (`/portal/<link>`): cada transportadora recebe um link próprio, sem login (Transportadoras › ícone de link: copiar, WhatsApp, e-mail, desativar ou gerar novo). No celular, ela vê só as NFs dela em aberto e informa coletado, agendado, entregue, cliente ausente, reentrega, endereço, avaria, recusa ou outra ocorrência, com data, nova previsão e **foto do canhoto**. O status da NF é atualizado na hora e fica registrado como "portal: NOME".
+- **Ocorrências e canhoto no histórico da NF**: lista do que a transportadora (ou a equipe) informou, com botão para abrir o canhoto. Administrador também pode registrar ocorrências internas.
+- **Tabela de frete por transportadora** (Transportadoras › ícone de recibo): faixas de peso, excedente por kg, ad valorem, GRIS, pedágio por 100 kg, frete mínimo, ICMS por dentro, taxas fixas (TDE, TAS…) e prazo contratado, geral ou por UF, com simulador.
+- **Auditoria pela tabela** (Gestão Financeira): cada CTE recalculado pela tabela, com Acima/Conforme/Abaixo, detalhamento por componente, **NF cobrada em 2+ CTEs** e mensagem de contestação pronta por transportadora. Tolerância ajustável em Parâmetros.
+- **Cotação** (Calculadora): compara o custo pela tabela de cada transportadora para UF, peso e valor, com o prazo contratado ou o do histórico.
+- **Prazo contratado** da tabela entra automaticamente na Logística & SLA (prazo manual continua valendo primeiro).
+- **Expedição**: monta o **romaneio de coleta** por transportadora (motorista, placa) e imprime com campos de assinatura; **confere o carregamento bipando o DANFE** (leitor USB ou câmera do celular/app) com aviso sonoro, NFs faltantes e leituras fora do romaneio; ao confirmar, grava a data de coleta e muda as NFs para "Em Transporte".
+- Segurança: o link do portal só enxerga e altera NFs da própria transportadora; fotos ficam em armazenamento privado.
+- **Gere e envie o link pelo sistema publicado (Vercel)**, não pelo app ou pelo servidor de teste (lá o endereço é "localhost"). Opcional: defina `VITE_APP_URL` (ex.: `https://seu-sistema.vercel.app`) na Vercel e no `.env.local` para o link sair sempre certo.

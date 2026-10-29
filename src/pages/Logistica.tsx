@@ -40,6 +40,7 @@ export default function Logistica() {
   const [situacao, setSituacao] = useState<SituacaoSLA | ''>('');
   const [historico, setHistorico] = useState<Entrega | null>(null);
   const [cfg, setCfg] = useState<ConfigSLA>(CONFIG_SLA_PADRAO);
+  const [tabelasFrete, setTabelasFrete] = useState<{ transportadora_id: string; uf: string; componentes: { prazo_dias?: number } | null; ativo: boolean }[]>([]);
 
   useEffect(() => {
     let vivo = true;
@@ -49,13 +50,23 @@ export default function Logistica() {
       const v = (k: string) => data.find((x) => x.chave === k)?.valor;
       const col = Number(v('prazo_coleta_dias'));
       setCfg(lerConfigSLA(v('sla'), Number.isFinite(col) ? col : undefined));
+      // prazo contratado nas tabelas de frete (por transportadora × UF) também vale como prazo de trânsito
+      const { data: tf } = await supabase.from('tabelas_frete').select('transportadora_id, uf, componentes, ativo');
+      if (vivo && tf) setTabelasFrete(tf);
     })();
     return () => { vivo = false; };
   }, []);
 
   const hoje = hojeISO();
   const apr = useMemo(() => aprenderPrazos(entregas), [entregas]);
-  const todas = useMemo(() => analisarSLA(entregas, cfg, apr, hoje), [entregas, cfg, apr, hoje]);
+  const rotasTabela = useMemo(() => tabelasFrete.flatMap((x) => {
+    const dias = Number(x.componentes?.prazo_dias);
+    const nome = transportadoras.find((t) => String(t.id) === String(x.transportadora_id))?.nome;
+    return x.ativo && x.uf !== '*' && dias > 0 && nome ? [{ uf: x.uf, transportadora: nome, dias }] : [];
+  }), [tabelasFrete, transportadoras]);
+  // prazos manuais da aba Prazos têm prioridade sobre os das tabelas de frete
+  const cfgEfetivo = useMemo(() => ({ ...cfg, rotas: [...cfg.rotas, ...rotasTabela] }), [cfg, rotasTabela]);
+  const todas = useMemo(() => analisarSLA(entregas, cfgEfetivo, apr, hoje), [entregas, cfgEfetivo, apr, hoje]);
   const filtradas = useMemo(() => todas.filter((l) =>
     (!transp || l.e.transportadora_id === transp) && (!uf || ufDestino(l.e) === uf)
     && matchesSearch(busca, l.e.nota_fiscal, l.e.clientes?.nome, cidadeDestino(l.e), l.e.transportadoras?.nome, l.e.status)), [todas, transp, uf, busca]);

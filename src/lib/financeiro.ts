@@ -11,8 +11,10 @@ export interface ConfigFinanceiro {
   limite_pct: number;
   /** real acima do cotado em mais de X% = cobrar a transportadora */
   margem_cotado_pct: number;
+  /** tolerância da auditoria pela tabela de frete (%) */
+  tolerancia_tabela_pct: number;
 }
-export const CONFIG_FIN_PADRAO: ConfigFinanceiro = { orcamento_pct: 4, limite_pct: 15, margem_cotado_pct: 10 };
+export const CONFIG_FIN_PADRAO: ConfigFinanceiro = { orcamento_pct: 4, limite_pct: 15, margem_cotado_pct: 10, tolerancia_tabela_pct: 2 };
 export const lerConfigFin = (v: unknown): ConfigFinanceiro => {
   const o = (v && typeof v === 'object' ? v : {}) as Partial<ConfigFinanceiro>;
   const n = (x: unknown, d: number) => (typeof x === 'number' && isFinite(x) && x >= 0 ? x : d);
@@ -20,6 +22,7 @@ export const lerConfigFin = (v: unknown): ConfigFinanceiro => {
     orcamento_pct: n(o.orcamento_pct, CONFIG_FIN_PADRAO.orcamento_pct),
     limite_pct: n(o.limite_pct, CONFIG_FIN_PADRAO.limite_pct),
     margem_cotado_pct: n(o.margem_cotado_pct, CONFIG_FIN_PADRAO.margem_cotado_pct),
+    tolerancia_tabela_pct: n(o.tolerancia_tabela_pct, CONFIG_FIN_PADRAO.tolerancia_tabela_pct),
   };
 };
 

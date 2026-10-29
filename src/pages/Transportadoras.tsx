@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { Mail, Pencil, Phone, Plus, Trash2, Truck } from 'lucide-react';
+import { Link2, Mail, Pencil, Phone, Plus, Receipt, Trash2, Truck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { registrarLog, mensagemErro } from '../lib/db';
 import { MODAIS } from '../lib/constants';
@@ -10,6 +10,8 @@ import { Badge, Field, PageHeader, SearchInput } from '../components/ui/basics';
 import { DataTable, type Column } from '../components/ui/DataTable';
 import { Modal, ModalActions } from '../components/ui/Modal';
 import type { Transportadora } from '../types';
+import { ModalPortal } from './transportadoras/ModalPortal';
+import { ModalTabelaFrete } from './transportadoras/ModalTabelaFrete';
 
 const VAZIO = { nome: '', cnpj_cpf: '', razao_social: '', nome_fantasia: '', modal_padrao: '', telefone: '', email: '' };
 
@@ -21,6 +23,8 @@ export default function Transportadoras() {
   const [aberto, setAberto] = useState(false);
   const [form, setForm] = useState(VAZIO);
   const [salvando, setSalvando] = useState(false);
+  const [portal, setPortal] = useState<Transportadora | null>(null);
+  const [tabela, setTabela] = useState<Transportadora | null>(null);
 
   const qtd = useMemo(() => {
     const m: Record<string, number> = {};
@@ -105,11 +109,16 @@ export default function Transportadoras() {
           rowKey={(t) => t.id} loading={loading} onRowClick={abrir}
           actions={(t) => (
             <>
+              <button className="icon-btn icon-btn--sm" onClick={() => setPortal(t)} title="Portal da transportadora (link para informar ocorrências)"><Link2 size={16} /></button>
+              <button className="icon-btn icon-btn--sm" onClick={() => setTabela(t)} title="Tabela de frete"><Receipt size={16} /></button>
               <button className="icon-btn icon-btn--sm" onClick={() => abrir(t)} title="Editar"><Pencil size={16} /></button>
               <button className="icon-btn icon-btn--sm icon-btn--danger" onClick={() => excluir(t)} title="Excluir"><Trash2 size={16} /></button>
             </>
           )} />
       </div>
+
+      {portal && <ModalPortal t={portal} onClose={() => setPortal(null)} />}
+      {tabela && <ModalTabelaFrete t={tabela} onClose={() => setTabela(null)} />}
 
       {aberto && (
         <Modal title={editando ? 'Editar transportadora' : 'Nova transportadora'} onClose={() => setAberto(false)} onSubmit={salvar}

@@ -3,7 +3,7 @@ import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
 import type { Tom } from '../../lib/bi';
 import { num } from './fmt';
 
-export type TipoDelta = 'pct' | 'pp' | 'dias';
+export type TipoDelta = 'pct' | 'pp' | 'dias' | 'num';
 
 /**
  * Indicador grande com a seta de comparação. A cor da seta segue o que é
@@ -17,7 +17,7 @@ export function KpiBI({ label, value, unit, sub, delta, tipo = 'pct', melhor = '
   if (delta !== undefined && delta !== null && Number.isFinite(delta)) {
     const zero = Math.abs(delta) < (tipo === 'pct' ? 0.05 : 0.01);
     const tom: Tom = zero ? 'neutro' : (delta > 0) === (melhor === 'maior') ? 'bom' : 'ruim';
-    const txt = tipo === 'pct' ? `${num(Math.abs(delta), 1)}%` : tipo === 'pp' ? `${num(Math.abs(delta), 2)} p.p.` : `${num(Math.abs(delta), 1)} d`;
+    const txt = tipo === 'pct' ? `${num(Math.abs(delta), 1)}%` : tipo === 'pp' ? `${num(Math.abs(delta), 2)} p.p.` : tipo === 'num' ? num(Math.abs(delta), 1) : `${num(Math.abs(delta), 1)} d`;
     const Icone = zero ? Minus : delta > 0 ? ArrowUpRight : ArrowDownRight;
     chip = <span className={`bi-delta bi-delta--${tom}`}><Icone size={14} strokeWidth={2.6} />{zero ? 'estável' : txt}</span>;
   }

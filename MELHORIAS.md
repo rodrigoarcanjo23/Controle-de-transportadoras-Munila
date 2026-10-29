@@ -261,3 +261,16 @@ Administrador clica **Fechar o mês** depois da reunião: os números do BI fica
 - Indicadores: vencidas, vencem em 7 dias, em conferência, liberadas a pagar e **economia com contestações**. Exportação CSV.
 - **Alertas** (tela e e-mail diário): faturas vencidas sem pagamento (crítico), que vencem em até N dias (ajustável em Alertas › Configurar) e contestações sem resposta há mais de 5 dias. Os alertas agora aparecem em ordem: críticos, atenção, informativos.
 - Segurança: todos consultam; registrar, aprovar e pagar só Administrador. PDFs em armazenamento privado.
+
+## 17. Avaliação mensal das transportadoras (out/2026)
+
+- **Menu Análise › Avaliação mensal**: nota de 0 a 10 por transportadora e mês, com conceito A (≥ 8,5 excelente), B (≥ 7 bom), C (≥ 5 regular) e D (crítico), comparação com o mês anterior e evolução de 6 meses.
+- **Cinco critérios** (pesos ajustáveis em "Critérios", só administrador):
+  - **Prazo de entrega (35)**: entregas do mês até a previsão, em dias úteis. A transportadora é comparada com a previsão da NF, o prazo contratado na tabela de frete ou o tempo que as transportadoras em geral levam para a UF (não com o próprio histórico). NFs em aberto já vencidas contam como atraso.
+  - **Coleta no prazo (15)**: coletadas até D+N (prazo de coleta dos Indicadores Diários).
+  - **Qualidade (20)**: avarias (peso 1) e cliente ausente, endereço, reentrega, recusa e devoluções (peso ½) sobre as NFs do mês.
+  - **Cobrança (20)**: CTEs dentro da tabela de frete (sem tabela: real até a margem sobre o cotado); cada fatura contestada no mês tira 1 ponto.
+  - **Informação e canhoto (10)**: entregas informadas no portal com foto do canhoto — só entra na nota quando o portal já estiver em uso.
+  - Critério sem dados no mês fica de fora e os demais são reponderados. Menos de 5 NFs no mês = "amostra pequena".
+- **Relatório por transportadora**: critérios, pontos de atenção, destaques, NFs atrasadas, ocorrências e CTEs acima da tabela. **Imprimir / PDF** (A4 retrato), **copiar**, **WhatsApp** e **e-mail** com o resumo pronto (o envio fica registrado na Auditoria).
+- Exportação CSV do ranking. Não precisa de nada novo no Supabase.

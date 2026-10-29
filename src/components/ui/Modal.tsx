@@ -11,10 +11,12 @@ interface ModalProps {
   onSubmit?: (e: FormEvent) => void;
   banner?: ReactNode;
   footer?: ReactNode;
+  /** foca o primeiro campo ao abrir (desligue em telas de consulta com campos lá embaixo) */
+  autoFocus?: boolean;
   children: ReactNode;
 }
 
-export function Modal({ title, subtitle, size = 'md', onClose, onSubmit, banner, footer, children }: ModalProps) {
+export function Modal({ title, subtitle, size = 'md', onClose, onSubmit, banner, footer, autoFocus = true, children }: ModalProps) {
   const boxRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const onCloseRef = useRef(onClose);
@@ -34,8 +36,9 @@ export function Modal({ title, subtitle, size = 'md', onClose, onSubmit, banner,
     };
     window.addEventListener('keydown', onKey);
     const first = boxRef.current?.querySelector<HTMLElement>('.modal__body input:not([type=hidden]):not([type=checkbox]):not([readonly]), .modal__body select, .modal__body textarea');
-    if (first && window.matchMedia('(min-width: 768px)').matches) first.focus();
+    if (autoFocus && first && window.matchMedia('(min-width: 768px)').matches) first.focus();
     return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const inner = (

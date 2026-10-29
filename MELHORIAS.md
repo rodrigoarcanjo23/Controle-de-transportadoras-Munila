@@ -248,3 +248,16 @@ Administrador clica **Fechar o mês** depois da reunião: os números do BI fica
 - **Expedição**: monta o **romaneio de coleta** por transportadora (motorista, placa) e imprime com campos de assinatura; **confere o carregamento bipando o DANFE** (leitor USB ou câmera do celular/app) com aviso sonoro, NFs faltantes e leituras fora do romaneio; ao confirmar, grava a data de coleta e muda as NFs para "Em Transporte".
 - Segurança: o link do portal só enxerga e altera NFs da própria transportadora; fotos ficam em armazenamento privado.
 - **Gere e envie o link pelo sistema publicado (Vercel)**, não pelo app ou pelo servidor de teste (lá o endereço é "localhost"). Opcional: defina `VITE_APP_URL` (ex.: `https://seu-sistema.vercel.app`) na Vercel e no `.env.local` para o link sair sempre certo.
+
+## 16. Faturas de frete — conferência, contestação e pagamento (out/2026)
+
+> Requer rodar `supabase/faturas_frete.sql` no Supabase (uma vez; pode rodar de novo sem problema).
+
+- **Menu Análise › Faturas de frete**: registre a fatura/boleto da transportadora (nº, vencimento, valor e os CTEs cobrados — cole os números do boleto/e-mail ou marque na lista de CTEs sem fatura; PDF opcional).
+- **Conferência automática** de cada fatura: soma dos CTEs × valor cobrado, CTE repetido na fatura, CTE já cobrado em outra fatura, CTE de outra transportadora, CTE acima da tabela de frete, CTE não registrado no sistema, NF em 2+ CTEs e NF ainda não entregue. Mostra o **valor a contestar** sugerido.
+- **Fluxo**: A conferir → Conferida ou Contestada (mensagem pronta para copiar/WhatsApp/e-mail) → Aprovada para pagar (valor final, com a economia) → Paga. Tudo fica na linha do tempo da fatura e na Auditoria. Também dá para cancelar (fatura substituída) e desfazer etapas.
+- **Infarma**: na fatura, um clique marca os CTEs como lançados (ABERTO → FECHADO).
+- **CTEs sem fatura**: o que a transportadora ainda vai cobrar, por transportadora, com "Montar fatura com estes CTEs".
+- Indicadores: vencidas, vencem em 7 dias, em conferência, liberadas a pagar e **economia com contestações**. Exportação CSV.
+- **Alertas** (tela e e-mail diário): faturas vencidas sem pagamento (crítico), que vencem em até N dias (ajustável em Alertas › Configurar) e contestações sem resposta há mais de 5 dias. Os alertas agora aparecem em ordem: críticos, atenção, informativos.
+- Segurança: todos consultam; registrar, aprovar e pagar só Administrador. PDFs em armazenamento privado.

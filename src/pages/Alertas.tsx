@@ -12,14 +12,14 @@ import { Modal } from '../components/ui/Modal';
 import './alertas.css';
 
 const NIVEL: Record<NivelAlerta, [string, string]> = { critico: ['Crítico', 'red'], atencao: ['Atenção', 'amber'], info: ['Informativo', 'blue'] };
-const TELA: Record<string, string> = { '/dashboard': 'Painel de Entregas', '/financeiro': 'Gestão Financeira', '/devolucoes': 'Devoluções', '/ctes': 'Registro de CTE', '/indicadores': 'Indicadores Diários' };
+const TELA: Record<string, string> = { '/faturas': 'Faturas de frete', '/dashboard': 'Painel de Entregas', '/financeiro': 'Gestão Financeira', '/devolucoes': 'Devoluções', '/ctes': 'Registro de CTE', '/indicadores': 'Indicadores Diários' };
 
 function CartaoAlerta({ a, abrirNf, abrir }: { a: Alerta; abrirNf: (i: ItemAlerta) => void; abrir: (a: Alerta) => void }) {
   const comIds = a.itens.filter((i) => i.id).length;
   const [todos, setTodos] = useState(false);
   const [rot, tom] = NIVEL[a.nivel];
   const itens = todos ? a.itens : a.itens.slice(0, 6);
-  const ehNf = a.id !== 'indicadores';
+  const ehNf = a.id !== 'indicadores' && a.itensNf !== false;
   return (
     <div className={`card alerta alerta--${a.nivel}`}>
       <div className="alerta__head">
@@ -108,6 +108,7 @@ function ModalConfig({ cfg, onClose, onSalvar }: { cfg: ConfigAlertas; onClose: 
           <div className="field"><label>Sem CTE após (dias)</label>{num('dias_sem_cte')}</div>
           <div className="field"><label>Devolução parada após (dias)</label>{num('dias_devolucao_aberta')}</div>
           <div className="field"><label>Real acima do cotado em (%)</label>{num('margem_cotado_pct')}</div>
+          <div className="field"><label>Fatura de frete vence em até (dias)</label>{num('dias_fatura_vencer')}</div>
         </div>
         <details className="alerta-cfg__ajuda">
           <summary>Primeira vez? Como ligar o envio de e-mail (uma vez só)</summary>

@@ -10,7 +10,7 @@
 //   VITE_SUPABASE_URL          já existe (a mesma do site)
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { gerarAlertas, hojeBrasilia, lerConfigAlertas, resumoHtml } from '../src/lib/alertas';
-import type { Devolucao, Entrega, MetaFrete } from '../src/types';
+import type { Devolucao, Entrega, MetaFrete, Transportadora } from '../src/types';
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8' } });
@@ -68,7 +68,15 @@ export async function GET(request: Request): Promise<Response> {
     const hoje = hojeBrasilia();
     const desde = new Date(Date.now() - 10 * 864e5).toISOString().slice(0, 10);
     const { data: ind } = await sb.from('indicadores_diarios').select('area, data').gte('data', desde);
-    const alertas = gerarAlertas({ entregas, devolucoes, metas, indicadores: ind ?? undefined, cfg, hoje });
+    // faturas de frete em aberto (pula o alerta se a tabela ainda não foi criada)
+    const { data: fat, error: ef } = await sb.from('faturas_frete').select('numero, transportadora_id, vencimento, valor, status, updated_at')
+      .in('status', ['recebida', 'conferida', 'contestada', 'aprovada']);
+    const transps = ef ? [] : await todas<Transportadora>(sb, 'transportadoras', 'id, nome');
+    const faturas = ef ? undefined : (fat ?? []).map((f) => ({
+      numero: String(f.numero), vencimento: String(f.vencimento), valor: Number(f.valor) || 0, status: String(f.status), atualizada: f.updated_at as string,
+      transportadora: transps.find((t) => String(t.id) === String(f.transportadora_id))?.nome ?? '—',
+    }));
+    const alertas = gerarAlertas({ entregas, devolucoes, metas, indicadores: ind ?? undefined, faturas, cfg, hoje });
 
     const app = process.env.APP_URL || `https://${request.headers.get('host') ?? 'munilalog.vercel.app'}`;
     const criticos = alertas.filter((a) => a.nivel === 'critico').reduce((s, a) => s + a.itens.length, 0);

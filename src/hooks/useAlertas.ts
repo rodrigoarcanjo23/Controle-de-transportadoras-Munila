@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { registrarLog } from '../lib/db';
-import { CONFIG_ALERTAS_PADRAO, gerarAlertas, lerConfigAlertas, type ConfigAlertas } from '../lib/alertas';
+import { CONFIG_ALERTAS_PADRAO, gerarAlertas, lerConfigAlertas, type ConfigAlertas, type FaturaAlerta } from '../lib/alertas';
 import { useAppData } from '../state/context';
 
 /**
@@ -9,15 +9,20 @@ import { useAppData } from '../state/context';
  * `comIndicadores` também verifica se os Indicadores Diários de ontem foram lançados.
  */
 export function useAlertas(comIndicadores = false) {
-  const { entregas, devolucoes, metas } = useAppData();
+  const { entregas, devolucoes, metas, transportadoras } = useAppData();
   const [cfg, setCfg] = useState<ConfigAlertas>(CONFIG_ALERTAS_PADRAO);
   const [indicadores, setIndicadores] = useState<{ area: string; data: string }[] | undefined>(undefined);
+  const [faturasRaw, setFaturasRaw] = useState<(Omit<FaturaAlerta, 'transportadora'> & { transportadora_id: string })[] | undefined>(undefined);
 
   useEffect(() => {
     let vivo = true;
     (async () => {
       const { data } = await supabase.from('configuracoes').select('valor').eq('chave', 'alertas').maybeSingle();
       if (vivo && data) setCfg(lerConfigAlertas(data.valor));
+      // faturas de frete em aberto (se a tabela ainda não existe, o alerta é pulado)
+      const { data: fat, error: ef } = await supabase.from('faturas_frete').select('numero, transportadora_id, vencimento, valor, status, updated_at')
+        .in('status', ['recebida', 'conferida', 'contestada', 'aprovada']);
+      if (vivo && !ef) setFaturasRaw((fat ?? []).map((f) => ({ ...f, valor: Number(f.valor) || 0, atualizada: f.updated_at as string })));
       if (comIndicadores) {
         const desde = new Date(Date.now() - 10 * 864e5).toISOString().slice(0, 10);
         const { data: ind, error } = await supabase.from('indicadores_diarios').select('area, data').gte('data', desde);
@@ -27,7 +32,8 @@ export function useAlertas(comIndicadores = false) {
     return () => { vivo = false; };
   }, [comIndicadores]);
 
-  const alertas = useMemo(() => gerarAlertas({ entregas, devolucoes, metas, indicadores, cfg }), [entregas, devolucoes, metas, indicadores, cfg]);
+  const faturas = useMemo(() => faturasRaw?.map((f) => ({ ...f, transportadora: transportadoras.find((t) => String(t.id) === String(f.transportadora_id))?.nome ?? '—' })), [faturasRaw, transportadoras]);
+  const alertas = useMemo(() => gerarAlertas({ entregas, devolucoes, metas, indicadores, faturas, cfg }), [entregas, devolucoes, metas, indicadores, faturas, cfg]);
 
   const salvarConfig = useCallback(async (novo: ConfigAlertas) => {
     const { error } = await supabase.from('configuracoes').upsert({ chave: 'alertas', valor: novo }, { onConflict: 'chave' });

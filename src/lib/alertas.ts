@@ -14,9 +14,11 @@ export interface ConfigAlertas {
   dias_devolucao_aberta: number;
   /** frete real acima do cotado em mais de X% */
   margem_cotado_pct: number;
+  /** avisar faturas de frete que vencem em até N dias */
+  dias_fatura_vencer: number;
 }
 export const CONFIG_ALERTAS_PADRAO: ConfigAlertas = {
-  ativo: false, emails: [], dias_sem_cte: 15, dias_aguardando_coleta: 2, dias_devolucao_aberta: 15, margem_cotado_pct: 10,
+  ativo: false, emails: [], dias_sem_cte: 15, dias_aguardando_coleta: 2, dias_devolucao_aberta: 15, margem_cotado_pct: 10, dias_fatura_vencer: 3,
 };
 export const lerConfigAlertas = (v: unknown): ConfigAlertas => {
   const o = (v && typeof v === 'object' ? v : {}) as Partial<ConfigAlertas>;
@@ -29,6 +31,7 @@ export const lerConfigAlertas = (v: unknown): ConfigAlertas => {
     dias_aguardando_coleta: n(o.dias_aguardando_coleta, P.dias_aguardando_coleta),
     dias_devolucao_aberta: n(o.dias_devolucao_aberta, P.dias_devolucao_aberta),
     margem_cotado_pct: n(o.margem_cotado_pct, P.margem_cotado_pct),
+    dias_fatura_vencer: n(o.dias_fatura_vencer, P.dias_fatura_vencer),
   };
 };
 
@@ -41,7 +44,12 @@ export interface Alerta {
   rota: string;
   /** status para filtrar o Painel de Entregas, quando fizer sentido */
   status?: string[];
+  /** false = os itens não são NFs (ex.: faturas de frete) */
+  itensNf?: boolean;
 }
+
+/** Fatura de frete em aberto (o mínimo para os alertas de vencimento). */
+export interface FaturaAlerta { numero: string; transportadora: string; vencimento: string; valor: number; status: string; atualizada?: string | null }
 
 /* ---------- utilidades (sem depender do fuso do computador) ---------- */
 const dia = (iso: string) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
@@ -70,10 +78,12 @@ export interface EntradaAlertas {
   entregas: Entrega[]; devolucoes: Devolucao[]; metas: MetaFrete[];
   /** dias já lançados nos Indicadores Diários ({area, data}); omita para pular esse alerta */
   indicadores?: { area: string; data: string }[];
+  /** faturas de frete não pagas/canceladas; omita para pular esses alertas */
+  faturas?: FaturaAlerta[];
   cfg: ConfigAlertas; hoje?: string;
 }
 
-export function gerarAlertas({ entregas, devolucoes, metas, indicadores, cfg, hoje = hojeBrasilia() }: EntradaAlertas): Alerta[] {
+export function gerarAlertas({ entregas, devolucoes, metas, indicadores, faturas, cfg, hoje = hojeBrasilia() }: EntradaAlertas): Alerta[] {
   const abertas = entregas.filter((e) => !FINALIZADAS.has(e.status));
   const out: Alerta[] = [];
   const add = (a: Alerta) => { if (a.itens.length) out.push(a); };
@@ -170,6 +180,34 @@ export function gerarAlertas({ entregas, devolucoes, metas, indicadores, cfg, ho
     })),
   });
 
+  // Faturas de frete: vencidas, vencendo e contestações sem resposta
+  if (faturas) {
+    const abertas = faturas.filter((f) => ['recebida', 'conferida', 'contestada', 'aprovada'].includes(f.status));
+    const ST: Record<string, string> = { recebida: 'a conferir', conferida: 'conferida, falta aprovar', contestada: 'aguardando resposta', aprovada: 'aprovada, falta pagar' };
+    const it = (f: FaturaAlerta, d: number, txt: string): ItemAlerta => ({ nf: `Fatura ${f.numero}`, cliente: f.transportadora, dias: d, detalhe: `${brl(num(f.valor))} · ${txt} · ${ST[f.status] ?? f.status}` });
+    add({
+      id: 'faturas_vencidas', nivel: 'critico', rota: '/faturas', itensNf: false,
+      titulo: 'Faturas de frete vencidas sem pagamento',
+      descricao: 'Risco de juros e de a transportadora suspender as coletas. Conclua a conferência e registre o pagamento.',
+      itens: ordem(abertas.filter((f) => f.vencimento < hoje).map((f) => { const d = dias(f.vencimento, hoje); return it(f, d, `venceu em ${ddmm(f.vencimento)} (${d} dia${d > 1 ? 's' : ''})`); })),
+    });
+    add({
+      id: 'faturas_vencer', nivel: 'atencao', rota: '/faturas', itensNf: false,
+      titulo: `Faturas de frete que vencem em até ${cfg.dias_fatura_vencer} dias`,
+      descricao: 'Confira e aprove a tempo — contestação depois do pagamento é mais difícil.',
+      itens: abertas.filter((f) => f.vencimento >= hoje && dias(hoje, f.vencimento) <= cfg.dias_fatura_vencer)
+        .map((f) => { const d = dias(hoje, f.vencimento); return it(f, -d, d === 0 ? 'vence hoje' : `vence em ${ddmm(f.vencimento)}`); })
+        .sort((a, b) => (b.dias ?? 0) - (a.dias ?? 0)),
+    });
+    add({
+      id: 'faturas_contestadas', nivel: 'info', rota: '/faturas', itensNf: false,
+      titulo: 'Contestações de fatura sem resposta há mais de 5 dias',
+      descricao: 'Cobre a transportadora pela fatura corrigida ou pelo desconto.',
+      itens: ordem(abertas.filter((f) => f.status === 'contestada' && f.atualizada && dias(f.atualizada.slice(0, 10), hoje) > 5)
+        .map((f) => { const d = dias(f.atualizada!.slice(0, 10), hoje); return it(f, d, `contestada há ${d} dias`); })),
+    });
+  }
+
   // 9) Indicadores Diários do último dia útil não lançados
   if (indicadores) {
     const ontem = diaUtilAnterior(hoje);
@@ -182,7 +220,9 @@ export function gerarAlertas({ entregas, devolucoes, metas, indicadores, cfg, ho
       itens: faltam.map(([, l]) => ({ nf: l, cliente: '', detalhe: 'sem lançamento' })),
     });
   }
-  return out;
+  // críticos primeiro, depois atenção e informativos (mantendo a ordem dentro de cada nível)
+  const peso: Record<NivelAlerta, number> = { critico: 0, atencao: 1, info: 2 };
+  return out.map((a, i) => [a, i] as const).sort((x, y) => peso[x[0].nivel] - peso[y[0].nivel] || x[1] - y[1]).map(([a]) => a);
 }
 
 const NIVEL_TXT: Record<NivelAlerta, string> = { critico: '🔴', atencao: '🟡', info: '🔵' };
@@ -193,7 +233,7 @@ export function resumoTexto(alertas: Alerta[], hoje = hojeBrasilia(), maxItens =
   const linhas = [`*MunilaLog — alertas de ${ddmm(hoje)}*`, ''];
   for (const a of alertas) {
     linhas.push(`${NIVEL_TXT[a.nivel]} *${a.titulo}* (${a.itens.length})`);
-    a.itens.slice(0, maxItens).forEach((i) => linhas.push(`   • ${i.cliente ? `NF ${i.nf} — ${i.cliente}` : i.nf}: ${i.detalhe}`));
+    a.itens.slice(0, maxItens).forEach((i) => linhas.push(`   • ${i.cliente ? `${a.itensNf === false ? '' : 'NF '}${i.nf} — ${i.cliente}` : i.nf}: ${i.detalhe}`));
     if (a.itens.length > maxItens) linhas.push(`   … e mais ${a.itens.length - maxItens}`);
     linhas.push('');
   }
@@ -210,7 +250,7 @@ export function resumoHtml(alertas: Alerta[], urlApp: string, hoje = hojeBrasili
   const blocos = alertas.map((a) => {
     const [bg, fg, rot] = COR[a.nivel];
     const itens = a.itens.slice(0, maxItens).map((i) =>
-      `<tr><td style="padding:6px 10px;border-top:1px solid #eef2f6;font:600 13px Arial;color:#0f1b2d;white-space:nowrap">${esc(i.cliente ? `NF ${i.nf}` : i.nf)}</td>` +
+      `<tr><td style="padding:6px 10px;border-top:1px solid #eef2f6;font:600 13px Arial;color:#0f1b2d;white-space:nowrap">${esc(i.cliente && a.itensNf !== false ? `NF ${i.nf}` : i.nf)}</td>` +
       `<td style="padding:6px 10px;border-top:1px solid #eef2f6;font:13px Arial;color:#334155">${esc(i.cliente)}</td>` +
       `<td style="padding:6px 10px;border-top:1px solid #eef2f6;font:12px Arial;color:#64748b">${esc(i.detalhe)}</td></tr>`).join('');
     const mais = a.itens.length > maxItens ? `<tr><td colspan="3" style="padding:6px 10px;font:12px Arial;color:#64748b">… e mais ${a.itens.length - maxItens}</td></tr>` : '';

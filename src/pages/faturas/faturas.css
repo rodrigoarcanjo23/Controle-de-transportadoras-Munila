@@ -1,0 +1,103 @@
+/* Faturas de frete */
+.fat-filtros { margin-left: auto; display: flex; gap: 8px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
+.fat-filtros .select { min-width: 200px; }
+.fat-filtros .input-icon { min-width: 220px; }
+.fin-tab .count { margin-left: 6px; }
+
+.fat-tabela tbody tr { cursor: pointer; }
+.fat-tabela tbody tr:focus-visible td { background: var(--brand-soft); outline: none; }
+.fat-sub { display: block; font-size: 0.74rem; font-weight: 500; margin-top: 2px; }
+.fat-prazo { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.fat-tit { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.link-btn { background: none; border: 0; padding: 0; font: inherit; font-size: 0.8rem; font-weight: 650; color: var(--brand); cursor: pointer; text-align: left; }
+.link-btn:hover { text-decoration: underline; }
+.btn-warning { background: var(--orange-solid); border-color: var(--orange-solid); color: #fff; }
+.btn-warning:hover { filter: brightness(0.95); }
+
+/* cadastro */
+.fat-form { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(260px, 1fr); gap: 18px; align-items: start; }
+.fat-form__dados { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.fat-form__lista { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.fat-form__lista-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.9rem; }
+.fat-ctes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 420px; overflow: auto; }
+.fat-ctes label {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: center; padding: 7px 9px; border-radius: 8px;
+  border: 1px solid transparent; background: var(--surface); cursor: pointer; font-size: 0.85rem;
+}
+.fat-ctes label:hover { border-color: var(--border-strong); }
+.fat-ctes label.is-on { border-color: var(--brand); background: var(--brand-soft); }
+.fat-ctes__n { font-weight: 700; }
+.fat-ctes__v { font-weight: 650; font-variant-numeric: tabular-nums; }
+.fat-ctes small { grid-column: 2 / -1; color: var(--muted); font-size: 0.74rem; }
+.fat-arq {
+  display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1px dashed var(--border-strong); border-radius: var(--radius);
+  cursor: pointer; color: var(--text-2); font-size: 0.88rem; overflow: hidden;
+}
+.fat-arq span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fat-arq:hover { border-color: var(--brand); color: var(--brand); }
+.fat-previa { border-radius: var(--radius); padding: 12px 14px; font-size: 0.86rem; display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--border); }
+.fat-previa__top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fat-previa ul { margin: 0; padding-left: 18px; color: var(--text-2); }
+.fat-previa--green { background: var(--green-bg); border-color: transparent; }
+.fat-previa--green .fat-previa__top svg { color: var(--green); }
+.fat-previa--amber { background: var(--amber-bg); border-color: transparent; }
+.fat-previa--red { background: var(--red-bg); border-color: transparent; }
+.fat-previa--red .fat-previa__top svg { color: var(--red); }
+
+/* detalhe */
+.fat-det { display: flex; flex-direction: column; gap: 14px; }
+.fat-etapas { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; counter-reset: e; }
+.fat-etapas li {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); color: var(--muted);
+  font-size: 0.82rem; font-weight: 650; position: relative; flex-wrap: wrap;
+}
+.fat-etapas li > span {
+  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 0.74rem; background: var(--surface-3); color: var(--muted); flex-shrink: 0;
+}
+.fat-etapas li small { width: 100%; padding-left: 30px; font-weight: 500; }
+.fat-etapas li.is-ok { color: var(--green); }
+.fat-etapas li.is-ok > span { background: var(--green-bg); color: var(--green); }
+.fat-etapas li.is-on { background: var(--brand-soft); color: var(--brand-ink); }
+.fat-etapas li.is-on > span { background: var(--brand); color: #fff; }
+.fat-motivos { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border-radius: var(--radius); font-size: 0.86rem; }
+.fat-motivos ul { margin: 0; padding-left: 16px; }
+.fat-motivos > svg { flex-shrink: 0; margin-top: 2px; }
+.fat-motivos--red { background: var(--red-bg); } .fat-motivos--red > svg { color: var(--red); }
+.fat-motivos--amber { background: var(--amber-bg); } .fat-motivos--amber > svg { color: var(--amber); }
+.fat-probs { display: inline-flex; gap: 4px; flex-wrap: wrap; white-space: normal; }
+
+.fat-acoes { display: flex; flex-direction: column; gap: 10px; }
+.fat-acao { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.fat-acao h4 { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; margin: 0; }
+.fat-acao h4 svg { color: var(--brand); }
+.fat-acao__btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.fat-acao__linha { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; justify-content: space-between; }
+.fat-acao__linha .field { min-width: 200px; }
+.fat-acao--ok { background: var(--green-bg); border-color: transparent; flex-direction: row; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+.fat-acao--ok h4 svg { color: var(--green); }
+.fat-acao--infarma { background: var(--orange-bg); border-color: transparent; flex-direction: row; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+.fat-acao--infarma h4 svg { color: var(--orange); }
+.fat-msg summary { cursor: pointer; font-size: 0.82rem; font-weight: 650; color: var(--brand); }
+.fat-msg pre { white-space: pre-wrap; font: inherit; font-size: 0.82rem; background: var(--surface-2); border-radius: 8px; padding: 10px 12px; margin: 8px 0 0; color: var(--text-2); }
+.fat-eventos { list-style: none; margin: 6px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--border); display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; }
+.fat-eventos li { position: relative; }
+.fat-eventos li::before { content: ''; position: absolute; left: -20px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--brand); border: 2px solid var(--surface); }
+.fat-eventos small { display: block; color: var(--muted); font-size: 0.75rem; }
+
+/* CTEs sem fatura */
+.fat-grupos { display: flex; flex-direction: column; gap: 14px; }
+.fat-grupo { overflow: hidden; }
+.fat-grupo__top { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.fat-grupo__top > div { display: flex; flex-direction: column; gap: 2px; }
+.fat-grupo__top .muted { font-size: 0.82rem; }
+
+@media (max-width: 860px) {
+  .fat-form { grid-template-columns: 1fr; }
+  .fat-etapas { grid-template-columns: repeat(2, 1fr); }
+  .fat-filtros { margin-left: 0; width: 100%; }
+  .fat-filtros .select, .fat-filtros .input-icon { flex: 1; min-width: 0; }
+}
+.fat .bi-kpis { grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
+.fat-filtros .select { width: auto; }
+.fat-filtros .input-icon { width: 240px; }

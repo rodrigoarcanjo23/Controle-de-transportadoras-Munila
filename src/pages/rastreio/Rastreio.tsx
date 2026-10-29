@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CircleCheck, FileImage, Loader2, MapPin, Package, Truck } from 'lucide-react';
 import { formatDate } from '../../lib/format';
+import { supabase } from '../../lib/supabase';
 import { etapaAtual, statusParaCliente, type EtapaRastreio, type RastreioDados } from '../../lib/rastreio';
 import './rastreio.css';
 
@@ -16,15 +17,32 @@ export default function Rastreio() {
 
   useEffect(() => {
     document.title = 'Rastreio do pedido · Munila';
-    fetch(`/api/rastreio?t=${encodeURIComponent(token)}`)
-      .then(async (r) => {
-        const tipo = r.headers.get('content-type') ?? '';
-        if (!tipo.includes('json')) throw new Error('O rastreio só funciona no endereço publicado do sistema.');
-        const b = await r.json();
-        if (!r.ok) throw new Error(b.erro ?? 'Não foi possível carregar.');
-        setD(b as RastreioDados);
-      })
-      .catch((e) => setErro(e instanceof Error ? e.message : 'Não foi possível carregar.'));
+    let vivo = true;
+    (async () => {
+      // dados direto do banco (função pública que só aceita o código secreto da NF)
+      const { data, error } = await supabase.rpc('rastreio_consultar', { p_token: token });
+      if (!vivo) return;
+      if (error) {
+        setErro(/rastreio_consultar|function|schema cache/i.test(error.message)
+          ? 'O rastreio ainda não foi ativado. Rode o arquivo supabase/rastreio_avisos.sql no Supabase.'
+          : /uuid/i.test(error.message) ? 'Link de rastreio inválido.' : 'Não foi possível carregar agora. Tente novamente em instantes.');
+        return;
+      }
+      if (!data) { setErro('Link de rastreio inválido ou expirado.'); return; }
+      const d0 = data as RastreioDados & { temCanhoto?: boolean };
+      setD(d0);
+      // o link do canhoto é gerado pela função da Vercel (só no site publicado); sem ela, a página funciona sem o botão
+      if (d0.temCanhoto) {
+        try {
+          const r = await fetch(`/api/rastreio?t=${encodeURIComponent(token)}`);
+          if ((r.headers.get('content-type') ?? '').includes('json') && r.ok) {
+            const b = await r.json() as RastreioDados;
+            if (vivo && b.canhotoUrl) setD({ ...d0, canhotoUrl: b.canhotoUrl });
+          }
+        } catch { /* sem canhoto */ }
+      }
+    })();
+    return () => { vivo = false; };
   }, [token]);
 
   const atual = d ? etapaAtual(d) : 'faturado';

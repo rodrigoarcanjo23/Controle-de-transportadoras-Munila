@@ -79,3 +79,40 @@ do $$ begin
   execute 'grant execute on function public.avisos_reservar(integer) to service_role';
 exception when undefined_object then null;
 end $$;
+
+-- 6) Consulta pública do rastreio (o cliente não faz login): só funciona com o código
+--    secreto da NF e devolve apenas o necessário para o cliente.
+create or replace function public.rastreio_consultar(p_token uuid) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare e record; v_oc jsonb := '[]'::jsonb; v_canhoto boolean := false;
+begin
+  select en.id, en.nota_fiscal, en.status, en.cidade_destino, en.uf_destino, en.data_faturamento, en.data_coleta,
+         en.data_previsao, en.data_entrega_agendamento, c.nome as cli_nome, c.cidade as cli_cidade, c.uf as cli_uf, t.nome as transp
+    into e
+  from entregas en
+  left join clientes c on c.id = en.cliente_id
+  left join transportadoras t on t.id = en.transportadora_id
+  where en.rastreio_token = p_token;
+  if not found then return null; end if;
+
+  if to_regclass('public.ocorrencias') is not null then
+    execute $q$select coalesce(jsonb_agg(jsonb_build_object('codigo', codigo, 'descricao', coalesce(descricao, codigo), 'data', data_ocorrencia)
+                      order by data_ocorrencia, created_at), '[]'::jsonb),
+                      coalesce(bool_or(canhoto_path is not null), false)
+               from ocorrencias where entrega_id = $1$q$
+      into v_oc, v_canhoto using e.id::text;
+  end if;
+
+  return jsonb_build_object(
+    'nf', e.nota_fiscal, 'cliente', coalesce(e.cli_nome, ''),
+    'cidade', coalesce(e.cidade_destino, e.cli_cidade, ''), 'uf', coalesce(e.uf_destino, e.cli_uf, ''),
+    'transportadora', coalesce(e.transp, ''), 'status', e.status,
+    'faturamento', e.data_faturamento, 'coleta', e.data_coleta,
+    'previsao', case when e.status = 'Entregue' then null else e.data_previsao end,
+    'entrega', case when e.status = 'Entregue' then e.data_entrega_agendamento end,
+    'agendamento', case when e.status in ('Agendado', 'Reagendado') then e.data_entrega_agendamento end,
+    'temCanhoto', v_canhoto and e.status = 'Entregue',
+    'ocorrencias', v_oc);
+end $$;
+revoke all on function public.rastreio_consultar(uuid) from public;
+grant execute on function public.rastreio_consultar(uuid) to anon, authenticated;

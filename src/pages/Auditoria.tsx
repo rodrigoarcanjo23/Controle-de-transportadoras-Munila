@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { mensagemErro } from '../lib/db';
 import { MODULOS_LOG } from '../lib/constants';
 import { downloadCsv } from '../lib/csv';
-import { FUSO, diaLocal, formatDate, formatDateTimeBR, formatHora, hojeISO, iniciais, tempoRelativo } from '../lib/format';
+import { FUSO, diaLocal, formatDate, formatDateTimeBR, formatHora, hojeISO, iniciais, parseCarimbo, tempoRelativo } from '../lib/format';
 import { useAppData } from '../state/context';
 import { useFeedback } from '../feedback/context';
 import { EmptyState, FilterCard, Field, PageHeader, SearchInput } from '../components/ui/basics';
@@ -200,6 +200,13 @@ export default function Auditoria() {
       logs.map((l) => [formatDateTimeBR(l.criado_em), l.usuario_email, nomeDe(l.usuario_email), ACOES[l.acao]?.label ?? l.acao, MODULOS_LOG.find((m) => m.value === l.modulo)?.label ?? l.modulo, l.detalhes]));
   }
 
+  // registros "no futuro" = o banco está gravando a hora com deslocamento (falta rodar o SQL de correção)
+  const adiantamentoH = useMemo(() => {
+    const max = logs.reduce((m, l) => Math.max(m, parseCarimbo(l.criado_em)?.getTime() ?? 0), 0);
+    const h = Math.round((max - agora.getTime()) / 3_600_000);
+    return max && max - agora.getTime() > 10 * 60_000 && h >= 1 ? h : 0;
+  }, [logs, agora]);
+
   const usuariosFiltro = useMemo(() => [...perfis].filter((p) => p.email).sort((a, b) => (a.nome || a.email).localeCompare(b.nome || b.email)), [perfis]);
   const fusoTxt = useMemo(() => new Date().toLocaleTimeString('pt-BR', { timeZone: FUSO, hour: '2-digit', minute: '2-digit' }), [agora]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -211,6 +218,16 @@ export default function Auditoria() {
           <button className="btn btn-success-outline" onClick={exportar}><Download size={16} /> Exportar</button>
           <button className="btn" onClick={recarregar}><RotateCw size={16} className={loading ? 'spin' : ''} /> Atualizar</button>
         </>} />
+
+      {adiantamentoH > 0 && (
+        <div className="aud-aviso">
+          <ShieldAlert size={18} />
+          <div>
+            <strong>O banco de dados está gravando o horário {adiantamentoH} h adiantado.</strong>
+            <span>Para corrigir (inclusive os registros antigos): no Supabase, abra <b>SQL Editor › New query</b>, cole o arquivo <code>supabase/auditoria_fuso.sql</code> e clique em <b>Run</b>. Depois clique em Atualizar aqui.</span>
+          </div>
+        </div>
+      )}
 
       <div className="aud-resumo">
         <div className="aud-resumo__item"><Activity size={18} /><div><strong>{resumoHoje === null ? '…' : resumo.total}</strong><span>ações hoje</span></div></div>

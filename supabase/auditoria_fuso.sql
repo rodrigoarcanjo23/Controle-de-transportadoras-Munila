@@ -45,7 +45,21 @@ begin
 
   -- arredonda para horas inteiras (diferenças de segundos são só o tempo de execução)
   v_horas := round(extract(epoch from v_dif) / 3600.0);
-  raise notice 'criado_em: tipo = %, padrão = %, deslocamento medido = % h', v_tipo, coalesce(v_def, '(nenhum)'), v_horas;
+  raise notice 'criado_em: tipo = %, padrão = %, deslocamento pelo padrão = % h', v_tipo, coalesce(v_def, '(nenhum)'), v_horas;
+
+  -- O fuso pode estar configurado só na conexão do aplicativo (e não aqui no SQL Editor).
+  -- Então mede também pelos próprios registros: ações gravadas "no futuro" revelam o deslocamento.
+  if v_horas = 0 then
+    if v_tipo = 'timestamp without time zone' then
+      execute 'select max(criado_em) - (now() at time zone ''UTC'') from public.logs_auditoria' into v_dif;
+    else
+      execute 'select max(criado_em) - now() from public.logs_auditoria' into v_dif;
+    end if;
+    if v_dif is not null and v_dif > interval '10 minutes' then
+      v_horas := round(extract(epoch from v_dif) / 3600.0);
+      raise notice 'Registros recentes estão % h no futuro: esse é o deslocamento a corrigir.', v_horas;
+    end if;
+  end if;
 
   if v_tipo = 'timestamp without time zone' then
     -- converte para timestamptz tratando o valor gravado como UTC e tirando o deslocamento
@@ -60,8 +74,8 @@ begin
     raise notice 'Horário já estava correto no banco.';
   end if;
 
+  update public.logs_auditoria set criado_em = now() where criado_em is null;
   alter table public.logs_auditoria alter column criado_em set default now();
-  alter table public.logs_auditoria alter column criado_em set not null;
 end $$;
 
 create index if not exists logs_auditoria_criado_idx on public.logs_auditoria (criado_em desc);
@@ -76,8 +90,10 @@ exception when undefined_object then null;
 end $$;
 
 -- Conferência: a última ação deve mostrar o horário certo de Fortaleza
-select usuario_email, acao, detalhes,
-       to_char(criado_em at time zone 'America/Fortaleza', 'DD/MM/YYYY HH24:MI:SS') as horario_fortaleza
+-- (a coluna "agora_em_fortaleza" é o relógio real; as ações recentes devem estar próximas dela, nunca depois)
+select usuario_email, acao, left(detalhes, 60) as detalhes,
+       to_char(criado_em at time zone 'America/Fortaleza', 'DD/MM/YYYY HH24:MI:SS') as horario_fortaleza,
+       to_char(now() at time zone 'America/Fortaleza', 'DD/MM/YYYY HH24:MI:SS') as agora_em_fortaleza
 from public.logs_auditoria
 order by criado_em desc
 limit 5;

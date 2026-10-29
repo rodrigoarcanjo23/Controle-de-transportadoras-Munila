@@ -52,6 +52,7 @@ export function tempoRelativo(d?: string | null, agora: Date = new Date()): stri
   const dt = parseCarimbo(d);
   if (!dt) return '';
   const s = Math.round((agora.getTime() - dt.getTime()) / 1000);
+  if (s < -120) return ''; // no futuro: relógio do registro errado
   if (s < 45) return 'agora';
   if (s < 3600) return `há ${Math.max(1, Math.round(s / 60))} min`;
   if (diaLocal(dt) === diaLocal(agora)) return `há ${Math.round(s / 3600)} h`;

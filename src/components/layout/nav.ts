@@ -17,7 +17,7 @@ export const NAV: NavGroup[] = [
       { to: '/logistica', label: 'Logística & SLA', icon: Map },
       { to: '/ctes', label: 'Registro de CTE', icon: FileText, admin: true },
       { to: '/devolucoes', label: 'Devoluções', icon: RefreshCcw, admin: true },
-      { to: '/calculadora', label: 'Calculadora', icon: Calculator },
+      { to: '/calculadora', label: 'Simulador de frete', icon: Calculator },
     ],
   },
   {

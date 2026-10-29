@@ -99,10 +99,13 @@ O objetivo é responder, todos os dias e sem planilha, a quatro perguntas:
 - **Integração CTE → Painel**: o frete real é rateado quando o CTE cobre várias NFs ("17248 / 17252"), somado quando há CTE complementar, e aplicado com sincronização retroativa.
 - Bloqueio de chave duplicada e situação **ABERTO / FECHADO** (lançado no Infarma).
 
-#### 🔄 Devoluções e 🧮 Calculadora
+#### 🔄 Devoluções
 - Controle de devoluções e recusas, com frete reverso e status de retorno.
-- Calculadora de **peso e caixaria** pelo cadastro de produtos.
-- **Cotação pelas tabelas de frete**: compara custo × prazo de todas as transportadoras para o destino.
+
+#### 🧮 Simulador de frete
+- **Carga do pedido** (produtos do catálogo ou volumes avulsos): caixas, peso real, **cubagem (m³)**, **peso cubado** (fator configurável: 300/250/200 kg/m³ rodoviário, 166,7 aéreo) e **peso taxado** = maior entre real e cubado; texto VOL/PESO da NF-e.
+- **Cotação** para o destino: custo pela tabela de frete de cada transportadora ou, sem tabela, estimativa pelo R$/kg real dos CTEs da rota; prazo, data de entrega prevista, pontualidade histórica e meta do cliente; selos de menor custo, mais rápida e melhor custo-benefício.
+- **Usar**: cria a entrega no Painel já com a transportadora escolhida e o frete cotado.
 
 ### Armazém
 

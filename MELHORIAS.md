@@ -295,3 +295,12 @@ Administrador clica **Fechar o mês** depois da reunião: os números do BI fica
 - **Importar XML (Painel de Entregas)**: NF-e de saída em lote, com prévia; cliente e transportadora pelo CNPJ; clientes novos cadastrados com os dados da NF; ignora NFs já cadastradas, de entrada e canceladas (evento de cancelamento).
 - **Risco de atraso**: Logística & SLA ganhou o indicador "Em risco de atrasar" e a marca de risco em cada NF; a Central de Alertas e o e-mail diário avisam as NFs com risco alto.
 - **Rastreio ao cliente**: link público por NF (status, previsão, atualizações e canhoto) no histórico da NF; **e-mails automáticos** de coletado e entregue (Alertas › Avisos automáticos aos clientes: ligar, escolher os avisos e cópia oculta). Cliente pode ser excluído no cadastro. Funções novas na Vercel: `api/rastreio.ts` e `api/avisos-clientes.ts` (mesmas variáveis do e-mail de alertas).
+
+## 20. Simulador de frete (antiga Calculadora) (out/2026)
+
+- **Carga do pedido** com vários itens: produto do catálogo + quantidade (caixas, peso e cubagem pelo cadastro, aviso de caixa incompleta) ou volume avulso (volumes, peso e medidas).
+- **Cubagem e peso taxado**: m³ × fator de cubagem (rodoviário 300 kg/m³ padrão, 250, 200 ou aéreo 166,7) e o peso cobrado = maior entre o real e o cubado. Continua gerando o texto da coluna VOL/PESO da NF-e.
+- **Destino e mercadoria**: cliente (preenche UF/cidade, avisa se exige agendamento) e valor da mercadoria (ad valorem, GRIS e % de frete).
+- **Cotação**: todas as transportadoras com tabela de frete para a UF (cálculo por componente) e, sem tabela, **estimativa pelo custo real (R$/kg) dos CTEs da rota** nos últimos 12 meses, com faixa típica. Prazo contratado ou histórico (80%), **data de entrega prevista** (coleta D+N + prazo em dias úteis), **pontualidade** da rota e **meta de frete** do cliente × transportadora.
+- Selos de **menor custo**, **mais rápida** e **melhor custo-benefício** (custo 60%, prazo 25%, pontualidade 15%). Copiar/WhatsApp da cotação.
+- **Usar**: abre a nova entrega já preenchida (cliente, transportadora, destino, valor, frete cotado, volumes, peso, previsão e a cotação nas observações) — o frete cotado depois é conferido com o CTE na Gestão Financeira.

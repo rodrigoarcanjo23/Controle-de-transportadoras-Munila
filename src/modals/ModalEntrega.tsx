@@ -72,7 +72,7 @@ function mudancas(antes: Entrega, depois: Record<string, unknown>, clientes: { i
  * Cadastro/edição de entrega. `entrega` = edição; `modelo` = nova entrega
  * pré-preenchida (função "Duplicar").
  */
-export function ModalEntrega({ entrega, modelo, onClose }: { entrega?: Entrega; modelo?: Partial<Entrega>; onClose: () => void }) {
+export function ModalEntrega({ entrega, modelo, onClose, titulo }: { entrega?: Entrega; modelo?: Partial<Entrega>; onClose: () => void; titulo?: string }) {
   const { clientes, transportadoras, setEntregas, isAdmin } = useAppData();
   const { toast } = useFeedback();
   const editando = !!entrega;
@@ -162,7 +162,7 @@ export function ModalEntrega({ entrega, modelo, onClose }: { entrega?: Entrega; 
 
   return (
     <Modal size="lg" onClose={onClose} onSubmit={salvar}
-      title={editando ? `Editar entrega · NF ${nfInicial}` : modelo ? 'Nova entrega (duplicada)' : 'Nova entrega'}
+      title={editando ? `Editar entrega · NF ${nfInicial}` : titulo ?? (modelo ? 'Nova entrega (duplicada)' : 'Nova entrega')}
       subtitle="Campos com * são obrigatórios"
       footer={<ModalActions onCancel={onClose} submitting={salvando} disabled={nfStatus === 'duplicate' || nfStatus === 'checking'}
         submitLabel={editando ? 'Atualizar entrega' : 'Salvar entrega'} />}>

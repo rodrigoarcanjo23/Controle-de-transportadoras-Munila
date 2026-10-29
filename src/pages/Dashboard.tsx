@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import {
-  ArrowRightLeft, ChartColumn, Columns3, Copy, Download, FileText, Hash, Package, Pencil, Plus, RotateCw,
+  ArrowRightLeft, ChartColumn, Columns3, Copy, Download, FileText, FileUp, Hash, Package, Pencil, Plus, RotateCw,
   Rows3, Scale, SlidersHorizontal, Target, Trash2, LayoutDashboard, SearchX, History, Bell,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -23,6 +23,7 @@ import { DataTable, type Column } from '../components/ui/DataTable';
 import { Dropdown } from '../components/ui/Dropdown';
 import { ModalEntrega } from '../modals/ModalEntrega';
 import { ModalHistorico } from '../modals/ModalHistorico';
+import { ModalImportarNfe } from '../modals/ModalImportarNfe';
 import { FiltrosPanel } from './dashboard/FiltrosPanel';
 import type { Entrega } from '../types';
 
@@ -35,6 +36,7 @@ export default function Dashboard() {
 
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
   const [modal, setModal] = useState<{ entrega?: Entrega; modelo?: Partial<Entrega> } | null>(null);
+  const [importar, setImportar] = useState(false);
   const [historico, setHistorico] = useState<Entrega | null>(null);
   const [ocultas, setOcultas] = useState<string[]>(() => loadPrefRaw('colunasOcultas', OCULTAS_PADRAO));
   const [compacto, setCompacto] = useState<boolean>(() => loadPrefRaw('tabelaCompacta', false));
@@ -199,6 +201,11 @@ export default function Dashboard() {
             </button>
             <button className="btn btn-success-outline" onClick={exportar}><Download size={16} /> Exportar</button>
             {isAdmin && (
+              <button className="btn" onClick={() => setImportar(true)} title="Criar entregas a partir dos XMLs das NF-e">
+                <FileUp size={16} /><span className="hide-mobile">Importar XML</span>
+              </button>
+            )}
+            {isAdmin && (
               <button className="btn btn-primary" onClick={() => setModal({})} title="Nova entrega (atalho: N)">
                 <Plus size={16} /> Nova entrega
               </button>
@@ -321,6 +328,7 @@ export default function Dashboard() {
         />
       </div>
 
+      {importar && <ModalImportarNfe onClose={() => setImportar(false)} />}
       {modal && <ModalEntrega entrega={modal.entrega} modelo={modal.modelo} onClose={() => setModal(null)} />}
       {historico && <ModalHistorico entrega={historico} onClose={() => setHistorico(null)} />}
     </div>

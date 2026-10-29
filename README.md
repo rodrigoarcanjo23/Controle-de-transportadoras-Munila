@@ -63,6 +63,11 @@ O objetivo é responder, todos os dias e sem planilha, a quatro perguntas:
 - **Tempo real**: as mudanças feitas por outros usuários aparecem sozinhas, com indicador "ao vivo".
 - Exportação em CSV e PDF, modo compacto e escolha de colunas.
 
+- **Importação de NF-e por XML em lote**: arraste os XMLs das notas de saída e o Painel se preenche (cliente pelo CNPJ, destino, valor, volumes, peso, data e transportadora). Clientes novos são cadastrados automaticamente; NFs duplicadas, de entrada ou canceladas ficam de fora.
+
+#### 🔎 Busca global (Ctrl+K)
+- Em qualquer tela: NFs (abre o histórico), clientes e transportadoras (Painel filtrado), CTEs, faturas, devoluções e telas. Navegação por teclado.
+
 #### 🔔 Central de Alertas
 - Mostra o que pede ação hoje, nesta ordem: críticos, atenção e informativos.
   - Previsões vencidas e status críticos.
@@ -70,6 +75,7 @@ O objetivo é responder, todos os dias e sem planilha, a quatro perguntas:
   - Frete acima da meta ou acima do cotado e NFs sem CTE.
   - Devoluções paradas e Indicadores Diários não lançados.
   - Faturas de frete vencidas, a vencer ou com contestação sem resposta.
+  - **NFs em risco de atrasar**: ainda no prazo, mas pelo tempo real da rota (transportadora × UF) devem chegar depois da previsão.
 - Cada cartão abre o Painel **filtrado exatamente pelas NFs do alerta**.
 - Resumo pronto para copiar ou enviar no WhatsApp.
 - **E-mail diário automático** (segunda a sábado, 8h), enviado por uma função agendada (cron) na Vercel com o Resend.
@@ -86,6 +92,7 @@ O objetivo é responder, todos os dias e sem planilha, a quatro perguntas:
 - **Verificar status**: lista as NFs que provavelmente já foram entregues e ficaram sem baixa, com baixa em lote.
 - **Cobrar transportadoras**: mensagem pronta por transportadora, para copiar ou mandar por WhatsApp ou e-mail.
 - **Desempenho**: tempo parado por etapa, % no prazo por mês e mapa de calor transportadora × UF.
+- **Risco de atraso**: estimativa de chegada pela mediana da rota; marca "Risco alto" quando passa da previsão e "Risco" para coleta sem entrega há tempo demais, agendada sem coleta ou rota com histórico ruim.
 
 #### 🧾 Registro de CTE
 - **Importação de XML** com extração automática dos dados (emitente, CNPJ, CFOP, valores, datas e chaves das NF-e).
@@ -161,6 +168,10 @@ Recursos:
 - **Transportadoras**, com **tabela de frete** por UF (e um simulador) e o **link do portal**.
 - **Equipe**: níveis Administrador e Operador.
 - **Auditoria**: trilha de quem fez o quê, em qual módulo e quando.
+
+### 📬 Rastreio e avisos ao cliente
+- **Link público por NF** (`/rastreio/<código>`): status em linguagem do cliente, linha do tempo, previsão, atualizações da transportadora e **comprovante de entrega (canhoto)**. O link sai pronto no histórico da NF (copiar, WhatsApp, e-mail).
+- **E-mails automáticos** quando a NF é **coletada** e quando é **entregue** (com o link e o canhoto). Fila no banco com envio único por aviso, ligável em Alertas; o cliente pode ser excluído no cadastro.
 
 ### 🌐 Portal do transportador (público, sem login)
 - Cada transportadora recebe um link exclusivo (`/portal/<token>`) que pode ser desativado ou trocado a qualquer momento.
@@ -242,7 +253,9 @@ flowchart LR
 
 ```text
 ├── api/
-│   └── alertas-diarios.ts      # Função da Vercel: e-mail diário de alertas (cron + teste manual)
+│   ├── alertas-diarios.ts      # Função da Vercel: e-mail diário de alertas (cron + teste manual)
+│   ├── avisos-clientes.ts      # Envia os avisos da fila (coletado/entregue) aos clientes
+│   └── rastreio.ts             # Dados públicos de rastreio de uma NF (pelo código do link)
 ├── supabase/                   # Scripts SQL (idempotentes) — ver "Configuração do Supabase"
 ├── android/                    # Projeto Android gerado pelo Capacitor
 ├── public/                     # Ícones e favicon
@@ -293,6 +306,7 @@ flowchart LR
 | `ocorrencias` | Ocorrências de entrega (portal ou equipe) e caminho do canhoto |
 | `portal_tokens` | Link do portal por transportadora (ativo, último uso) |
 | `romaneios` | Romaneios de coleta e confirmação |
+| `avisos_clientes` | Fila dos e-mails automáticos aos clientes (coletado/entregue) |
 | `faturas_frete` | Faturas das transportadoras, CTEs cobrados, status, valores e linha do tempo (JSONB) |
 | `configuracoes` | Parâmetros do sistema (chave/valor JSONB) |
 | `perfis` | Equipe e nível de acesso |
@@ -371,6 +385,9 @@ Execute os scripts em **SQL Editor › New query › Run**, nesta ordem. Todos p
 | 2 | `supabase/seguranca_e_novidades.sql` | RLS em todas as tabelas, `fechamentos_mensais`, configuração dos alertas e tempo real |
 | 3 | `supabase/fase1_portal_frete_expedicao.sql` | Portal (tokens, ocorrências, funções), tabelas de frete, romaneios, `registrar_coleta` e bucket `canhotos` |
 | 4 | `supabase/faturas_frete.sql` | Faturas de frete e bucket `faturas` |
+| 5 | `supabase/auditoria_fuso.sql` | Corrige o horário da auditoria (fuso) e liga o tempo real dela |
+| 6 | `supabase/horario_tabelas.sql` | Corrige o horário das demais colunas de data/hora automáticas |
+| 7 | `supabase/rastreio_avisos.sql` | Código de rastreio por NF, fila e gatilho dos avisos aos clientes |
 
 > **Antes do passo 2:** cadastre em **Equipe** o e-mail de login de cada pessoa, com o nível certo. Quem não estiver na Equipe só consegue consultar.
 >
@@ -395,7 +412,9 @@ Execute os scripts em **SQL Editor › New query › Run**, nesta ordem. Todos p
 
 3. O `vercel.json` já configura:
    - o **rewrite da SPA**, para que rotas como `/portal/<token>` e `/faturas` abram direto;
-   - o **cron** `0 11 * * 1-6` (8h de Brasília, segunda a sábado).
+   - o **cron** `0 11 * * 1-6` (8h de Brasília, segunda a sábado) do e-mail de alertas;
+   - o cron diário `0 22 * * *` dos avisos aos clientes (garantia: normalmente eles saem na hora, disparados pelo próprio sistema).
+4. Para os avisos chegarem aos clientes, verifique o domínio da empresa no Resend e defina `ALERTAS_REMETENTE` (sem isso o Resend só entrega para o dono da conta).
 
 ---
 
@@ -427,8 +446,8 @@ O app usa a mesma base do site e já tem a permissão de **câmera** para ler o 
 - [ ] **Baixa automática de CT-e pela SEFAZ** (Distribuição DF-e, com certificado digital A1)
 - [ ] **EDI PROCEDA** com as transportadoras (OCOREN, CONEMB, DOCCOB)
 - [ ] Entrada automática das NF-e de saída a partir do ERP
-- [ ] Página de rastreio e avisos automáticos ao cliente (coletado e entregue, com canhoto) e pesquisa NPS
-- [ ] Alerta preditivo de risco de atraso
+- [ ] Pesquisa de satisfação (NPS) pós-entrega
+- [ ] Notificações push no app e no navegador
 - [ ] Paginação no servidor para volumes acima de 20 mil NFs
 - [ ] Testes automatizados das regras de `src/lib` no CI
 

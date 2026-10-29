@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { formatDate, hojeISO, matchesSearch } from '../../lib/format';
 import { OCORRENCIAS, caminhoCanhoto, comprimirImagem, ocorrenciaDe, type CodigoOcorrencia } from '../../lib/ocorrencias';
 import { useFeedback } from '../../feedback/context';
+import { pedirEnvioAvisos } from '../../lib/avisos';
 import './portal.css';
 
 interface NfPortal {
@@ -116,6 +117,7 @@ function FormOcorrencia({ nf, token, onClose, onOk }: { nf: NfPortal; token: str
         p_nova_previsao: def.pedePrevisao && previsao ? previsao : null, p_observacao: obs || null, p_canhoto: caminho,
       });
       if (error) throw new Error(error.message);
+      if (codigo === 'entregue' || codigo === 'coletado') pedirEnvioAvisos(1500);
       onOk(`NF ${nf.nf}: ${def.label}`);
     } catch (e) {
       setErro(e instanceof Error ? e.message : String(e));

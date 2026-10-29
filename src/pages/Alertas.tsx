@@ -9,10 +9,11 @@ import { FILTROS_VAZIOS } from '../lib/filtrosEntrega';
 import { resumoTexto, type Alerta, type ConfigAlertas, type ItemAlerta, type NivelAlerta } from '../lib/alertas';
 import { EmptyState, PageHeader } from '../components/ui/basics';
 import { Modal } from '../components/ui/Modal';
+import { AvisosClientes } from './alertas/AvisosClientes';
 import './alertas.css';
 
 const NIVEL: Record<NivelAlerta, [string, string]> = { critico: ['Crítico', 'red'], atencao: ['Atenção', 'amber'], info: ['Informativo', 'blue'] };
-const TELA: Record<string, string> = { '/faturas': 'Faturas de frete', '/dashboard': 'Painel de Entregas', '/financeiro': 'Gestão Financeira', '/devolucoes': 'Devoluções', '/ctes': 'Registro de CTE', '/indicadores': 'Indicadores Diários' };
+const TELA: Record<string, string> = { '/faturas': 'Faturas de frete', '/logistica': 'Logística & SLA', '/dashboard': 'Painel de Entregas', '/financeiro': 'Gestão Financeira', '/devolucoes': 'Devoluções', '/ctes': 'Registro de CTE', '/indicadores': 'Indicadores Diários' };
 
 function CartaoAlerta({ a, abrirNf, abrir }: { a: Alerta; abrirNf: (i: ItemAlerta) => void; abrir: (a: Alerta) => void }) {
   const comIds = a.itens.filter((i) => i.id).length;
@@ -169,6 +170,8 @@ export default function Alertas() {
             : <>E-mail diário <strong>desligado</strong>{isAdmin ? ' — ligue em Configurar' : ''}</>}</span>
         </div>
       </div>
+
+      {isAdmin && <AvisosClientes />}
 
       {alertas.length ? (
         <div className="alertas-lista">

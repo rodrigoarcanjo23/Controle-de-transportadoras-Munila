@@ -10,6 +10,7 @@
 //   VITE_SUPABASE_URL          já existe (a mesma do site)
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { gerarAlertas, hojeBrasilia, lerConfigAlertas, resumoHtml } from '../src/lib/alertas';
+import { lerConfigSLA } from '../src/lib/sla';
 import type { Devolucao, Entrega, MetaFrete, Transportadora } from '../src/types';
 
 const json = (status: number, body: unknown) =>
@@ -52,8 +53,11 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   try {
-    const { data: cfgRow } = await sb.from('configuracoes').select('valor').eq('chave', 'alertas').maybeSingle();
-    const cfg = lerConfigAlertas(cfgRow?.valor);
+    const { data: cfgRows } = await sb.from('configuracoes').select('chave, valor').in('chave', ['alertas', 'sla', 'prazo_coleta_dias']);
+    const cfgV = (k: string) => cfgRows?.find((x) => x.chave === k)?.valor;
+    const cfg = lerConfigAlertas(cfgV('alertas'));
+    const col = Number(cfgV('prazo_coleta_dias'));
+    const sla = lerConfigSLA(cfgV('sla'), Number.isFinite(col) ? col : undefined);
     if (!cfg.ativo && !teste) return json(200, { enviado: false, motivo: 'Alertas por e-mail desativados em Alertas › Configurar.' });
 
     const destinatarios = cfg.emails.length ? cfg.emails : emailTeste ? [emailTeste] : [];
@@ -76,7 +80,7 @@ export async function GET(request: Request): Promise<Response> {
       numero: String(f.numero), vencimento: String(f.vencimento), valor: Number(f.valor) || 0, status: String(f.status), atualizada: f.updated_at as string,
       transportadora: transps.find((t) => String(t.id) === String(f.transportadora_id))?.nome ?? '—',
     }));
-    const alertas = gerarAlertas({ entregas, devolucoes, metas, indicadores: ind ?? undefined, faturas, cfg, hoje });
+    const alertas = gerarAlertas({ entregas, devolucoes, metas, indicadores: ind ?? undefined, faturas, sla, cfg, hoje });
 
     const app = process.env.APP_URL || `https://${request.headers.get('host') ?? 'munilalog.vercel.app'}`;
     const criticos = alertas.filter((a) => a.nivel === 'critico').reduce((s, a) => s + a.itens.length, 0);

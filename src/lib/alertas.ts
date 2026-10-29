@@ -2,6 +2,7 @@
 // pela Central de Alertas no sistema E pela função diária que envia o e-mail
 // (api/alertas-diarios.ts), garantindo que os dois mostrem a mesma coisa.
 import type { Devolucao, Entrega, MetaFrete } from '../types';
+import { analisarSLA, aprenderPrazos, avaliarRisco, type ConfigSLA } from './sla';
 
 export interface ConfigAlertas {
   ativo: boolean;
@@ -80,10 +81,12 @@ export interface EntradaAlertas {
   indicadores?: { area: string; data: string }[];
   /** faturas de frete não pagas/canceladas; omita para pular esses alertas */
   faturas?: FaturaAlerta[];
+  /** prazos de SLA; omita para pular o alerta de risco de atraso */
+  sla?: ConfigSLA;
   cfg: ConfigAlertas; hoje?: string;
 }
 
-export function gerarAlertas({ entregas, devolucoes, metas, indicadores, faturas, cfg, hoje = hojeBrasilia() }: EntradaAlertas): Alerta[] {
+export function gerarAlertas({ entregas, devolucoes, metas, indicadores, faturas, sla, cfg, hoje = hojeBrasilia() }: EntradaAlertas): Alerta[] {
   const abertas = entregas.filter((e) => !FINALIZADAS.has(e.status));
   const out: Alerta[] = [];
   const add = (a: Alerta) => { if (a.itens.length) out.push(a); };
@@ -109,6 +112,24 @@ export function gerarAlertas({ entregas, devolucoes, metas, indicadores, faturas
       id: e.id, nf: e.nota_fiscal, cliente: cliente(e), detalhe: `${e.status} · ${e.transportadoras?.nome ?? 'sem transportadora'}`,
     })),
   });
+
+  // 2b) Risco de atraso (ainda no prazo, mas a estimativa passa da previsão)
+  if (sla) {
+    const apr = aprenderPrazos(entregas, hoje);
+    const riscos = analisarSLA(abertas, sla, apr, hoje).flatMap((l) => {
+      const r = avaliarRisco(l, sla, apr, hoje);
+      return r && r.nivel === 'alto' ? [{ l, r }] : [];
+    });
+    add({
+      id: 'risco', nivel: 'atencao', rota: '/logistica',
+      titulo: 'NFs em risco de atrasar',
+      descricao: 'Ainda no prazo, mas pelo tempo real da rota (transportadora × UF) devem chegar depois da previsão. Cobre a transportadora antes do atraso.',
+      itens: riscos.sort((a, b) => String(a.l.previsao).localeCompare(String(b.l.previsao))).map(({ l, r }) => ({
+        id: l.e.id, nf: l.e.nota_fiscal, cliente: cliente(l.e),
+        detalhe: `previsão ${l.previsao ? ddmm(l.previsao) : '—'}${r.chegadaEstimada ? ` · estimativa ${ddmm(r.chegadaEstimada)}` : ''} · ${l.e.transportadoras?.nome ?? 'sem transportadora'}`,
+      })),
+    });
+  }
 
   // 3) Previsão vence hoje
   add({

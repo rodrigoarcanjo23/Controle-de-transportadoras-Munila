@@ -183,3 +183,58 @@ export function mensagemCobranca(g: GrupoCobranca, empresa = 'Munila'): string {
     `${l.etapa === 'coleta' ? `aguardando coleta desde ${ddmm(l.e.data_faturamento)}` : `previsão ${ddmm(l.limite)}`} (${l.atraso} dia${l.atraso === 1 ? '' : 's'} útil${l.atraso === 1 ? '' : 'eis'} de atraso)`);
   return `Olá, equipe ${g.transportadora}!\n\nIdentificamos ${g.linhas.length} NF${g.linhas.length > 1 ? 's' : ''} da ${empresa} com atraso. Podem nos enviar a posição atualizada (ocorrência e nova previsão) de cada uma?\n\n${linhas.join('\n')}\n\nObrigado!`;
 }
+
+/* ------------------------------------------------------------------ */
+/* Risco de atraso: NFs ainda no prazo que provavelmente vão atrasar     */
+/* ------------------------------------------------------------------ */
+export type NivelRisco = 'alto' | 'medio';
+export interface RiscoNF { nivel: NivelRisco; motivos: string[]; chegadaEstimada?: string }
+
+const fmtD = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+
+/** Histórico da rota (transportadora × UF) da NF, se houver amostra suficiente. */
+export function historicoRota(e: Entrega, apr: Aprendizado): PrazoAprendido | undefined {
+  const h = apr.porTranspUf.get(chave(e.transportadoras?.nome, ufDestino(e) || 'ND'));
+  return h && h.n >= 3 ? h : undefined;
+}
+
+/**
+ * Para NFs em aberto ainda dentro do prazo: estima a chegada com o tempo típico
+ * (mediana) da transportadora para a UF e aponta o risco de passar da previsão.
+ */
+export function avaliarRisco(l: LinhaSLA, cfg: ConfigSLA, apr: Aprendizado, hoje = hojeISO()): RiscoNF | null {
+  if (!['no_prazo', 'vence_hoje'].includes(l.situacao) || !l.limite) return null;
+  if (!['coleta', 'transito', 'agendado'].includes(l.etapa)) return null;
+  const e = l.e;
+  const hist = historicoRota(e, apr);
+  const tipico = hist ? hist.mediana : l.prazo.dias;
+  const fonteTip = hist ? `${e.transportadoras?.nome ?? 'a transportadora'} leva em média ${tipico} d.u. para ${ufDestino(e) || 'o destino'}` : `o prazo de trânsito é de ${tipico} d.u.`;
+  const motivos: string[] = [];
+  let nivel: NivelRisco | null = null;
+  let chegadaEstimada: string | undefined;
+  const subir = (n: NivelRisco) => { if (nivel !== 'alto') nivel = n; };
+  const previsao = l.previsao;
+
+  if (l.etapa === 'coleta' && previsao) {
+    // ainda não coletada: no melhor caso coleta no próximo dia útil
+    chegadaEstimada = somarDiasUteis(somarDiasUteis(hoje, 1), tipico);
+    if (chegadaEstimada > previsao) { motivos.push(`Ainda sem coleta: mesmo coletando no próximo dia útil, ${fonteTip} — chegaria ${fmtD(chegadaEstimada)}, depois da previsão ${fmtD(previsao)}`); subir('alto'); }
+  }
+  if (l.etapa === 'transito' && previsao) {
+    const saida = e.data_coleta ?? somarDiasUteis(e.data_faturamento!, cfg.coleta_dias);
+    chegadaEstimada = somarDiasUteis(saida, tipico);
+    const decorridos = diasUteisEntre(saida, hoje);
+    if (chegadaEstimada > previsao) { motivos.push(`Coletada ${fmtD(saida)} e ${fonteTip}: chegada estimada ${fmtD(chegadaEstimada)}, depois da previsão ${fmtD(previsao)}`); subir('alto'); }
+    else if (hist && decorridos > hist.p80 && (l.atraso ?? -99) >= -1) { motivos.push(`Já são ${decorridos} d.u. desde a coleta sem confirmação de entrega (80% das entregas dessa rota chegam em ${hist.p80} d.u.)`); subir('medio'); }
+  }
+  if (l.etapa === 'agendado' && e.data_entrega_agendamento && !e.data_coleta && e.status !== 'Em Transporte') {
+    const falta = diasUteisEntre(hoje, e.data_entrega_agendamento);
+    if (falta <= tipico) { motivos.push(`Agendada para ${fmtD(e.data_entrega_agendamento)} e ainda sem coleta — ${fonteTip}`); subir(falta < tipico ? 'alto' : 'medio'); }
+  }
+  if (hist && hist.comPrevisao >= 5) {
+    const taxa = hist.noPrazo / hist.comPrevisao;
+    if (taxa < 0.7) { motivos.push(`Rota com histórico ruim: só ${Math.round(taxa * 100)}% das entregas de ${e.transportadoras?.nome} para ${ufDestino(e)} chegaram na previsão`); subir('medio'); }
+  }
+  if (l.ocorrencia) { motivos.push(`Status "${e.status}"`); subir('medio'); }
+  return nivel ? { nivel, motivos, chegadaEstimada } : null;
+}

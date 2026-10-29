@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { CheckCheck, ClipboardCopy, History, Mail, MessageCircle, PanelsTopLeft, Save, TriangleAlert } from 'lucide-react';
+import { CheckCheck, ClipboardCopy, History, Mail, MessageCircle, PanelsTopLeft, Save, Siren, TriangleAlert } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { useChartTheme } from '../../hooks/useChartTheme';
 import {
-  ETAPA, envelhecimento, gruposCobranca, mensagemCobranca, type Aprendizado, type ConfigSLA, type Etapa, type LinhaSLA, type RotaPrazo,
+  ETAPA, envelhecimento, gruposCobranca, mensagemCobranca, type Aprendizado, type ConfigSLA, type Etapa, type LinhaSLA, type RiscoNF, type RotaPrazo,
 } from '../../lib/sla';
 import { formatDate, formatPercent, hojeISO, percentual } from '../../lib/format';
 import { cidadeDestino, ufDestino } from '../../lib/filtrosEntrega';
@@ -28,8 +28,8 @@ export function SeloSituacao({ l }: { l: LinhaSLA }) {
 /* ------------------------------------------------------------------ */
 const ETAPAS_ABERTAS: Etapa[] = ['coleta', 'agendamento', 'agendado', 'transito'];
 
-export function EmAberto({ linhas, etapa, setEtapa, onHistorico, loading }: {
-  linhas: LinhaSLA[]; etapa: Etapa | ''; setEtapa: (e: Etapa | '') => void; onHistorico: (e: Entrega) => void; loading: boolean;
+export function EmAberto({ linhas, etapa, setEtapa, onHistorico, loading, riscos }: {
+  linhas: LinhaSLA[]; etapa: Etapa | ''; setEtapa: (e: Etapa | '') => void; onHistorico: (e: Entrega) => void; loading: boolean; riscos?: Map<string, RiscoNF>;
 }) {
   const cont = useMemo(() => Object.fromEntries(ETAPAS_ABERTAS.map((et) => [et, linhas.filter((l) => l.etapa === et).length])) as Record<Etapa, number>, [linhas]);
   const visiveis = etapa ? linhas.filter((l) => l.etapa === etapa) : linhas;
@@ -62,7 +62,18 @@ export function EmAberto({ linhas, etapa, setEtapa, onHistorico, loading }: {
         </span>
       ),
     },
-    { key: 'sit', header: 'Situação', mobile: 'badge', sortValue: (l) => l.atraso ?? -999, render: (l) => <SeloSituacao l={l} /> },
+    {
+      key: 'sit', header: 'Situação', mobile: 'badge', sortValue: (l) => l.atraso ?? -999,
+      render: (l) => {
+        const r = riscos?.get(String(l.e.id));
+        return (
+          <span className="sla-sit">
+            <SeloSituacao l={l} />
+            {r && <span className={`badge badge--square tone-${r.nivel === 'alto' ? 'orange' : 'amber'} sla-risco`} title={r.motivos.join('\n')}><Siren size={12} /> {r.nivel === 'alto' ? 'Risco alto' : 'Risco'}</span>}
+          </span>
+        );
+      },
+    },
     { key: 'status', header: 'Status', render: (l) => <StatusBadge status={l.e.status} />, sortValue: (l) => l.e.status, mobile: 'hide' },
   ];
   // situação e etapa logo após a NF (o que importa fica visível sem rolar)

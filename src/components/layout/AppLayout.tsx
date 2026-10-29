@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Sun, X } from 'lucide-react';
+import { LogOut, Menu, Moon, PanelLeftClose, PanelLeftOpen, Search, Sun, X } from 'lucide-react';
 import { useAppData } from '../../state/context';
 import { useTheme } from '../../hooks/useTheme';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -10,6 +10,7 @@ import { useFeedback } from '../../feedback/context';
 import { NAV, tituloDaRota } from './nav';
 import { PageLoader } from './PageLoader';
 import { useAlertas } from '../../hooks/useAlertas';
+import { BuscaGlobal } from './BuscaGlobal';
 
 export function AppLayout() {
   const { isAdmin, perfil, email, logout } = useAppData();
@@ -20,6 +21,16 @@ export function AppLayout() {
   const isTablet = useMediaQuery('(max-width: 1023px)');
   const [collapsedPref, setCollapsedPref] = useState<boolean | null>(() => loadPrefRaw<boolean | null>('menuRecolhido', null));
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [busca, setBusca] = useState(false);
+
+  // Ctrl+K (ou Cmd+K no Mac) abre a busca global em qualquer tela
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setBusca((v) => !v); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Tablet: menu compacto por padrão; o usuário pode fixar a preferência.
   // Indicadores Diários tem navegação própria: o menu principal recolhe sozinho lá
@@ -48,6 +59,10 @@ export function AppLayout() {
           <div className="brand-name">Munila<span>Log</span></div>
           <button className="icon-btn only-mobile" style={{ marginLeft: 'auto', color: '#fff' }} onClick={() => setDrawerOpen(false)} aria-label="Fechar menu"><X size={20} /></button>
         </div>
+
+        <button className="busca-btn" onClick={() => { setBusca(true); setDrawerOpen(false); }} title="Buscar em todo o sistema (Ctrl+K)">
+          <Search size={17} /><span className="busca-btn__label">Buscar…</span><kbd className="busca-btn__kbd">Ctrl K</kbd>
+        </button>
 
         <nav className="sidebar__nav">
           {NAV.map((group) => {
@@ -99,12 +114,14 @@ export function AppLayout() {
         <div className="topbar">
           <button className="icon-btn" onClick={() => setDrawerOpen(true)} aria-label="Abrir menu"><Menu size={22} /></button>
           <div className="topbar__title">{tituloDaRota(location.pathname)}</div>
+          <button className="icon-btn" onClick={() => setBusca(true)} aria-label="Buscar"><Search size={19} /></button>
           <button className="icon-btn" onClick={toggle} aria-label="Alternar tema">{theme === 'dark' ? <Sun size={19} /> : <Moon size={19} />}</button>
         </div>
         <Suspense fallback={<PageLoader />}>
           <Outlet />
         </Suspense>
       </main>
+      {busca && <BuscaGlobal onClose={() => setBusca(false)} />}
     </div>
   );
 }

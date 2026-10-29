@@ -1,0 +1,35 @@
+/* Rastreio público para o cliente — pensado para o celular */
+.rast { min-height: 100dvh; background: var(--bg); color: var(--text); display: flex; flex-direction: column; }
+.rast__top { display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: var(--nav-bg); color: #fff; }
+.rast__top img { width: 38px; height: 38px; border-radius: 9px; }
+.rast__top div { display: flex; flex-direction: column; }
+.rast__top span { font-size: 0.82rem; opacity: 0.8; }
+.rast__main { width: 100%; max-width: 640px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.rast__card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+.rast__nf { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.rast__card h1 { font-size: 1.45rem; margin: 0; letter-spacing: -0.02em; }
+.rast__card h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 6px 0 0; }
+.rast__sub { margin: 0; color: var(--text-2); }
+.rast__destaque { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 12px; background: var(--brand-soft); color: var(--text); }
+.rast__destaque--ok { background: var(--green-bg); }
+.rast__destaque--ok svg { color: var(--green); }
+.rast__etapas { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; position: relative; }
+.rast__etapas li { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; color: var(--muted); font-size: 0.78rem; position: relative; }
+.rast__etapas li > span { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-3); position: relative; z-index: 1; }
+.rast__etapas li:not(:last-child)::after { content: ''; position: absolute; top: 18px; left: calc(50% + 20px); right: calc(-50% + 20px); height: 3px; border-radius: 3px; background: var(--surface-3); }
+.rast__etapas li.is-ok, .rast__etapas li.is-on { color: var(--text); }
+.rast__etapas li.is-ok > span { background: var(--green-bg); color: var(--green); }
+.rast__etapas li.is-ok::after { background: var(--green-solid) !important; }
+.rast__etapas li.is-on > span { background: var(--brand); color: #fff; box-shadow: 0 0 0 5px var(--brand-soft); }
+.rast__etapas small { color: var(--muted); min-height: 1em; }
+.rast__btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 46px; border-radius: 12px; background: var(--brand); color: #fff; font-weight: 700; text-decoration: none; margin-top: 6px; }
+.rast__dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; font-size: 0.92rem; }
+.rast__dl dt { color: var(--muted); }
+.rast__dl dd { margin: 0; font-weight: 600; text-align: right; }
+.rast__oc { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+.rast__oc li { display: flex; flex-direction: column; position: relative; }
+.rast__oc li::before { content: ''; position: absolute; left: -20px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: var(--brand); border: 2px solid var(--surface); }
+.rast__oc small { color: var(--muted); }
+.rast__rodape { text-align: center; color: var(--muted); font-size: 0.8rem; }
+.rast__carregando, .rast__erro { margin: 40px auto; max-width: 520px; padding: 18px; text-align: center; display: flex; gap: 10px; align-items: center; justify-content: center; }
+.rast__erro { background: var(--red-bg); color: var(--red); border-radius: 12px; font-weight: 600; }

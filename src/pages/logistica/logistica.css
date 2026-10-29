@@ -41,3 +41,5 @@
 
 @media (max-width: 1000px) { .sla-param { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 767px) { .sla-filtros .select { min-width: 0; flex: 1 1 140px; } .sla-lote .btn { margin-left: 0; } }
+.sla-sit { display: inline-flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.sla-risco { cursor: help; }

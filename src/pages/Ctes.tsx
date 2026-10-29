@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ChevronDown, CirclePlus, DollarSign, Download, Eraser, FileText, Link2, Pencil, Printer, RefreshCcw, Save, Trash2, UploadCloud, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { fetchAll, registrarLog, mensagemErro } from '../lib/db';
@@ -30,6 +31,13 @@ export default function Ctes() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [form, setForm] = useState(VAZIO);
   const [f, setF] = useState(FILTROS);
+  // aberto pela busca global com um CTE: já filtra por ele
+  const location = useLocation();
+  useEffect(() => {
+    const n = (location.state as { numero?: string } | null)?.numero;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (n) setF({ ...FILTROS, numero: n });
+  }, [location.key, location.state]);
   const [soNaoEncontrados, setSoNaoEncontrados] = useState(false);
   const [formAberto, setFormAberto] = useState<boolean>(() => loadPrefRaw('cteFormAberto', window.innerWidth >= 768));
   const fileRef = useRef<HTMLInputElement>(null);

@@ -285,3 +285,13 @@ Administrador clica **Fechar o mês** depois da reunião: os números do BI fica
 - Registros **agrupados por dia** (Hoje, Ontem…), hora exata + "há 16 min", nome da pessoa (da Equipe) e o que mudou destacado (antes riscado → depois).
 - **Número da NF clicável**: abre o histórico completo da NF.
 - **Tempo real**: novas ações aparecem no topo, destacadas. Exportação CSV e versão para celular.
+
+## 19. Busca global, NF-e por XML, risco de atraso e rastreio ao cliente (out/2026)
+
+> Requer rodar no Supabase: `supabase/horario_tabelas.sql` e `supabase/rastreio_avisos.sql` (uma vez cada; podem rodar de novo).
+
+- **Horário em todas as tabelas**: o mesmo ajuste de fuso da auditoria aplicado às demais colunas automáticas de data/hora (created_at, updated_at…). Colunas só de data não são tocadas.
+- **Busca global (Ctrl+K)**: botão "Buscar…" no menu (lupa no celular). Encontra NFs, clientes, transportadoras, CTEs, faturas, devoluções e telas.
+- **Importar XML (Painel de Entregas)**: NF-e de saída em lote, com prévia; cliente e transportadora pelo CNPJ; clientes novos cadastrados com os dados da NF; ignora NFs já cadastradas, de entrada e canceladas (evento de cancelamento).
+- **Risco de atraso**: Logística & SLA ganhou o indicador "Em risco de atrasar" e a marca de risco em cada NF; a Central de Alertas e o e-mail diário avisam as NFs com risco alto.
+- **Rastreio ao cliente**: link público por NF (status, previsão, atualizações e canhoto) no histórico da NF; **e-mails automáticos** de coletado e entregue (Alertas › Avisos automáticos aos clientes: ligar, escolher os avisos e cópia oculta). Cliente pode ser excluído no cadastro. Funções novas na Vercel: `api/rastreio.ts` e `api/avisos-clientes.ts` (mesmas variáveis do e-mail de alertas).

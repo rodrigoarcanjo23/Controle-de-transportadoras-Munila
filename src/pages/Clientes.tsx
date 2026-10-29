@@ -1,4 +1,5 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Mail, Pencil, Phone, Plus, Target, Trash2, Upload, UserSquare2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { registrarLog, mensagemErro, SELECT_META } from '../lib/db';
@@ -17,6 +18,13 @@ export default function Clientes() {
   const { clientes, setClientes, metas, setMetas, transportadoras, recarregarCadastros, loading } = useAppData();
   const { toast, confirm } = useFeedback();
   const [busca, setBusca] = useState('');
+  // aberto pela busca global: já filtra pelo cliente
+  const location = useLocation();
+  useEffect(() => {
+    const b = (location.state as { busca?: string } | null)?.busca;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (b) setBusca(b);
+  }, [location.key, location.state]);
   const [modalCliente, setModalCliente] = useState<{ cliente?: Cliente } | null>(null);
   const [modalMeta, setModalMeta] = useState(false);
   const [meta, setMeta] = useState({ cliente_id: '', transportadora_id: '', meta_percentual: '' });

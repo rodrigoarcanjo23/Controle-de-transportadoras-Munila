@@ -15,6 +15,8 @@ export interface Cliente {
   telefone?: string | null;
   email?: string | null;
   exige_agendamento?: boolean | null;
+  /** recebe os e-mails automáticos de coletado/entregue */
+  recebe_avisos?: boolean | null;
 }
 
 export interface Transportadora {
@@ -51,6 +53,8 @@ export interface Entrega {
   observacoes?: string | null;
   status: string;
   frete_confirmado?: boolean | null;
+  /** código secreto do link de rastreio para o cliente */
+  rastreio_token?: string | null;
   created_at?: string;
   clientes?: Partial<Cliente> | null;
   transportadoras?: Partial<Transportadora> | null;

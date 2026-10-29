@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { fetchAll, SELECT_DEVOLUCAO, SELECT_ENTREGA, SELECT_META, setAuditUser } from '../lib/db';
+import { STATUS_COM_AVISO, pedirEnvioAvisos } from '../lib/avisos';
 import { FILTROS_VAZIOS, type FiltrosEntrega } from '../lib/filtrosEntrega';
 import { loadPrefRaw, savePref } from '../lib/storage';
 import { useFeedback } from '../feedback/context';
@@ -128,7 +129,11 @@ export function AppDataProvider({ session, children }: { session: Session; child
     };
     const receber = (tabela: 'entregas' | 'devolucoes') => (p: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
       if (p.eventType === 'DELETE') { const id = p.old?.id; if (id) apagar[tabela].add(String(id)); }
-      else { const id = p.new?.id; if (id) fila[tabela].add(String(id)); }
+      else {
+        const id = p.new?.id; if (id) fila[tabela].add(String(id));
+        // NF coletada/entregue: pode haver aviso ao cliente na fila
+        if (tabela === 'entregas' && STATUS_COM_AVISO.has(String(p.new?.status ?? ''))) pedirEnvioAvisos();
+      }
       clearTimeout(timer);
       timer = setTimeout(descarregar, 600);
     };

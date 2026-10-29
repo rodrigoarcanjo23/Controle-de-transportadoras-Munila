@@ -3,6 +3,7 @@
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "crons": [
-    { "path": "/api/alertas-diarios", "schedule": "0 11 * * 1-6" }
+    { "path": "/api/alertas-diarios", "schedule": "0 11 * * 1-6" },
+    { "path": "/api/avisos-clientes", "schedule": "0 22 * * *" }
   ]
 }

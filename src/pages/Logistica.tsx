@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarClock, CircleCheck, Download, Map as MapIcon, ShieldQuestion, TriangleAlert, Truck } from 'lucide-react';
+import { CalendarClock, CircleCheck, Download, Map as MapIcon, ShieldQuestion, Siren, TriangleAlert, Truck } from 'lucide-react';
 import { useAppData } from '../state/context';
 import { useFeedback } from '../feedback/context';
 import { useChartTheme } from '../hooks/useChartTheme';
@@ -11,7 +11,7 @@ import { FILTROS_VAZIOS, cidadeDestino, ufDestino } from '../lib/filtrosEntrega'
 import { formatDate, hojeISO, matchesSearch, percentual, formatPercent } from '../lib/format';
 import { diasUteisEntre } from '../lib/diasUteis';
 import {
-  CONFIG_SLA_PADRAO, ETAPA, aprenderPrazos, analisarSLA, lerConfigSLA, type ConfigSLA, type Etapa, type LinhaSLA, type SituacaoSLA,
+  CONFIG_SLA_PADRAO, ETAPA, aprenderPrazos, analisarSLA, avaliarRisco, lerConfigSLA, type ConfigSLA, type Etapa, type LinhaSLA, type RiscoNF, type SituacaoSLA,
 } from '../lib/sla';
 import { loadPrefRaw, savePref } from '../lib/storage';
 import { KpiCard, PageHeader, SearchInput } from '../components/ui/basics';
@@ -37,7 +37,7 @@ export default function Logistica() {
   const [transp, setTransp] = useState('');
   const [uf, setUf] = useState('');
   const [etapa, setEtapa] = useState<Etapa | ''>('');
-  const [situacao, setSituacao] = useState<SituacaoSLA | ''>('');
+  const [situacao, setSituacao] = useState<SituacaoSLA | 'risco' | ''>('');
   const [historico, setHistorico] = useState<Entrega | null>(null);
   const [cfg, setCfg] = useState<ConfigSLA>(CONFIG_SLA_PADRAO);
   const [tabelasFrete, setTabelasFrete] = useState<{ transportadora_id: string; uf: string; componentes: { prazo_dias?: number } | null; ativo: boolean }[]>([]);
@@ -73,6 +73,12 @@ export default function Logistica() {
 
   const abertas = useMemo(() => filtradas.filter((l) => ABERTAS.has(l.etapa) && l.situacao !== 'verificar')
     .sort((a, b) => (b.atraso ?? -999) - (a.atraso ?? -999)), [filtradas]);
+  // risco de atraso: ainda no prazo, mas a estimativa pela rota passa da previsão
+  const riscos = useMemo(() => {
+    const m = new Map<string, RiscoNF>();
+    for (const l of abertas) { const r = avaliarRisco(l, cfgEfetivo, apr, hoje); if (r) m.set(String(l.e.id), r); }
+    return m;
+  }, [abertas, cfgEfetivo, apr, hoje]);
   const verificar = useMemo(() => filtradas.filter((l) => l.situacao === 'verificar').sort((a, b) => (b.idade ?? 0) - (a.idade ?? 0)), [filtradas]);
   const k = useMemo(() => {
     const atr = abertas.filter((l) => l.situacao === 'atrasada');
@@ -88,8 +94,11 @@ export default function Logistica() {
     };
   }, [abertas, filtradas, hoje]);
 
-  const listaAberto = situacao ? abertas.filter((l) => l.situacao === situacao) : abertas;
-  const filtroKpi = (s: SituacaoSLA) => () => { setAba('aberto'); setSituacao((x) => (x === s ? '' : s)); };
+  const listaAberto = situacao === 'risco'
+    ? abertas.filter((l) => riscos.has(String(l.e.id))).sort((a, b) => Number(riscos.get(String(b.e.id))!.nivel === 'alto') - Number(riscos.get(String(a.e.id))!.nivel === 'alto') || String(a.limite).localeCompare(String(b.limite)))
+    : situacao ? abertas.filter((l) => l.situacao === situacao) : abertas;
+  const riscoAlto = [...riscos.values()].filter((r) => r.nivel === 'alto').length;
+  const filtroKpi = (s: SituacaoSLA | 'risco') => () => { setAba('aberto'); setSituacao((x) => (x === s ? '' : s)); };
   const abrirPainel = (ids: string[]) => { setFiltros({ ...FILTROS_VAZIOS, nfsIds: ids, nfsRotulo: 'Logística & SLA' }); navigate('/dashboard'); };
 
   async function marcarEntregues(itens: { e: Entrega; data: string }[]) {
@@ -128,10 +137,10 @@ export default function Logistica() {
   function exportar() {
     const lista = aba === 'verificar' ? verificar : listaAberto;
     if (!lista.length) { toast({ kind: 'warning', title: 'Não há dados para exportar.' }); return; }
-    downloadCsv('MunilaLog_SLA', ['NF', 'Cliente', 'Cidade', 'UF', 'Transportadora', 'Faturamento', 'Coleta', 'Etapa', 'Responsável', 'Prazo da etapa', 'Previsão de entrega', 'Origem do prazo', 'Dias úteis de atraso', 'Status'],
+    downloadCsv('MunilaLog_SLA', ['NF', 'Cliente', 'Cidade', 'UF', 'Transportadora', 'Faturamento', 'Coleta', 'Etapa', 'Responsável', 'Prazo da etapa', 'Previsão de entrega', 'Origem do prazo', 'Dias úteis de atraso', 'Risco de atraso', 'Status'],
       lista.map((l: LinhaSLA) => [l.e.nota_fiscal, l.e.clientes?.nome ?? '-', cidadeDestino(l.e), ufDestino(l.e), l.e.transportadoras?.nome ?? '-',
         formatDate(l.e.data_faturamento), formatDate(l.e.data_coleta), ETAPA[l.etapa].label, ETAPA[l.etapa].resp, formatDate(l.limite), formatDate(l.previsao),
-        l.e.data_previsao ? 'Previsão da NF' : l.prazo.detalhe, l.atraso !== null && l.atraso > 0 ? l.atraso : 0, l.e.status]));
+        l.e.data_previsao ? 'Previsão da NF' : l.prazo.detalhe, l.atraso !== null && l.atraso > 0 ? l.atraso : 0, riscos.get(String(l.e.id))?.motivos.join(' | ') ?? '', l.e.status]));
   }
 
   const ufs = useMemo(() => [...new Set(entregas.map(ufDestino).filter(Boolean))].sort(), [entregas]);
@@ -149,6 +158,8 @@ export default function Logistica() {
         <KpiCard label="Atrasadas" value={k.atrasadas} icon={<TriangleAlert size={16} />} tone="red" valueClass="text-red" onClick={filtroKpi('atrasada')} active={situacao === 'atrasada'}
           hint={`${k.transp} transportadora · ${k.coleta} coleta · ${k.agend} agendamento`} />
         <KpiCard label="Vencem hoje ou amanhã" value={k.vence} icon={<CalendarClock size={16} />} tone="amber" onClick={filtroKpi('vence_hoje')} active={situacao === 'vence_hoje'} hint="Acompanhar para não atrasar" />
+        <KpiCard label="Em risco de atrasar" value={riscos.size} icon={<Siren size={16} />} tone="orange" onClick={filtroKpi('risco')} active={situacao === 'risco'}
+          hint={riscos.size ? `${riscoAlto} com risco alto · ainda no prazo, mas a rota costuma levar mais` : 'Nenhuma NF no prazo com sinal de atraso'} />
         <KpiCard label="No prazo" value={k.noPrazo} icon={<Truck size={16} />} tone="blue" onClick={filtroKpi('no_prazo')} active={situacao === 'no_prazo'} hint="Em aberto, dentro do prazo" />
         <KpiCard label="Verificar status" value={verificar.length} icon={<ShieldQuestion size={16} />} tone="purple" onClick={() => setAba('verificar')} active={aba === 'verificar'} hint="Provavelmente já entregues" />
         <KpiCard label="Entregues no prazo (último mês)" value={k.ent ? formatPercent(percentual(k.entOk, k.ent), 0) : '—'} icon={<CircleCheck size={16} />} tone="green" valueClass="text-green"
@@ -165,7 +176,7 @@ export default function Logistica() {
           <option value="">Todas as UFs</option>
           {ufs.map((u) => <option key={u} value={u}>{u}</option>)}
         </select>
-        {situacao && aba === 'aberto' && <span className="chip chip--removable">Situação: {({ atrasada: 'Atrasadas', vence_hoje: 'Vencem hoje/amanhã', no_prazo: 'No prazo' } as Record<string, string>)[situacao]} <button onClick={() => setSituacao('')} aria-label="Remover filtro">×</button></span>}
+        {situacao && aba === 'aberto' && <span className="chip chip--removable">Situação: {({ atrasada: 'Atrasadas', vence_hoje: 'Vencem hoje/amanhã', no_prazo: 'No prazo', risco: 'Em risco de atrasar' } as Record<string, string>)[situacao]} <button onClick={() => setSituacao('')} aria-label="Remover filtro">×</button></span>}
       </div>
 
       <div className="fin-tabs no-print" role="tablist">
@@ -176,7 +187,7 @@ export default function Logistica() {
         ))}
       </div>
 
-      {aba === 'aberto' && <EmAberto linhas={listaAberto} etapa={etapa} setEtapa={setEtapa} onHistorico={setHistorico} loading={loading} />}
+      {aba === 'aberto' && <EmAberto linhas={listaAberto} etapa={etapa} setEtapa={setEtapa} onHistorico={setHistorico} loading={loading} riscos={riscos} />}
       {aba === 'verificar' && <Verificar linhas={verificar} isAdmin={isAdmin} onMarcar={marcarEntregues} onAbrirPainel={abrirPainel} />}
       {aba === 'cobranca' && <Cobranca linhas={abertas} onAbrirPainel={abrirPainel} onCopiado={() => toast({ kind: 'success', title: 'Mensagem copiada', text: 'Cole no WhatsApp ou e-mail da transportadora.' })} />}
       {aba === 'desempenho' && <Desempenho linhas={filtradas} apr={apr} c={c} />}

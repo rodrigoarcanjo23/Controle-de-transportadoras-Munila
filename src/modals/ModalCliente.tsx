@@ -10,13 +10,15 @@ import { Check, Field } from '../components/ui/basics';
 import type { Cliente } from '../types';
 
 export function ModalCliente({ cliente, onClose }: { cliente?: Cliente | null; onClose: () => void }) {
-  const { setClientes } = useAppData();
+  const { setClientes, clientes } = useAppData();
+  const temAvisos = clientes.some((c) => 'recebe_avisos' in c);
   const { toast } = useFeedback();
   const [salvando, setSalvando] = useState(false);
   const [f, setF] = useState({
     nome: cliente?.nome ?? '', cnpj_cpf: cliente?.cnpj_cpf ?? '', razao_social: cliente?.razao_social ?? '',
     nome_fantasia: cliente?.nome_fantasia ?? '', cidade: cliente?.cidade ?? '', uf: cliente?.uf ?? '',
     telefone: cliente?.telefone ?? '', email: cliente?.email ?? '', exige_agendamento: !!cliente?.exige_agendamento,
+    recebe_avisos: cliente?.recebe_avisos !== false,
   });
   const set = (k: keyof typeof f, v: string | boolean) => setF((x) => ({ ...x, [k]: v }));
 
@@ -27,6 +29,8 @@ export function ModalCliente({ cliente, onClose }: { cliente?: Cliente | null; o
       nome: f.nome.toUpperCase(), cnpj_cpf: f.cnpj_cpf, razao_social: f.razao_social.toUpperCase(),
       nome_fantasia: f.nome_fantasia.toUpperCase(), cidade: f.cidade.toUpperCase(), uf: f.uf.toUpperCase(),
       telefone: f.telefone, email: f.email.toLowerCase(), exige_agendamento: f.exige_agendamento,
+      // só envia a coluna nova quando ela já existe no banco (SQL do rastreio rodado)
+      ...(temAvisos ? { recebe_avisos: f.recebe_avisos } : {}),
     };
     try {
       if (cliente) {
@@ -78,10 +82,15 @@ export function ModalCliente({ cliente, onClose }: { cliente?: Cliente | null; o
         <Field label="E-mail">
           <input className="input" type="email" placeholder="contato@cliente.com" value={f.email} onChange={(e) => set('email', e.target.value)} />
         </Field>
-        <div className="span-all">
+        <div className="span-all" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Check id="exige_agendamento" checked={f.exige_agendamento} onChange={(v) => set('exige_agendamento', v)}>
             Este cliente exige agendamento de entrega (marca automaticamente nas novas entregas)
           </Check>
+          {temAvisos && (
+            <Check id="recebe_avisos" checked={f.recebe_avisos} onChange={(v) => set('recebe_avisos', v)}>
+              Enviar e-mails automáticos de pedido coletado e entregue (com link de rastreio e canhoto) para o e-mail acima
+            </Check>
+          )}
         </div>
       </div>
     </Modal>

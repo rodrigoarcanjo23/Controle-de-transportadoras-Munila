@@ -25,6 +25,7 @@ const Auditoria = lazy(() => import('./pages/Auditoria'));
 const Indicadores = lazy(() => import('./pages/indicadores/Indicadores'));
 const Alertas = lazy(() => import('./pages/Alertas'));
 const Portal = lazy(() => import('./pages/portal/Portal'));
+const Rastreio = lazy(() => import('./pages/rastreio/Rastreio'));
 const Expedicao = lazy(() => import('./pages/Expedicao'));
 const Faturas = lazy(() => import('./pages/Faturas'));
 const Avaliacao = lazy(() => import('./pages/Avaliacao'));
@@ -74,6 +75,10 @@ export default function App() {
   }, []);
 
   // Portal do transportador: página pública (sem login), aberta pelo link enviado à transportadora
+  // Rastreio do cliente: página pública (sem login), aberta pelo link enviado ao cliente
+  if (window.location.pathname.startsWith('/rastreio/')) {
+    return <Suspense fallback={<PageLoader />}><Rastreio /></Suspense>;
+  }
   if (window.location.pathname.startsWith('/portal/')) {
     return <FeedbackProvider><Suspense fallback={<PageLoader />}><Portal /></Suspense></FeedbackProvider>;
   }

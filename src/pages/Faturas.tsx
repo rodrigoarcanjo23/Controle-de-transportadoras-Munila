@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { CalendarClock, CircleCheck, Download, FileWarning, PiggyBank, Plus, ReceiptText, Send, TriangleAlert, Wallet } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { fetchAll } from '../lib/db';
@@ -47,6 +47,13 @@ export default function Faturas() {
   const [busca, setBusca] = useState('');
   const [rascunho, setRascunho] = useState<RascunhoFatura | null>(null);
   const [aberta, setAberta] = useState<string | null>(null);
+  // aberto pela busca global com uma fatura: abre o detalhe dela
+  const location = useLocation();
+  useEffect(() => {
+    const id = (location.state as { abrir?: string } | null)?.abrir;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (id) { setAba('faturas'); setFiltro('todas'); setAberta(id); }
+  }, [location.key, location.state]);
 
   const carregarFaturas = useCallback(async () => {
     const { data, error } = await supabase.from('faturas_frete').select('*').order('vencimento', { ascending: true });

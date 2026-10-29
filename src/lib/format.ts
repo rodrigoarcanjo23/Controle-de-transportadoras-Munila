@@ -14,17 +14,49 @@ export function formatDate(d?: string | null): string {
   return dt ? dt.toLocaleDateString('pt-BR') : '-';
 }
 
+/** Fuso de referência do sistema (Fortaleza-CE: UTC−3, sem horário de verão). */
+export const FUSO = 'America/Fortaleza';
+
 /**
- * Data/hora de auditoria. O banco grava em UTC sem sufixo de fuso; aqui o
- * valor é interpretado como UTC e exibido no horário de Brasília — funciona
- * em qualquer computador, inclusive com horário de verão ou fuso diferente.
+ * Converte um carimbo de data/hora do banco em Date. Valores sem sufixo de fuso
+ * são tratados como UTC (padrão do Postgres/Supabase).
  */
-export function formatDateTimeBR(d?: string | null): string {
-  if (!d) return '-';
-  const hasTz = /([zZ]|[+-]\d{2}:?\d{2})$/.test(d);
+export function parseCarimbo(d?: string | null): Date | null {
+  if (!d) return null;
+  const hasTz = /([zZ]|[+-]\d{2}(:?\d{2})?)$/.test(d);
   const dt = new Date(hasTz ? d : `${d.replace(' ', 'T')}Z`);
-  if (isNaN(dt.getTime())) return d;
-  return dt.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
+/** Data/hora no horário de Fortaleza — igual em qualquer computador ou celular. */
+export function formatDateTimeBR(d?: string | null): string {
+  const dt = parseCarimbo(d);
+  if (!dt) return d ? d : '-';
+  return dt.toLocaleString('pt-BR', { timeZone: FUSO });
+}
+
+/** Só a hora (HH:MM:SS) no horário de Fortaleza. */
+export function formatHora(d?: string | null, segundos = true): string {
+  const dt = parseCarimbo(d);
+  return dt ? dt.toLocaleTimeString('pt-BR', { timeZone: FUSO, hour: '2-digit', minute: '2-digit', ...(segundos ? { second: '2-digit' } : {}) }) : '-';
+}
+
+/** Dia (YYYY-MM-DD) de um carimbo no horário de Fortaleza. */
+export function diaLocal(d?: string | Date | null): string {
+  const dt = d instanceof Date ? d : parseCarimbo(d);
+  return dt ? dt.toLocaleDateString('en-CA', { timeZone: FUSO }) : '';
+}
+
+/** "agora", "há 5 min", "há 3 h", "ontem", "há 4 dias". */
+export function tempoRelativo(d?: string | null, agora: Date = new Date()): string {
+  const dt = parseCarimbo(d);
+  if (!dt) return '';
+  const s = Math.round((agora.getTime() - dt.getTime()) / 1000);
+  if (s < 45) return 'agora';
+  if (s < 3600) return `há ${Math.max(1, Math.round(s / 60))} min`;
+  if (diaLocal(dt) === diaLocal(agora)) return `há ${Math.round(s / 3600)} h`;
+  const dias = Math.round((Date.parse(diaLocal(agora)) - Date.parse(diaLocal(dt))) / 864e5);
+  return dias === 1 ? 'ontem' : `há ${dias} dias`;
 }
 
 export function toNumber(v: Num): number {

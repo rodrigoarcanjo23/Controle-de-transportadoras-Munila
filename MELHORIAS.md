@@ -274,3 +274,14 @@ Administrador clica **Fechar o mês** depois da reunião: os números do BI fica
   - Critério sem dados no mês fica de fora e os demais são reponderados. Menos de 5 NFs no mês = "amostra pequena".
 - **Relatório por transportadora**: critérios, pontos de atenção, destaques, NFs atrasadas, ocorrências e CTEs acima da tabela. **Imprimir / PDF** (A4 retrato), **copiar**, **WhatsApp** e **e-mail** com o resumo pronto (o envio fica registrado na Auditoria).
 - Exportação CSV do ranking. Não precisa de nada novo no Supabase.
+
+## 18. Auditoria: horário de Fortaleza e tela renovada (out/2026)
+
+> Requer rodar `supabase/auditoria_fuso.sql` no Supabase (uma vez; pode rodar de novo sem problema).
+
+- **Horário corrigido**: o banco gravava a hora com deslocamento (+3h). O script mede o deslocamento, corrige todos os registros antigos, deixa a coluna com hora absoluta (`timestamptz`, padrão `now()`) e liga o tempo real. As telas mostram tudo no **horário de Fortaleza (UTC−3)**, em qualquer computador ou celular.
+- **Busca em todo o histórico** (no banco, não só no que está carregado), filtros por **usuário** (inclui "Portal das transportadoras" e "Sistema"), módulo, ação e **período**.
+- **Resumo do dia**: ações, usuários ativos, ações pelo portal, exclusões (clique para ver) e os mais ativos.
+- Registros **agrupados por dia** (Hoje, Ontem…), hora exata + "há 16 min", nome da pessoa (da Equipe) e o que mudou destacado (antes riscado → depois).
+- **Número da NF clicável**: abre o histórico completo da NF.
+- **Tempo real**: novas ações aparecem no topo, destacadas. Exportação CSV e versão para celular.

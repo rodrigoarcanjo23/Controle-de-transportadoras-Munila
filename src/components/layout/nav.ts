@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, ChartPie, DollarSign, Map, Users, UserSquare2, Truck,
-  RefreshCcw, Calculator, FileText, ShieldAlert, Warehouse, Bell, PackageCheck, ReceiptText, Award, type LucideIcon,
+  RefreshCcw, Calculator, FileText, ShieldAlert, Warehouse, Bell, PackageCheck, ReceiptText, Award, Package, type LucideIcon,
 } from 'lucide-react';
 
 export interface NavItem { to: string; label: string; icon: LucideIcon; admin?: boolean }
@@ -40,6 +40,7 @@ export const NAV: NavGroup[] = [
     items: [
       { to: '/clientes', label: 'Clientes & Metas', icon: UserSquare2, admin: true },
       { to: '/transportadoras', label: 'Transportadoras', icon: Truck, admin: true },
+      { to: '/produtos', label: 'Produtos', icon: Package, admin: true },
     ],
   },
   {

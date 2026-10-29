@@ -96,6 +96,7 @@ export const MODULOS_LOG = [
   { value: 'ALERTAS', label: 'Alertas' },
   { value: 'FECHAMENTO', label: 'Fechamento mensal' },
   { value: 'FATURAS', label: 'Faturas de frete' },
+  { value: 'PRODUTOS', label: 'Produtos' },
 ];
 
 /** SLA (dias desde o faturamento) usado na Visão Logística. */

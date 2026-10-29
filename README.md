@@ -106,6 +106,7 @@ O objetivo é responder, todos os dias e sem planilha, a quatro perguntas:
 - **Carga do pedido** (produtos do catálogo ou volumes avulsos): caixas, peso real, **cubagem (m³)**, **peso cubado** (fator configurável: 300/250/200 kg/m³ rodoviário, 166,7 aéreo) e **peso taxado** = maior entre real e cubado; texto VOL/PESO da NF-e.
 - **Cotação** para o destino: custo pela tabela de frete de cada transportadora ou, sem tabela, estimativa pelo R$/kg real dos CTEs da rota; prazo, data de entrega prevista, pontualidade histórica e meta do cliente; selos de menor custo, mais rápida e melhor custo-benefício.
 - **Usar**: cria a entrega no Painel já com a transportadora escolhida e o frete cotado.
+- **Valor da mercadoria automático** pelo preço unitário dos produtos (pode ser digitado por cima) e peso exato da última caixa incompleta pelo peso da unidade.
 
 ### Armazém
 
@@ -169,6 +170,7 @@ Recursos:
 
 - **Clientes & metas de frete** (por cliente × transportadora) e regras como "exige agendamento".
 - **Transportadoras**, com **tabela de frete** por UF (e um simulador) e o **link do portal**.
+- **Produtos** (caixa master): código, EAN, unidades por caixa, peso da caixa e da unidade, medidas C×L×A, preço unitário e ativo/inativo; prévia de m³ e peso cubado por caixa, filtro de cadastros incompletos, duplicar e importação/exportação por planilha (atualiza pelo código).
 - **Equipe**: níveis Administrador e Operador.
 - **Auditoria**: trilha de quem fez o quê, em qual módulo e quando.
 
@@ -391,6 +393,7 @@ Execute os scripts em **SQL Editor › New query › Run**, nesta ordem. Todos p
 | 5 | `supabase/auditoria_fuso.sql` | Corrige o horário da auditoria (fuso) e liga o tempo real dela |
 | 6 | `supabase/horario_tabelas.sql` | Corrige o horário das demais colunas de data/hora automáticas |
 | 7 | `supabase/rastreio_avisos.sql` | Código de rastreio por NF, fila e gatilho dos avisos aos clientes |
+| 8 | `supabase/produtos.sql` | Cadastro completo de produtos (EAN, medidas, peso da unidade, preço, ativo) |
 
 > **Antes do passo 2:** cadastre em **Equipe** o e-mail de login de cada pessoa, com o nível certo. Quem não estiver na Equipe só consegue consultar.
 >

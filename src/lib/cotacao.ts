@@ -27,6 +27,29 @@ export function lerMedidas(txt?: string | null): [number, number, number] | null
   return [a, b, c];
 }
 
+/** Medidas da caixa do produto: campos numéricos do cadastro › texto antigo "40x30x22". */
+export function medidasProduto(p: Pick<Produto, 'comprimento_cm' | 'largura_cm' | 'altura_cm' | 'medidas_cm'>): [number, number, number] | null {
+  const c = toNumber(p.comprimento_cm); const l = toNumber(p.largura_cm); const a = toNumber(p.altura_cm);
+  if (c > 0 && l > 0 && a > 0) return [c, l, a];
+  return lerMedidas(p.medidas_cm);
+}
+
+/** Números da caixa master para o cadastro (m³, peso cubado, se cobra pelo cubado). */
+export function infoCaixa(p: Pick<Produto, 'comprimento_cm' | 'largura_cm' | 'altura_cm' | 'medidas_cm' | 'peso_caixa_kg' | 'unidades_por_caixa' | 'peso_unitario_kg'>, fator = 300) {
+  const d = medidasProduto(p);
+  const m3 = d ? d[0] * d[1] * d[2] / 1_000_000 : null;
+  const cubado = m3 !== null ? Math.round(m3 * fator * 100) / 100 : null;
+  const peso = toNumber(p.peso_caixa_kg);
+  const un = Math.max(1, toNumber(p.unidades_por_caixa));
+  const pu = toNumber(p.peso_unitario_kg);
+  // embalagem (tara) = peso da caixa − unidades × peso da unidade
+  const tara = pu > 0 && peso > 0 ? Math.round((peso - un * pu) * 1000) / 1000 : null;
+  return { medidas: d, m3, cubado, cobraCubado: cubado !== null && cubado > peso, tara };
+}
+
+const txtMedidas = (d: [number, number, number] | null, fallback: string) =>
+  d ? d.map((x) => x.toLocaleString('pt-BR', { maximumFractionDigits: 1 })).join(' × ') + ' cm' : fallback;
+
 export interface ItemCarga {
   id: string;
   /** produto do catálogo (calcula caixas pela quantidade em unidades) */
@@ -35,29 +58,44 @@ export interface ItemCarga {
   /** volume avulso */
   descricao?: string; caixas?: number; pesoCaixa?: number; medidas?: string;
 }
-export interface LinhaCarga { item: ItemCarga; nome: string; caixas: number; peso: number; m3: number | null; medidas: string; sobra: number }
-export interface Carga { linhas: LinhaCarga[]; caixas: number; pesoReal: number; m3: number; semMedidas: number; pesoCubado: number; pesoTaxado: number; usaCubado: boolean }
+export interface LinhaCarga { item: ItemCarga; nome: string; caixas: number; peso: number; m3: number | null; medidas: string; sobra: number; valor: number | null }
+export interface Carga {
+  linhas: LinhaCarga[]; caixas: number; pesoReal: number; m3: number; semMedidas: number; pesoCubado: number; pesoTaxado: number; usaCubado: boolean;
+  /** valor da mercadoria pelo preço unitário dos produtos (0 se nenhum tem preço) */
+  valorMercadoria: number;
+  /** itens de produto sem preço cadastrado (o valor sugerido fica incompleto) */
+  semPreco: number;
+}
 
 export function calcularCarga(itens: ItemCarga[], produtos: Produto[], fator: number): Carga {
   const linhas: LinhaCarga[] = itens.map((it) => {
     const p = it.produtoId ? produtos.find((x) => String(x.id) === String(it.produtoId)) : undefined;
     let caixas: number; let peso: number; let medidas: string; let nome = it.descricao || 'Volume avulso'; let sobra = 0;
+    let d: [number, number, number] | null; let valor: number | null = null;
     if (p) {
       nome = `${p.codigo ? `${p.codigo} — ` : ''}${p.nome}`;
       const un = Math.max(0, Math.round(it.unidades ?? 0));
       const porCx = Math.max(1, toNumber(p.unidades_por_caixa));
+      const pesoCx = toNumber(p.peso_caixa_kg);
       caixas = un ? Math.ceil(un / porCx) : 0;
-      sobra = un % porCx ? porCx - (un % porCx) : 0;
-      peso = caixas * toNumber(p.peso_caixa_kg);
-      medidas = p.medidas_cm ?? '';
+      const resto = un % porCx;
+      sobra = resto ? porCx - resto : 0;
+      peso = caixas * pesoCx;
+      // última caixa incompleta: com o peso da unidade, desconta as unidades que faltam
+      const pu = toNumber(p.peso_unitario_kg);
+      if (resto && pu > 0 && pesoCx > 0) peso -= Math.min(pesoCx, sobra * pu);
+      d = medidasProduto(p);
+      medidas = txtMedidas(d, p.medidas_cm ?? '');
+      const preco = toNumber(p.preco_unitario);
+      valor = preco > 0 ? Math.round(un * preco * 100) / 100 : null;
     } else {
       caixas = Math.max(0, Math.round(it.caixas ?? 0));
       peso = caixas * Math.max(0, it.pesoCaixa ?? 0);
       medidas = it.medidas ?? '';
+      d = lerMedidas(medidas);
     }
-    const d = lerMedidas(medidas);
     const m3 = d ? (d[0] * d[1] * d[2] / 1_000_000) * caixas : null;
-    return { item: it, nome, caixas, peso: Math.round(peso * 1000) / 1000, m3, medidas, sobra };
+    return { item: it, nome, caixas, peso: Math.round(Math.max(0, peso) * 1000) / 1000, m3, medidas, sobra, valor };
   });
   const caixas = linhas.reduce((s, l) => s + l.caixas, 0);
   const pesoReal = Math.round(linhas.reduce((s, l) => s + l.peso, 0) * 100) / 100;
@@ -65,7 +103,9 @@ export function calcularCarga(itens: ItemCarga[], produtos: Produto[], fator: nu
   const semMedidas = linhas.filter((l) => l.caixas > 0 && l.m3 === null).length;
   const pesoCubado = Math.round(m3 * fator * 100) / 100;
   const pesoTaxado = Math.max(pesoReal, pesoCubado);
-  return { linhas, caixas, pesoReal, m3, semMedidas, pesoCubado, pesoTaxado, usaCubado: pesoCubado > pesoReal };
+  const valorMercadoria = Math.round(linhas.reduce((s, l) => s + (l.valor ?? 0), 0) * 100) / 100;
+  const semPreco = linhas.filter((l) => l.item.produtoId && l.caixas > 0 && l.valor === null).length;
+  return { linhas, caixas, pesoReal, m3, semMedidas, pesoCubado, pesoTaxado, usaCubado: pesoCubado > pesoReal, valorMercadoria, semPreco };
 }
 
 /** Texto para a coluna VOL/PESO da NF-e (mesmo formato de antes). */

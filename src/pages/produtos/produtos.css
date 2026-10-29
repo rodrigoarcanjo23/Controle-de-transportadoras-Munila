@@ -1,0 +1,29 @@
+/* Cadastro de produtos */
+.prod-sub { font-size: 0.75rem; }
+.prod-inativo { opacity: 0.55; }
+.prod-banner {
+  display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 10px;
+  background: var(--amber-bg); color: var(--text); border: 1px solid var(--amber-solid); font-size: 0.85rem;
+}
+.prod-banner svg { flex: none; margin-top: 2px; color: var(--amber-solid); }
+
+.prod-form { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 20px; align-items: start; }
+.prod-previa {
+  position: sticky; top: 0; border: 1px solid var(--border); border-radius: 12px; padding: 14px;
+  background: var(--surface-2); display: flex; flex-direction: column; gap: 10px;
+}
+.prod-previa h4 { margin: 0; font-size: 0.82rem; display: flex; gap: 6px; align-items: center; color: var(--text-2); }
+.prod-previa dl { margin: 0; display: grid; gap: 6px; }
+.prod-previa dl > div { display: flex; justify-content: space-between; gap: 8px; font-size: 0.84rem; }
+.prod-previa dt { color: var(--muted); }
+.prod-previa dd { margin: 0; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--text); }
+.prod-previa__nota { margin: 0; font-size: 0.78rem; padding: 8px 10px; border-radius: 8px; background: var(--surface); color: var(--text-2); border: 1px solid var(--border); }
+.prod-previa__nota.is-cubado { border-color: var(--amber-solid); }
+.prod-previa__alerta { margin: 0; font-size: 0.76rem; display: flex; gap: 6px; align-items: flex-start; color: var(--amber-solid); }
+.prod-previa__alerta svg { flex: none; margin-top: 2px; }
+.prod-previa__alerta.is-erro { color: var(--red-solid); font-weight: 600; }
+
+@media (max-width: 860px) {
+  .prod-form { grid-template-columns: minmax(0, 1fr); }
+  .prod-previa { position: static; }
+}

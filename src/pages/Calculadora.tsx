@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  Award, Boxes, Calculator, ChevronDown, ChevronRight, ClipboardCopy, Clock, MessageCircle, PackagePlus, Plus, Ruler, Target, Trash2, Truck, TriangleAlert,
+  Award, Boxes, Calculator, Package, ChevronDown, ChevronRight, ClipboardCopy, Clock, MessageCircle, PackagePlus, Plus, Ruler, Target, Trash2, Truck, TriangleAlert,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { UFS } from '../lib/constants';
@@ -55,7 +56,10 @@ export default function Calculadora() {
   };
 
   const carga = useMemo(() => calcularCarga(itens, produtos, fator), [itens, produtos, fator]);
-  const valorNf = parseDecimalBR(valor) ?? 0;
+  // sem valor digitado, usa o valor da mercadoria pelo preço unitário dos produtos
+  const valorAuto = !valor.trim() && carga.valorMercadoria > 0;
+  const valorNf = valor.trim() ? parseDecimalBR(valor) ?? 0 : carga.valorMercadoria;
+  const produtosAtivos = useMemo(() => produtos.filter((p) => p.ativo !== false), [produtos]);
   const apr = useMemo(() => aprenderPrazos(entregas, hoje), [entregas, hoje]);
   const opcoes = useMemo(() => cotar({
     carga, valorNf, uf, clienteId: clienteId || undefined, transportadoras, tabelas, entregas, metas, apr, coletaDias, hoje,
@@ -108,7 +112,7 @@ export default function Calculadora() {
                   ) : (
                     <div className="calc-item__campos">
                       <Field label="Produto do catálogo">
-                        <ProdutoSelect value={it.produtoId ?? ''} onChange={(v) => setItem(it.id, { produtoId: v || undefined })} produtos={produtos} />
+                        <ProdutoSelect value={it.produtoId ?? ''} onChange={(v) => setItem(it.id, { produtoId: v || undefined })} produtos={produtosAtivos} />
                       </Field>
                       <Field label="Quantidade (unidades)"><input className="input num" inputMode="numeric" value={it.unidades ?? ''} placeholder="Ex.: 350" onChange={(e) => setItem(it.id, { unidades: parseInt(e.target.value) || 0 })} /></Field>
                     </div>
@@ -127,6 +131,7 @@ export default function Calculadora() {
           <div className="calc-acoes">
             <button className="btn btn-sm" onClick={() => setItens((xs) => [...xs, novoItem()])}><Plus size={14} /> Produto</button>
             <button className="btn btn-sm" onClick={() => setItens((xs) => [...xs, novoItem({ descricao: '', caixas: 1 })])}><PackagePlus size={14} /> Volume avulso</button>
+            {isAdmin && <Link className="btn btn-sm btn-ghost" to="/produtos" title="Criar, editar ou excluir produtos e completar medidas, pesos e preços"><Package size={14} /> Gerenciar produtos</Link>}
             <label className="calc-fator"><Ruler size={14} /> Fator de cubagem
               <select className="select" value={fator} onChange={(e) => setFator(Number(e.target.value))}>
                 {FATORES_CUBAGEM.map((f) => <option key={f.valor} value={f.valor}>{f.label}</option>)}
@@ -149,7 +154,7 @@ export default function Calculadora() {
             <strong>{kg(carga.pesoTaxado)}</strong>
             <small>{carga.caixas ? (carga.usaCubado ? `Cobra-se o cubado: a carga ocupa mais espaço do que pesa (${carga.m3.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} m³ × ${fator.toLocaleString('pt-BR')} kg/m³).` : 'Cobra-se o peso real (maior que o cubado).') : 'Informe a carga ao lado.'}</small>
           </div>
-          {carga.semMedidas > 0 && <p className="calc-aviso"><TriangleAlert size={14} /> {carga.semMedidas} item(ns) sem medidas no cadastro: a cubagem pode estar subestimada.</p>}
+          {carga.semMedidas > 0 && <p className="calc-aviso"><TriangleAlert size={14} /> {carga.semMedidas} item(ns) sem medidas no cadastro: a cubagem pode estar subestimada.{isAdmin && <> <Link to="/produtos">Completar cadastro</Link></>}</p>}
           <div className="calc-volpeso">
             <span>Coluna VOL/PESO da NF-e</span>
             <div><strong className="num">{textoVolPeso(carga)}</strong><button className="btn btn-sm" disabled={!carga.caixas} onClick={() => copiar(textoVolPeso(carga), 'Copiado')}><ClipboardCopy size={14} /> Copiar</button></div>
@@ -170,7 +175,10 @@ export default function Calculadora() {
               </select>
             </Field>
             <Field label="Cidade"><input className="input" value={cidade} onChange={(e) => setCidade(e.target.value)} /></Field>
-            <Field label="Valor da mercadoria (R$)" hint="Entra no ad valorem, GRIS e % de frete"><input className="input num" inputMode="decimal" placeholder="0,00" value={valor} onChange={(e) => setValor(e.target.value)} /></Field>
+            <Field label="Valor da mercadoria (R$)"
+              hint={valorAuto ? `Calculado pelo preço dos produtos${carga.semPreco ? ` (${carga.semPreco} item(ns) sem preço)` : ''} — digite para trocar` : 'Entra no ad valorem, GRIS e % de frete'}>
+              <input className="input num" inputMode="decimal" placeholder={carga.valorMercadoria > 0 ? carga.valorMercadoria.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'} value={valor} onChange={(e) => setValor(e.target.value)} />
+            </Field>
           </div>
           {cliente?.exige_agendamento && <p className="calc-aviso"><Clock size={14} /> Este cliente exige agendamento: some o prazo de agendamento à previsão.</p>}
         </section>

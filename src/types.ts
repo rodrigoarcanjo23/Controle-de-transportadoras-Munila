@@ -75,7 +75,16 @@ export interface Produto {
   nome: string;
   unidades_por_caixa: number;
   peso_caixa_kg: number;
-  medidas_cm?: string;
+  medidas_cm?: string | null;
+  /* campos do cadastro completo (supabase/produtos.sql) */
+  ean?: string | null;
+  comprimento_cm?: number | null;
+  largura_cm?: number | null;
+  altura_cm?: number | null;
+  peso_unitario_kg?: number | null;
+  preco_unitario?: number | null;
+  ativo?: boolean | null;
+  observacao?: string | null;
 }
 
 export type NivelAcesso = 'Operador' | 'Administrador';
@@ -125,7 +134,7 @@ export interface Cte {
 }
 
 export type AcaoLog = 'CRIOU' | 'EDITOU' | 'APAGOU';
-export type ModuloLog = 'ENTREGAS' | 'CLIENTES' | 'EQUIPE' | 'TRANSPORTADORAS' | 'DEVOLUCOES' | 'CTES' | 'INDICADORES' | 'ALERTAS' | 'FECHAMENTO' | 'FATURAS';
+export type ModuloLog = 'ENTREGAS' | 'CLIENTES' | 'EQUIPE' | 'TRANSPORTADORAS' | 'DEVOLUCOES' | 'CTES' | 'INDICADORES' | 'ALERTAS' | 'FECHAMENTO' | 'FATURAS' | 'PRODUTOS';
 
 export interface LogAuditoria {
   id: ID;

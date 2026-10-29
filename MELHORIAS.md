@@ -304,3 +304,14 @@ Administrador clica **Fechar o mês** depois da reunião: os números do BI fica
 - **Cotação**: todas as transportadoras com tabela de frete para a UF (cálculo por componente) e, sem tabela, **estimativa pelo custo real (R$/kg) dos CTEs da rota** nos últimos 12 meses, com faixa típica. Prazo contratado ou histórico (80%), **data de entrega prevista** (coleta D+N + prazo em dias úteis), **pontualidade** da rota e **meta de frete** do cliente × transportadora.
 - Selos de **menor custo**, **mais rápida** e **melhor custo-benefício** (custo 60%, prazo 25%, pontualidade 15%). Copiar/WhatsApp da cotação.
 - **Usar**: abre a nova entrega já preenchida (cliente, transportadora, destino, valor, frete cotado, volumes, peso, previsão e a cotação nas observações) — o frete cotado depois é conferido com o CTE na Gestão Financeira.
+
+## 21. Cadastro de produtos para o Simulador de frete (out/2026)
+
+> Requer rodar `supabase/produtos.sql` no Supabase (uma vez; pode rodar de novo). Sem ele a tela funciona, mas salva só unidades por caixa, peso e medidas.
+
+- **Nova tela Cadastros › Produtos** (administradores): criar, editar, duplicar, desativar e excluir produtos.
+- **Dados da caixa master**: código, EAN/GTIN, nome, unidades por caixa, peso da caixa cheia, peso de uma unidade, comprimento × largura × altura (cm), preço unitário, observação e ativo/inativo. As medidas antigas em texto ("40x30x22") são aproveitadas automaticamente.
+- **Prévia ao cadastrar**: m³ da caixa, peso cubado, tara da embalagem, valor da caixa e se a caixa é cobrada pelo peso real ou cubado; validações (três medidas, peso da unidade × quantidade não pode passar do peso da caixa, medidas fora do normal, EAN).
+- **Indicadores e filtros**: ativos, prontos para o simulador, faltando dados, sem preço e inativos.
+- **Planilha**: baixar modelo, importar (atualiza quem já existe pelo código, cadastra os novos) e exportar.
+- **Simulador mais preciso**: usa as medidas numéricas, desconta as unidades que faltam na última caixa (peso da unidade), sugere o **valor da mercadoria** pelo preço unitário e mostra só produtos ativos; atalho "Gerenciar produtos".

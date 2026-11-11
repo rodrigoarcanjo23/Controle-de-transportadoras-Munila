@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase';
 import { fetchAll, SELECT_DEVOLUCAO, SELECT_ENTREGA, SELECT_META, setAuditUser } from '../lib/db';
 import { STATUS_COM_AVISO, pedirEnvioAvisos } from '../lib/avisos';
 import { FILTROS_VAZIOS, type FiltrosEntrega } from '../lib/filtrosEntrega';
-import { loadPrefRaw, savePref } from '../lib/storage';
 import { useFeedback } from '../feedback/context';
 import type { Cliente, Devolucao, Entrega, MetaFrete, Perfil, Produto, Transportadora } from '../types';
 import { AppDataContext, type AppData } from './context';
@@ -29,13 +28,15 @@ export function AppDataProvider({ session, children }: { session: Session; child
   const [loading, setLoading] = useState(true);
   const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
 
-  const [filtros, setFiltrosState] = useState<FiltrosEntrega>(() => ({ ...FILTROS_VAZIOS, ...loadPrefRaw<Partial<FiltrosEntrega>>('filtros', {}) }));
+  // Filtros e busca do Painel valem só enquanto o sistema está aberto: continuam ao
+  // trocar de tela, mas recomeçam limpos ao atualizar a página (F5) ou entrar de novo.
+  // (Antes ficavam gravados no navegador e a busca "grudava" mesmo após o F5.)
+  const [filtros, setFiltrosState] = useState<FiltrosEntrega>(() => {
+    try { localStorage.removeItem('munilalog:filtros'); } catch { /* navegador sem armazenamento */ }
+    return FILTROS_VAZIOS;
+  });
   const setFiltros = useCallback<AppData['setFiltros']>((f) => {
-    setFiltrosState((prev) => {
-      const next = typeof f === 'function' ? f(prev) : f;
-      savePref('filtros', next);
-      return next;
-    });
+    setFiltrosState((prev) => (typeof f === 'function' ? f(prev) : f));
   }, []);
 
   useEffect(() => { setAuditUser(email); }, [email]);
@@ -148,7 +149,7 @@ export function AppDataProvider({ session, children }: { session: Session; child
   // Regra original preservada: sem nenhum perfil cadastrado, o primeiro acesso é administrador.
   const isAdmin = perfisCarregados && (perfis.length === 0 || perfil?.nivel_acesso === 'Administrador');
 
-  const logout = useCallback(async () => { await supabase.auth.signOut(); }, []);
+  const logout = useCallback(async () => { setFiltrosState(FILTROS_VAZIOS); await supabase.auth.signOut(); }, []);
 
   const value = useMemo<AppData>(() => ({
     session, email, perfil, isAdmin, perfisCarregados,
